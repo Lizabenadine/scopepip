@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import type { AreaData } from './CreateAreaModal';
 
 const styles = StyleSheet.create({
   page: {
@@ -114,6 +115,7 @@ export interface InlinePdfDocProps {
   laborHours?: number;
   gallonsNeeded?: number;
   totalPrice?: number;
+  areas?: AreaData[];
 }
 
 export function InlinePdfDoc({
@@ -126,6 +128,7 @@ export function InlinePdfDoc({
   laborHours = 0,
   gallonsNeeded = 0,
   totalPrice = 0,
+  areas = [],
 }: InlinePdfDocProps) {
   return (
     <Document>
@@ -188,6 +191,27 @@ export function InlinePdfDoc({
             </View>
           </View>
         </View>
+
+        {areas.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Areas</Text>
+            {areas.map((area, areaIndex) => (
+              <View key={`${area.name}-${areaIndex}`} style={{ marginBottom: 8 }}>
+                <Text style={styles.value}>{area.name}</Text>
+                {area.items.map((item, itemIndex) => (
+                  <View key={`${areaIndex}-${itemIndex}`} style={styles.row}>
+                    <Text style={styles.label}>
+                      {item.description} ({item.quantity} × ${item.unitPrice})
+                    </Text>
+                    <Text style={styles.value}>
+                      ${(item.quantity * item.unitPrice).toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
 
         <View style={styles.totalContainer}>
           <Text style={styles.totalLabel}>Total Estimate Amount</Text>

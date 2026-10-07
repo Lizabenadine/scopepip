@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { InlinePdfDoc } from './PdfButton';
+import CreateAreaModal, { type AreaData } from './CreateAreaModal';
 import { calculateEstimate } from '../estimator';
 import { supabase } from './supabase';
 
@@ -51,6 +52,8 @@ export default function Home() {
   const [clientPhone, setClientPhone] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [roomScope, setRoomScope] = useState('Main Room');
+  const [areas, setAreas] = useState<AreaData[]>([]);
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
 
   const [length, setLength] = useState<number>(12);
   const [width, setWidth] = useState<number>(10);
@@ -79,6 +82,16 @@ export default function Home() {
   const laborHours = calculation.estimatedLaborHours ?? calculation.labor_hours ?? wallArea / sqftPerHour;
   const gallonsNeeded = calculation.gallonsNeeded ?? calculation.gallons_needed ?? Math.ceil(wallArea / 350);
   const totalPrice = calculation.totalPrice ?? calculation.total_price ?? 0;
+  const areasTotal = areas.reduce(
+    (sum, area) =>
+      sum + area.items.reduce((itemSum, item) => itemSum + item.quantity * item.unitPrice, 0),
+    0
+  );
+  const grandTotal = Number((totalPrice + areasTotal).toFixed(2));
+
+  const handleSaveArea = (areaData: AreaData) => {
+    setAreas((current) => [...current, areaData]);
+  };
 
   const fetchEstimates = async () => {
     setFetchingHistory(true);
@@ -148,7 +161,7 @@ export default function Home() {
           wall_sqft: wallArea,
           labor_hours: laborHours,
           gallons_needed: gallonsNeeded,
-          total_price: totalPrice,
+          total_price: grandTotal,
           status: 'draft',
         },
       ]);
@@ -329,6 +342,62 @@ export default function Home() {
               </div>
             </section>
 
+            <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 shadow-lg">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Areas</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsAreaModalOpen(true)}
+                  className="text-xs text-amber-500 hover:underline font-medium"
+                >
+                  + Create Area
+                </button>
+              </div>
+              {areas.length === 0 ? (
+                <p className="text-xs text-slate-500">No areas added yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {areas.map((area, index) => {
+                    const areaTotal = area.items.reduce(
+                      (sum, item) => sum + item.quantity * item.unitPrice,
+                      0
+                    );
+                    return (
+                      <div key={`${area.name}-${index}`} className="border border-slate-800 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="text-sm font-bold text-slate-100">{area.name}</h3>
+                          <button
+                            type="button"
+                            onClick={() => setAreas((current) => current.filter((_, i) => i !== index))}
+                            className="text-xs text-slate-400 hover:text-rose-400"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        {area.items.map((item, itemIndex) => (
+                          <div
+                            key={`${index}-${itemIndex}`}
+                            className="flex justify-between text-xs text-slate-400 gap-2"
+                          >
+                            <span className="truncate">
+                              {item.description} ({item.quantity} × ${item.unitPrice})
+                            </span>
+                            <span className="text-slate-200 shrink-0">
+                              ${(item.quantity * item.unitPrice).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-xs font-semibold border-t border-slate-800 pt-2">
+                          <span className="text-slate-400">Area total</span>
+                          <span className="text-amber-500">${areaTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             <section className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4 shadow-lg">
               <div className="grid grid-cols-3 text-center border-b border-slate-800 pb-3 text-xs text-slate-300">
                 <div>
@@ -347,7 +416,7 @@ export default function Home() {
 
               <div className="flex justify-between items-baseline pt-1">
                 <span className="text-sm font-semibold text-slate-300">Total Price</span>
-                <span className="text-3xl font-black text-amber-500">${totalPrice}</span>
+                <span className="text-3xl font-black text-amber-500">${grandTotal}</span>
               </div>
 
               <div className="space-y-2">
@@ -371,7 +440,8 @@ export default function Home() {
                         wallArea={wallArea}
                         laborHours={laborHours}
                         gallonsNeeded={gallonsNeeded}
-                        totalPrice={totalPrice}
+                        totalPrice={grandTotal}
+                        areas={areas}
                       />
                     }
                     fileName={`Proposal_${clientName.replace(/\s+/g, '_') || 'Client'}.pdf`}
@@ -483,6 +553,12 @@ export default function Home() {
           </section>
         )}
       </div>
+
+      <CreateAreaModal
+        isOpen={isAreaModalOpen}
+        onClose={() => setIsAreaModalOpen(false)}
+        onSave={handleSaveArea}
+      />
     </main>
   );
 }
