@@ -155,7 +155,7 @@ export function Estimator({
               {mode === "new" ? "New estimate" : draft.title || "Estimate"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Measure length, width, and height, then count windows and doors. Hours come from the time rate for that coat count.
+              Start from a premade interior, exterior, or cabinet template. Then set the real length, width, and height.
             </p>
           </div>
           <ClientField
@@ -191,7 +191,12 @@ export function Estimator({
           <AreaEditor
             areas={draft.areas}
             rates={draft.rates}
-            onChange={(areas) => patch({ areas })}
+            onChange={(areas, title) =>
+              patch({
+                areas,
+                ...(title && draft.title.trim().length === 0 ? { title } : {}),
+              })
+            }
           />
           <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">

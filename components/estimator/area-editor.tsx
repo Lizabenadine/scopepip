@@ -1,6 +1,7 @@
 "use client"
 
-import { documentedBedroom } from "@/lib/defaults"
+import { useState } from "react"
+import { TemplatePicker } from "@/components/estimator/template-picker"
 import { measureArea } from "@/lib/estimate/calculate"
 import type { AreaInput, ProductionRate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
@@ -13,19 +14,9 @@ export function AreaEditor({
 }: {
   areas: AreaInput[]
   rates: ProductionRate[]
-  onChange: (areas: AreaInput[]) => void
+  onChange: (areas: AreaInput[], title?: string) => void
 }) {
-  const addBedroom = () => {
-    const bedroom = documentedBedroom()
-    onChange([
-      ...areas,
-      {
-        ...bedroom,
-        id: crypto.randomUUID(),
-        surfaces: bedroom.surfaces.map((surface) => ({ ...surface, id: crypto.randomUUID() })),
-      },
-    ])
-  }
+  const [templatesOpen, setTemplatesOpen] = useState(false)
 
   const addBlank = () => {
     onChange([
@@ -49,18 +40,28 @@ export function AreaEditor({
         <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
           Areas
         </h2>
-        <div className="flex gap-2">
-          <button type="button" className="text-sm font-medium text-primary" data-testid="add-bedroom" onClick={addBedroom}>
-            12×15×8 bedroom
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="text-sm font-medium text-primary"
+            data-testid="open-templates"
+            onClick={() => setTemplatesOpen(true)}
+          >
+            Templates
           </button>
-          <button type="button" className="text-sm font-medium text-primary" onClick={addBlank}>
-            Add area
+          <button type="button" className="text-sm font-medium text-primary" data-testid="add-custom-area" onClick={addBlank}>
+            Custom area
           </button>
         </div>
       </div>
+      <TemplatePicker
+        open={templatesOpen}
+        onOpenChange={setTemplatesOpen}
+        onAdd={(next, title) => onChange([...areas, ...next], title)}
+      />
       {areas.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-          A room uses length, width, and height. Walls are the perimeter times height.
+          Open Templates for a bedroom, a full interior, or an exterior. A custom area starts empty.
         </p>
       ) : null}
       {areas.map((area) => (
@@ -214,85 +215,100 @@ function AreaCard({
         </div>
       </div>
       <h3 className="mt-4 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-        Coat counts
+        Surfaces
       </h3>
-      <div className="mt-2 flex flex-col gap-2">
-        {rates.map((rate) => {
-          const surface = area.surfaces.find((item) => item.rateId === rate.id)
-          return (
-            <div key={rate.id} className="flex items-center justify-between gap-2">
-              <button type="button" className="text-left text-sm font-medium" onClick={() => toggle(rate)}>
-                <span className={surface ? "" : "text-muted-foreground"}>{rate.internalLabel}</span>
-              </button>
-              {surface ? (
-                <div className="flex items-center gap-2">
-                  {rate.measure === "items" ? (
-                    <Input
-                      aria-label={`${rate.internalLabel} count`}
-                      value={String(surface.itemCount)}
-                      className="h-10 w-16 text-center"
-                      onValueChange={(value) =>
-                        onChange({
-                          ...area,
-                          surfaces: area.surfaces.map((item) =>
-                            item.id === surface.id ? { ...item, itemCount: Number(value) || 0 } : item,
-                          ),
-                        })
-                      }
-                    />
+      <div className="mt-2 flex flex-col gap-3">
+        {rateGroups(rates).map((group) => (
+          <div key={group.category} className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-muted-foreground">{group.category}</p>
+            {group.rates.map((rate) => {
+              const surface = area.surfaces.find((item) => item.rateId === rate.id)
+              return (
+                <div key={rate.id} className="flex items-center justify-between gap-2">
+                  <button type="button" className="text-left text-sm font-medium" onClick={() => toggle(rate)}>
+                    <span className={surface ? "" : "text-muted-foreground"}>{rate.internalLabel}</span>
+                  </button>
+                  {surface ? (
+                    <div className="flex items-center gap-2">
+                      {rate.measure === "items" || rate.measure === "shutters" ? (
+                        <Input
+                          aria-label={`${rate.internalLabel} count`}
+                          value={String(surface.itemCount)}
+                          className="h-10 w-16 text-center"
+                          onValueChange={(value) =>
+                            onChange({
+                              ...area,
+                              surfaces: area.surfaces.map((item) =>
+                                item.id === surface.id ? { ...item, itemCount: Number(value) || 0 } : item,
+                              ),
+                            })
+                          }
+                        />
+                      ) : null}
+                      <label className="text-xs text-muted-foreground">
+                        Primer
+                        <select
+                          className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                          value={surface.primerCoats ?? 0}
+                          onChange={(event) =>
+                            onChange({
+                              ...area,
+                              surfaces: area.surfaces.map((item) =>
+                                item.id === surface.id ? { ...item, primerCoats: Number(event.target.value) } : item,
+                              ),
+                            })
+                          }
+                        >
+                          {[0, 1, 2].map((coats) => (
+                            <option key={coats} value={coats}>
+                              {coats}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Finish
+                        <select
+                          className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                          value={surface.finishCoats ?? surface.coatCount}
+                          onChange={(event) =>
+                            onChange({
+                              ...area,
+                              surfaces: area.surfaces.map((item) =>
+                                item.id === surface.id
+                                  ? { ...item, coatCount: Number(event.target.value), finishCoats: Number(event.target.value) }
+                                  : item,
+                              ),
+                            })
+                          }
+                        >
+                          {rate.coatRates.map((entry) => (
+                            <option key={entry.coats} value={entry.coats}>
+                              {entry.coats}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
                   ) : null}
-                  <label className="text-xs text-muted-foreground">
-                    Primer
-                    <select
-                      className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
-                      value={surface.primerCoats ?? 0}
-                      onChange={(event) =>
-                        onChange({
-                          ...area,
-                          surfaces: area.surfaces.map((item) =>
-                            item.id === surface.id ? { ...item, primerCoats: Number(event.target.value) } : item,
-                          ),
-                        })
-                      }
-                    >
-                      {[0, 1, 2].map((coats) => (
-                        <option key={coats} value={coats}>
-                          {coats}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-muted-foreground">
-                    Finish
-                    <select
-                      className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
-                      value={surface.finishCoats ?? surface.coatCount}
-                      onChange={(event) =>
-                        onChange({
-                          ...area,
-                          surfaces: area.surfaces.map((item) =>
-                            item.id === surface.id
-                              ? { ...item, coatCount: Number(event.target.value), finishCoats: Number(event.target.value) }
-                              : item,
-                          ),
-                        })
-                      }
-                    >
-                      {rate.coatRates.map((entry) => (
-                        <option key={entry.coats} value={entry.coats}>
-                          {entry.coats}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                 </div>
-              ) : null}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        ))}
       </div>
     </div>
   )
+}
+
+function rateGroups(rates: ProductionRate[]): { category: string; rates: ProductionRate[] }[] {
+  const groups: { category: string; rates: ProductionRate[] }[] = []
+  for (const rate of rates) {
+    const existing = groups.find((group) => group.category === rate.category)
+    if (existing) existing.rates.push(rate)
+    else groups.push({ category: rate.category, rates: [rate] })
+  }
+  return groups
 }
 
 function accessPreset(factor: number | undefined): "1" | "1.25" | "custom" {
