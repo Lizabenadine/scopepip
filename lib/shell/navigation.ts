@@ -1,18 +1,53 @@
 import type { UserRole } from "../auth/role.ts"
 
-export function navigationLinks(userRole: UserRole) {
+export type OfficeLink = { name: string; href: string }
+
+export type OfficeSection = {
+  name: string
+  short: string
+  href?: string
+  links: OfficeLink[]
+}
+
+/** Office pages grouped the way a painting CRM splits the day: sales, jobs, daily work, and documents. */
+export function navigationSections(userRole: UserRole): OfficeSection[] {
+  const clients: OfficeLink[] = userRole === "project_manager" ? [] : [{ name: "Clients", href: "/clients" }]
   return [
-    { name: "Dashboard", href: "/" },
-    { name: "Estimator", href: "/estimate" },
-    { name: "Proposals", href: "/proposal" },
-    { name: "Sales Pipeline", href: "/sales-pipeline" },
-    { name: "Appointments", href: "/appointments" },
-    { name: "Follow-ups", href: "/follow-ups" },
-    { name: "Inbox", href: "/inbox" },
-    { name: "Work Orders", href: "/work-orders" },
-    { name: "Dispatch & Map", href: "/dispatch" },
-    ...(userRole !== "project_manager" ? [{ name: "Clients", href: "/clients" }] : []),
-    { name: "Invoices & Payments", href: "/payments" },
-    { name: "Settings", href: "/settings" },
+    { name: "Dashboard", short: "Dashboard", href: "/", links: [] },
+    {
+      name: "Sales",
+      short: "Sales",
+      links: [
+        { name: "Sales Pipeline", href: "/sales-pipeline" },
+        { name: "Estimator", href: "/estimate" },
+        ...clients,
+      ],
+    },
+    {
+      name: "Jobs",
+      short: "Jobs",
+      links: [
+        { name: "Work Orders", href: "/work-orders" },
+        { name: "Dispatch & Map", href: "/dispatch" },
+      ],
+    },
+    {
+      name: "Daily",
+      short: "Daily",
+      links: [
+        { name: "Appointments", href: "/appointments" },
+        { name: "Inbox", href: "/inbox" },
+        { name: "Follow-ups", href: "/follow-ups" },
+      ],
+    },
+    {
+      name: "Documents",
+      short: "Docs",
+      links: [
+        { name: "Proposals", href: "/proposal" },
+        { name: "Invoices & Payments", href: "/payments" },
+      ],
+    },
+    { name: "Settings", short: "Settings", href: "/settings", links: [] },
   ]
 }

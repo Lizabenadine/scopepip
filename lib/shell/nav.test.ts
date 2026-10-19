@@ -5,30 +5,42 @@ import { listPaymentRows } from "../payments/ledger.ts"
 import { calculateEstimate } from "../estimate/calculate.ts"
 import { listActiveJobs } from "../work-orders/active.ts"
 import { listProposals } from "../proposals/catalog.ts"
-import { navigationLinks } from "./navigation.ts"
+import { navigationSections } from "./navigation.ts"
 import type { Estimate } from "../types.ts"
 
 describe("office nav data", () => {
-  it("hides Clients from a project manager", () => {
-    const owner = navigationLinks("owner").map((link) => link.name)
-    const manager = navigationLinks("project_manager").map((link) => link.name)
-    assert.deepEqual(owner, [
-      "Dashboard",
-      "Estimator",
-      "Proposals",
+  it("groups the office the way a painting crm splits the day", () => {
+    const owner = navigationSections("owner")
+    const manager = navigationSections("project_manager")
+    assert.deepEqual(
+      owner.map((section) => section.name),
+      ["Dashboard", "Sales", "Jobs", "Daily", "Documents", "Settings"],
+    )
+    assert.deepEqual(owner.find((section) => section.name === "Sales")?.links.map((link) => link.name), [
       "Sales Pipeline",
-      "Appointments",
-      "Follow-ups",
-      "Inbox",
+      "Estimator",
+      "Clients",
+    ])
+    assert.deepEqual(owner.find((section) => section.name === "Jobs")?.links.map((link) => link.name), [
       "Work Orders",
       "Dispatch & Map",
-      "Clients",
-      "Invoices & Payments",
-      "Settings",
     ])
-    assert.equal(manager.includes("Clients"), false)
-    assert.equal(manager.includes("Appointments"), true)
-    assert.equal(manager.length, owner.length - 1)
+    assert.deepEqual(owner.find((section) => section.name === "Daily")?.links.map((link) => link.name), [
+      "Appointments",
+      "Inbox",
+      "Follow-ups",
+    ])
+    assert.deepEqual(owner.find((section) => section.name === "Documents")?.links.map((link) => link.name), [
+      "Proposals",
+      "Invoices & Payments",
+    ])
+    const managerSales = manager.find((section) => section.name === "Sales")?.links ?? []
+    assert.equal(managerSales.some((link) => link.name === "Clients"), false)
+    assert.equal(
+      manager.find((section) => section.name === "Daily")?.links.some((link) => link.name === "Appointments"),
+      true,
+    )
+    assert.equal(managerSales.length, (owner.find((section) => section.name === "Sales")?.links.length ?? 0) - 1)
   })
 
   it("lists sent and accepted proposals", () => {

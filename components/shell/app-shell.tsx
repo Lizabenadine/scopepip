@@ -1,8 +1,9 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Calculator, CalendarDays, ClipboardList, FileText, Funnel, LayoutDashboard, Map, MessageSquare, MessagesSquare, Plus, Receipt, Settings, Users, X } from "lucide-react"
+import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Plus, Settings, X } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
 import { BrandLogo } from "@/components/brand/brand-logo"
@@ -10,30 +11,17 @@ import { buttonVariants } from "@/components/ui/button"
 import type { UserRole } from "@/lib/auth/role"
 import { PLAN_PRICE } from "@/lib/defaults"
 import { useScope } from "@/lib/data/store"
-import { navigationLinks } from "@/lib/shell/navigation"
+import { navigationSections, type OfficeSection } from "@/lib/shell/navigation"
 import { cn } from "@/lib/utils"
 
-const NAV_ICONS = {
-  "/": LayoutDashboard,
-  "/estimate": Calculator,
-  "/proposal": FileText,
-  "/sales-pipeline": Funnel,
-  "/appointments": CalendarDays,
-  "/follow-ups": MessageSquare,
-  "/inbox": MessagesSquare,
-  "/work-orders": ClipboardList,
-  "/dispatch": Map,
-  "/clients": Users,
-  "/payments": Receipt,
-  "/settings": Settings,
+const SECTION_ICONS = {
+  Dashboard: LayoutDashboard,
+  Sales: Funnel,
+  Jobs: ClipboardList,
+  Daily: CalendarDays,
+  Documents: FileText,
+  Settings: Settings,
 } as const
-
-function navItems(userRole: UserRole) {
-  return navigationLinks(userRole).map((link) => ({
-    ...link,
-    icon: NAV_ICONS[link.href as keyof typeof NAV_ICONS],
-  }))
-}
 
 function navIsActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/"
@@ -54,7 +42,8 @@ async function signOut() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { notice, dismissNotice, ready, session } = useScope()
-  const items = navItems(session?.role ?? "owner")
+  const sections = navigationSections(session?.role ?? "owner")
+  const [openSection, setOpenSection] = useState<string | null>(null)
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
   const publicProposal =
     pathname.startsWith("/p/") ||
@@ -64,6 +53,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/book/") ||
     pathname === "/login" ||
     pathname === "/signup"
+
+  useEffect(() => {
+    setOpenSection(null)
+  }, [pathname])
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      const target = event.target
+      if (target instanceof Element && target.closest("[data-nav-root]")) return
+      setOpenSection(null)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenSection(null)
+    }
+    document.addEventListener("mousedown", closeOnOutsideClick)
+    document.addEventListener("keydown", closeOnEscape)
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick)
+      document.removeEventListener("keydown", closeOnEscape)
+    }
+  }, [])
 
   if (publicProposal) {
     return (
@@ -88,29 +98,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <FollowUpRunner />
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-        <BrandLogo />
-        <div className="flex min-w-0 items-center justify-end gap-3">
-          <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto md:flex" aria-label="Primary">
-            {items.map((item) => {
-              const active = navIsActive(pathname, item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  data-testid={`nav-${item.href === "/" ? "dashboard" : item.href.slice(1)}`}
-                  className={cn(
-                    "shrink-0 rounded-lg px-2.5 py-2 text-sm font-medium",
-                    active ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-                  )}
-                >
-                  {item.name}
-                </Link>
-              )
-            })}
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <BrandLogo />
+          <nav className="hidden min-w-0 items-center gap-0.5 md:flex" aria-label="Primary" data-nav-root="bar">
+            {sections.map((section) => (
+              <SectionControl
+                key={section.name}
+                section={section}
+                pathname={pathname}
+                open={openSection === section.name}
+                onOpen={() => setOpenSection(openSection === section.name ? null : section.name)}
+                placement="bar"
+              />
+            ))}
           </nav>
-          <div className="hidden items-center gap-2 sm:flex">
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-3">
+          <div className="hidden items-center gap-2 lg:flex">
             <p className="text-sm text-slate-700" data-testid="signed-in-name">
               {session.name}
             </p>
@@ -151,45 +156,157 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 flex h-16 overflow-x-auto border-t border-border bg-background/95 backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur md:hidden"
           aria-label="Primary"
+          data-nav-root="dock"
         >
-          {items.map((item) => {
-            const active = navIsActive(pathname, item.href)
-            const Icon = item.icon
-            const short =
-              item.name === "Invoices & Payments"
-                ? "Payments"
-                : item.name === "Dispatch & Map"
-                  ? "Dispatch"
-                  : item.name === "Sales Pipeline"
-                    ? "Sales"
-                    : item.name === "Appointments"
-                      ? "Visits"
-                      : item.name === "Follow-ups"
-                      ? "Follow"
-                      : item.name === "Inbox"
-                        ? "Inbox"
-                        : item.name === "Settings"
-                          ? "Settings"
-                          : item.name
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-w-[4.5rem] flex-1 flex-col items-center justify-center gap-1 text-xs font-medium",
-                  active ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                <Icon className="size-5" />
-                {short}
-              </Link>
-            )
-          })}
+          {openSection ? (
+            <div className="px-2 pb-2">
+              <SectionMenu
+                section={sections.find((section) => section.name === openSection)}
+                pathname={pathname}
+                onNavigate={() => setOpenSection(null)}
+                wide
+              />
+            </div>
+          ) : null}
+          <div className="flex h-16">
+            {sections.map((section) => (
+              <SectionControl
+                key={section.name}
+                section={section}
+                pathname={pathname}
+                open={openSection === section.name}
+                onOpen={() => setOpenSection(openSection === section.name ? null : section.name)}
+                placement="dock"
+              />
+            ))}
+          </div>
         </nav>
       </div>
+    </div>
+  )
+}
+
+function sectionIsActive(pathname: string, section: OfficeSection): boolean {
+  if (section.href && navIsActive(pathname, section.href)) return true
+  return section.links.some((link) => navIsActive(pathname, link.href))
+}
+
+function linkTestId(href: string): string {
+  return `nav-${href === "/" ? "dashboard" : href.slice(1)}`
+}
+
+function SectionControl({
+  section,
+  pathname,
+  open,
+  onOpen,
+  placement,
+}: {
+  section: OfficeSection
+  pathname: string
+  open: boolean
+  onOpen: () => void
+  placement: "bar" | "dock"
+}) {
+  const active = sectionIsActive(pathname, section)
+  const Icon = SECTION_ICONS[section.name as keyof typeof SECTION_ICONS]
+  if (!section.links.length && section.href) {
+    const className =
+      placement === "bar"
+        ? cn(
+            "shrink-0 rounded-lg px-2.5 py-2 text-sm font-medium",
+            active ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+          )
+        : cn(
+            "flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium",
+            active ? "text-primary" : "text-muted-foreground",
+          )
+    return (
+      <Link
+        href={section.href}
+        aria-current={active ? "page" : undefined}
+        data-testid={linkTestId(section.href)}
+        className={className}
+      >
+        {placement === "dock" ? <Icon className="size-5" /> : null}
+        {placement === "dock" ? section.short : section.name}
+      </Link>
+    )
+  }
+
+  return (
+    <div className={cn("relative", placement === "dock" && "flex flex-1")}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={section.name === "Daily" ? "Daily Operations" : section.name}
+        data-testid={`nav-section-${section.name.toLowerCase()}`}
+        onClick={onOpen}
+        className={cn(
+          placement === "bar"
+            ? "inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-medium"
+            : "flex w-full flex-col items-center justify-center gap-1 text-xs font-medium",
+          placement === "bar"
+            ? active || open
+              ? "bg-slate-100 text-slate-900"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            : active || open
+              ? "text-primary"
+              : "text-muted-foreground",
+        )}
+      >
+        {placement === "dock" ? <Icon className="size-5" /> : null}
+        {placement === "dock" ? section.short : section.name}
+        {placement === "bar" ? <ChevronDown className="size-3.5" /> : null}
+      </button>
+      {placement === "bar" && open ? (
+        <div className="absolute left-0 top-full z-30 mt-2">
+          <SectionMenu section={section} pathname={pathname} onNavigate={onOpen} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function SectionMenu({
+  section,
+  pathname,
+  onNavigate,
+  wide = false,
+}: {
+  section: OfficeSection | undefined
+  pathname: string
+  onNavigate: () => void
+  wide?: boolean
+}) {
+  if (!section || section.links.length === 0) return null
+  return (
+    <div role="menu" className={cn("min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg", wide && "w-full")}>
+      <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">
+        {section.name === "Daily" ? "Daily Operations" : section.name}
+      </p>
+      {section.links.map((link) => {
+        const active = navIsActive(pathname, link.href)
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            role="menuitem"
+            aria-current={active ? "page" : undefined}
+            data-testid={linkTestId(link.href)}
+            onClick={onNavigate}
+            className={cn(
+              "block rounded-lg px-3 py-2 text-sm font-medium",
+              active ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50",
+            )}
+          >
+            {link.name}
+          </Link>
+        )
+      })}
     </div>
   )
 }
