@@ -199,5 +199,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
       return template
     },
     deleteEstimateTemplate: scope.deleteEstimateTemplate,
+    areaNames: scope.areaNames,
+    setAreaNames: scope.setAreaNames,
   }
 }

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
+import { DEFAULT_AREA_NAMES, type AreaName } from "@/lib/estimate/area-names"
 import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
@@ -342,6 +343,8 @@ export interface ScopeApi {
   savedTemplates: SavedEstimateTemplate[]
   saveEstimateTemplate: (template: SavedEstimateTemplate) => void
   deleteEstimateTemplate: (id: string) => void
+  areaNames: AreaName[]
+  setAreaNames: (names: AreaName[]) => void
   followUpSequences: FollowUpSequence[]
   saveFollowUpSequences: (sequences: FollowUpSequence[]) => void
   markCustomerReply: (estimateId: string) => void
@@ -784,6 +787,11 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         ...latest,
         savedTemplates: (latest.savedTemplates ?? []).filter((template) => template.id !== id),
       })
+    },
+    areaNames: state.areaNames ?? DEFAULT_AREA_NAMES,
+    setAreaNames: (areaNames) => {
+      const latest = getSnapshot().state
+      commit({ ...latest, areaNames })
     },
     followUpSequences: resolveSequences(state.followUpSequences),
     saveFollowUpSequences: (sequences) => {

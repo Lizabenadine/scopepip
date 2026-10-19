@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
 import { TemplatePicker } from "@/components/estimator/template-picker"
+import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
 import { measureArea } from "@/lib/estimate/calculate"
 import { ratesForKind } from "@/lib/estimate/kinds"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
@@ -16,6 +18,8 @@ export function AreaEditor({
   savedTemplates,
   onDeleteSaved,
   onSaveTemplate,
+  areaNames,
+  onAreaNames,
   onChange,
 }: {
   areas: AreaInput[]
@@ -24,25 +28,12 @@ export function AreaEditor({
   savedTemplates: SavedEstimateTemplate[]
   onDeleteSaved: (id: string) => void
   onSaveTemplate: () => void
+  areaNames: AreaName[]
+  onAreaNames: (names: AreaName[]) => void
   onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
 }) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
-
-  const addBlank = () => {
-    onChange([
-      ...areas,
-      {
-        id: crypto.randomUUID(),
-        name: "Room",
-        areaType: "room",
-        lengthFt: 0,
-        widthFt: 0,
-        heightFt: 8,
-        crewNote: "",
-        surfaces: [],
-      },
-    ])
-  }
+  const [namesOpen, setNamesOpen] = useState(false)
 
   return (
     <section className="flex flex-col gap-3">
@@ -50,7 +41,7 @@ export function AreaEditor({
         <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
           Areas
         </h2>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
           <button
             type="button"
             className="text-sm font-medium text-primary"
@@ -67,11 +58,23 @@ export function AreaEditor({
           >
             Templates
           </button>
-          <button type="button" className="text-sm font-medium text-primary" data-testid="add-custom-area" onClick={addBlank}>
-            Custom area
+          <button
+            type="button"
+            className="text-sm font-medium text-primary"
+            data-testid="open-area-names"
+            onClick={() => setNamesOpen(true)}
+          >
+            Area names
           </button>
         </div>
       </div>
+      <AreaNamesDialog
+        open={namesOpen}
+        names={areaNames}
+        onOpenChange={setNamesOpen}
+        onNames={onAreaNames}
+        onAdd={(area) => onChange([...areas, area])}
+      />
       <TemplatePicker
         open={templatesOpen}
         kind={kind}
@@ -82,7 +85,7 @@ export function AreaEditor({
       />
       {areas.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-          Open Templates for a bedroom, a full interior, or an exterior. A custom area starts empty.
+          Open Templates for a measured room. Area names are labels you keep and reorder. A blank room starts empty.
         </p>
       ) : null}
       {areas.map((area) => (
@@ -90,6 +93,11 @@ export function AreaEditor({
           key={area.id}
           area={area}
           rates={ratesForArea(rates, kind, area)}
+          areaNames={areaNames}
+          onKeepName={(name) => {
+            const next = addAreaName(areaNames, name)
+            if (next) onAreaNames(next)
+          }}
           onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
           onRemove={() => onChange(areas.filter((item) => item.id !== area.id))}
         />
@@ -101,11 +109,15 @@ export function AreaEditor({
 function AreaCard({
   area,
   rates,
+  areaNames,
+  onKeepName,
   onChange,
   onRemove,
 }: {
   area: AreaInput
   rates: ProductionRate[]
+  areaNames: AreaName[]
+  onKeepName: (name: string) => void
   onChange: (area: AreaInput) => void
   onRemove: () => void
 }) {
@@ -136,9 +148,20 @@ function AreaCard({
           <Input
             id={`${area.id}-name`}
             value={area.name}
+            list={`${area.id}-name-list`}
             className="h-11"
             onValueChange={(name) => onChange({ ...area, name })}
           />
+          <datalist id={`${area.id}-name-list`}>
+            {areaNames.map((item) => (
+              <option key={item.id} value={item.name} />
+            ))}
+          </datalist>
+          {area.name.trim() && !areaNames.some((item) => item.name.trim().toLowerCase() === area.name.trim().toLowerCase()) ? (
+            <button type="button" className="text-left text-sm font-medium text-primary" onClick={() => onKeepName(area.name)}>
+              Keep this name
+            </button>
+          ) : null}
         </div>
         <button type="button" className="text-sm text-muted-foreground" onClick={onRemove}>
           Remove

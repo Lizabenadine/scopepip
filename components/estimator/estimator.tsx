@@ -85,6 +85,8 @@ export function Estimator({
     savedTemplates,
     saveEstimateTemplate,
     deleteEstimateTemplate,
+    areaNames,
+    setAreaNames,
   } = estimator
 
   if (missing || !draft || !quote) {
@@ -234,6 +236,8 @@ export function Estimator({
               setTemplateError(null)
               setSaveOpen(true)
             }}
+            areaNames={areaNames}
+            onAreaNames={setAreaNames}
             onChange={(areas, title, lineItems) => {
               const added = areas.length > draft.areas.length ? areas.slice(draft.areas.length) : []
               patch({

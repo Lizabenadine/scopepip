@@ -22,6 +22,7 @@ import type {
   WorkOrder,
 } from "../types.ts"
 import { PAYMENT_METHODS } from "../defaults.ts"
+import type { AreaName } from "../estimate/area-names.ts"
 import type { SavedEstimateTemplate } from "../estimate/saved-templates.ts"
 
 export const SCOPE_VERSION = 9 as const
@@ -44,6 +45,8 @@ export interface ScopeState {
   columnLabels?: Record<string, string>
   /** Company templates. Surfaces keep rate ids, so the current production rate prices them. */
   savedTemplates?: SavedEstimateTemplate[]
+  /** Reusable area labels. Missing uses the starter list. */
+  areaNames?: AreaName[]
 }
 
 export const CREWS: CrewLead[] = [
@@ -482,6 +485,7 @@ export function isScopeState(value: unknown): value is ScopeState {
     Array.isArray(state.productionRates) &&
     typeof state.estimateSettings?.hourlyRate === "number" &&
     Array.isArray(state.paymentMethods) &&
-    (state.savedTemplates === undefined || Array.isArray(state.savedTemplates))
+    (state.savedTemplates === undefined || Array.isArray(state.savedTemplates)) &&
+    (state.areaNames === undefined || Array.isArray(state.areaNames))
   )
 }
