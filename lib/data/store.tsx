@@ -451,6 +451,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         stageId: draft.stageId,
         title: draft.title.trim() || "Interior repaint",
         jobAddress: draft.jobAddress.trim(),
+        estimateKind: draft.estimateKind ?? previous?.estimateKind ?? "interior",
         areas: draft.areas,
         lineItems: draft.lineItems,
         rates: draft.rates,

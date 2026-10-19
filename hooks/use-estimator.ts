@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { selectEstimateKind } from "@/lib/estimate/kinds"
 import { useScope } from "@/lib/data/store"
 import { PAYMENT_METHODS } from "@/lib/defaults"
 import { adjacentStage } from "@/lib/stages"
@@ -34,6 +35,7 @@ function fromEstimate(estimate: Estimate, clientName: string): EstimateDraft {
     stageId: estimate.stageId,
     title: estimate.title,
     jobAddress: estimate.jobAddress,
+    estimateKind: estimate.estimateKind ?? "interior",
     areas: estimate.areas,
     lineItems: estimate.lineItems,
     rates: estimate.rates,
@@ -76,13 +78,14 @@ function buildInitialDraft(
       stageId: lead?.id ?? scope.stages[0]?.id ?? "",
       title: "",
       jobAddress: "",
+      estimateKind: "interior",
       areas: [],
       lineItems: [],
       rates: scope.productionRates.map((rate) => ({
         ...rate,
         coatRates: rate.coatRates.map((entry) => ({ ...entry })),
       })),
-      settings: { ...scope.estimateSettings },
+      settings: selectEstimateKind(scope.estimateSettings, "interior"),
       scheduledOn: null,
       notes: "",
       crewNote: "",

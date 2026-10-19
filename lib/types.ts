@@ -31,6 +31,7 @@ export type SurfaceMeasure =
   | "wainscot"
   | "accent"
 export type AreaType = "room" | "surface"
+export type EstimateKind = "interior" | "exterior" | "cabinets"
 export type HourRounding = 0 | 0.25 | 0.5 | 1
 export type PriceRounding = "none" | "nearest" | "up"
 export type LinePricingMode = "hourly" | "quantity" | "custom"
@@ -64,6 +65,8 @@ export interface ProductionRate {
   showCoats: boolean
   showPrice: boolean
   customHourlyRate: number | null
+  /** Empty uses the rate's category. A rate can belong to more than one type. */
+  estimateKinds?: EstimateKind[]
 }
 
 export interface PaymentMethod {
@@ -74,6 +77,10 @@ export interface PaymentMethod {
 
 export interface EstimateSettings {
   hourlyRate: number
+  /** Company rate before a type override. Missing uses hourlyRate. */
+  generalHourlyRate?: number
+  /** Blank type uses the general hourly rate. */
+  typeHourlyRates?: Partial<Record<EstimateKind, number>>
   hourRounding: HourRounding
   priceRounding: PriceRounding
   materialRounding: PriceRounding
@@ -335,6 +342,8 @@ export interface Estimate {
   stageId: string
   title: string
   jobAddress: string
+  /** Missing estimates stay interior. */
+  estimateKind?: EstimateKind
   areas: AreaInput[]
   lineItems: LineItemInput[]
   rates: ProductionRate[]
@@ -396,6 +405,7 @@ export interface EstimateDraft {
   stageId: string
   title: string
   jobAddress: string
+  estimateKind?: EstimateKind
   areas: AreaInput[]
   lineItems: LineItemInput[]
   rates: ProductionRate[]

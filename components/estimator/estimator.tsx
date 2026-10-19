@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
 import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
+import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
+import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
@@ -155,8 +157,33 @@ export function Estimator({
               {mode === "new" ? "New estimate" : draft.title || "Estimate"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Start from a premade interior, exterior, or cabinet template. Then set the real length, width, and height.
+              Pick Interior, Exterior, or Cabinets. Templates and surfaces follow that type, and each type can use its own hourly rate.
             </p>
+          </div>
+          <div className="flex flex-wrap gap-2" data-testid="estimate-kind">
+            {ESTIMATE_KINDS.map((kind) => {
+              const selected = (draft.estimateKind ?? "interior") === kind
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  data-testid={`estimate-kind-${kind}`}
+                  onClick={() =>
+                    patch({
+                      estimateKind: kind,
+                      settings: selectEstimateKind(draft.settings, kind),
+                    })
+                  }
+                  className={
+                    selected
+                      ? "rounded-full bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+                      : "rounded-full bg-muted px-3 py-1.5 text-sm"
+                  }
+                >
+                  {ESTIMATE_KIND_LABEL[kind]}
+                </button>
+              )
+            })}
           </div>
           <ClientField
             clients={clients}
@@ -191,6 +218,7 @@ export function Estimator({
           <AreaEditor
             areas={draft.areas}
             rates={draft.rates}
+            kind={draft.estimateKind ?? "interior"}
             onChange={(areas, title) =>
               patch({
                 areas,
@@ -442,9 +470,13 @@ export function Estimator({
           </section>
           <section className="grid gap-3 sm:grid-cols-2">
             <NumberBox
-              label="Hourly rate"
+              label={`${ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"]} hourly rate`}
               value={draft.settings.hourlyRate}
-              onChange={(hourlyRate) => patch({ settings: { ...draft.settings, hourlyRate } })}
+              onChange={(hourlyRate) =>
+                patch({
+                  settings: setKindHourlyRate(draft.settings, draft.estimateKind ?? "interior", hourlyRate),
+                })
+              }
             />
             <NumberBox
               label="Tax %"

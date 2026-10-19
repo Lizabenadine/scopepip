@@ -144,9 +144,12 @@ function AppFields() {
   return (
     <DefaultsForm
       title="App"
-      intro="The hourly rate is the business in one number. Labor is the rounded hours times this rate. New estimates copy these values."
+      intro="The hourly rate is the business in one number. Interior, exterior, and cabinet estimates can each use a different rate. Leave a type blank to use the hourly rate. New estimates copy these values."
     >
       <TextField id="hourlyRate" name="hourlyRate" label="Hourly rate" />
+      <TextField id="interiorHourlyRate" name="interiorHourlyRate" label="Interior hourly rate" placeholder="Uses the hourly rate" />
+      <TextField id="exteriorHourlyRate" name="exteriorHourlyRate" label="Exterior hourly rate" placeholder="Uses the hourly rate" />
+      <TextField id="cabinetsHourlyRate" name="cabinetsHourlyRate" label="Cabinets hourly rate" placeholder="Uses the hourly rate" />
       <TextField id="materialMarkup" name="materialMarkup" label="Material markup %" />
       <TextField id="minimumJobCharge" name="minimumJobCharge" label="Minimum job charge" />
       <TextField id="expiryDays" name="expiryDays" label="Client-visible expiry, days" />
@@ -316,6 +319,9 @@ function readDefaults(current: EstimateSettings, data: FormData): EstimateSettin
   if (data.has("businessPhone")) next.businessPhone = String(data.get("businessPhone") ?? "")
   if (data.has("companyEmail")) next.companyEmail = String(data.get("companyEmail") ?? "")
   if (data.has("hourlyRate")) next.hourlyRate = Number(data.get("hourlyRate")) || 0
+  if (data.has("interiorHourlyRate") || data.has("exteriorHourlyRate") || data.has("cabinetsHourlyRate")) {
+    next.typeHourlyRates = writeTypeRates(next.typeHourlyRates, data)
+  }
   if (data.has("taxPercent")) next.taxPercent = Number(data.get("taxPercent")) || 0
   if (data.has("expiryDays")) next.expiryDays = Number(data.get("expiryDays")) || 0
   if (data.has("hourRounding")) next.hourRounding = Number(data.get("hourRounding")) as EstimateSettings["hourRounding"]
@@ -378,6 +384,26 @@ function SelectField({
   )
 }
 
+function writeTypeRates(
+  current: EstimateSettings["typeHourlyRates"],
+  data: FormData,
+): EstimateSettings["typeHourlyRates"] {
+  const next = { ...current }
+  const write = (kind: "interior" | "exterior" | "cabinets", name: string) => {
+    const text = String(data.get(name) ?? "").trim()
+    if (!text) delete next[kind]
+    else next[kind] = Number(text) || 0
+  }
+  write("interior", "interiorHourlyRate")
+  write("exterior", "exteriorHourlyRate")
+  write("cabinets", "cabinetsHourlyRate")
+  return next
+}
+
+function rateText(value: number | undefined): string {
+  return typeof value === "number" ? String(value) : ""
+}
+
 function fieldValue(settings: EstimateSettings, name: string): string {
   if (name === "materialMarkup") return String((settings.materialMarkup ?? 0.2) * 100)
   if (name === "minimumJobCharge") return String(settings.minimumJobCharge ?? MINIMUM_JOB_CHARGE)
@@ -386,6 +412,9 @@ function fieldValue(settings: EstimateSettings, name: string): string {
   if (name === "financingMonths") return String(settings.financingMonths ?? 12)
   if (name === "taxBasis") return settings.taxBasis ?? "total_job"
   if (name === "hourRounding") return String(settings.hourRounding)
+  if (name === "interiorHourlyRate") return rateText(settings.typeHourlyRates?.interior)
+  if (name === "exteriorHourlyRate") return rateText(settings.typeHourlyRates?.exterior)
+  if (name === "cabinetsHourlyRate") return rateText(settings.typeHourlyRates?.cabinets)
   const value = settings[name as keyof EstimateSettings]
   return value === undefined || value === null ? "" : String(value)
 }

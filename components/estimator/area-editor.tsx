@@ -3,17 +3,20 @@
 import { useState } from "react"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { measureArea } from "@/lib/estimate/calculate"
-import type { AreaInput, ProductionRate, SurfaceInput } from "@/lib/types"
+import { ratesForKind } from "@/lib/estimate/kinds"
+import type { AreaInput, EstimateKind, ProductionRate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export function AreaEditor({
   areas,
   rates,
+  kind,
   onChange,
 }: {
   areas: AreaInput[]
   rates: ProductionRate[]
+  kind: EstimateKind
   onChange: (areas: AreaInput[], title?: string) => void
 }) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
@@ -56,6 +59,7 @@ export function AreaEditor({
       </div>
       <TemplatePicker
         open={templatesOpen}
+        kind={kind}
         onOpenChange={setTemplatesOpen}
         onAdd={(next, title) => onChange([...areas, ...next], title)}
       />
@@ -68,7 +72,7 @@ export function AreaEditor({
         <AreaCard
           key={area.id}
           area={area}
-          rates={rates}
+          rates={ratesForArea(rates, kind, area)}
           onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
           onRemove={() => onChange(areas.filter((item) => item.id !== area.id))}
         />
@@ -299,6 +303,14 @@ function AreaCard({
       </div>
     </div>
   )
+}
+
+function ratesForArea(rates: ProductionRate[], kind: EstimateKind, area: AreaInput): ProductionRate[] {
+  const allowed = ratesForKind(rates, kind)
+  const extras = rates.filter(
+    (rate) => area.surfaces.some((surface) => surface.rateId === rate.id) && !allowed.some((item) => item.id === rate.id),
+  )
+  return [...allowed, ...extras]
 }
 
 function rateGroups(rates: ProductionRate[]): { category: string; rates: ProductionRate[] }[] {

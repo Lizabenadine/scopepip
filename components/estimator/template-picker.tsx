@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -9,7 +8,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  ESTIMATE_KINDS,
   ESTIMATE_KIND_LABEL,
   areaFromTemplate,
   areaTemplatesFor,
@@ -24,12 +22,13 @@ export function TemplatePicker({
   open,
   onOpenChange,
   onAdd,
+  kind,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAdd: (areas: AreaInput[], title?: string) => void
+  kind: EstimateKind
 }) {
-  const [kind, setKind] = useState<EstimateKind>("interior")
   const jobs = estimateTemplatesFor(kind)
   const areas = areaTemplatesFor(kind)
 
@@ -51,27 +50,11 @@ export function TemplatePicker({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(40rem,85vh)] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Premade templates</DialogTitle>
+          <DialogTitle>{ESTIMATE_KIND_LABEL[kind]} templates</DialogTitle>
           <DialogDescription>
-            Start from a whole job, or add one room. Sizes are a starting point. Change length, width, and height after it lands on the estimate.
+            Start from a whole {ESTIMATE_KIND_LABEL[kind].toLowerCase()} job, or add one area. Sizes are a starting point. Change length, width, and height after it lands on the estimate.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex gap-2">
-          {ESTIMATE_KINDS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setKind(item)}
-              className={
-                kind === item
-                  ? "rounded-full bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                  : "rounded-full bg-muted px-3 py-1.5 text-sm"
-              }
-            >
-              {ESTIMATE_KIND_LABEL[item]}
-            </button>
-          ))}
-        </div>
         <div className="grid gap-2">
           <h3 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Whole job</h3>
           {jobs.map((template) => (

@@ -1,9 +1,9 @@
 import { documentedBedroom } from "../defaults.ts"
-import type { AreaInput, AreaType, SurfaceInput } from "../types.ts"
+import type { AreaInput, AreaType, EstimateKind, SurfaceInput } from "../types.ts"
 
-export const ESTIMATE_KINDS = ["interior", "exterior", "cabinets"] as const
+export type { EstimateKind }
 
-export type EstimateKind = (typeof ESTIMATE_KINDS)[number]
+export const ESTIMATE_KINDS: EstimateKind[] = ["interior", "exterior", "cabinets"]
 
 export const ESTIMATE_KIND_LABEL: Record<EstimateKind, string> = {
   interior: "Interior",
