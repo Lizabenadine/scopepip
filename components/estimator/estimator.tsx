@@ -30,6 +30,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
+import { copyLineItem, insertAfter } from "@/lib/estimate/copy"
 import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
@@ -247,6 +248,7 @@ export function Estimator({
                 ...(title && draft.title.trim().length === 0 ? { title } : {}),
               })
             }}
+            onDuplicate={(areas) => patch({ areas })}
           />
           <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
@@ -266,15 +268,25 @@ export function Estimator({
                       onValueChange={(label) => updateLine(draft.lineItems, line.id, { label }, patch)}
                     />
                   </div>
-                  <button
-                    type="button"
-                    className="mt-6 text-sm text-muted-foreground"
-                    onClick={() =>
-                      patch({ lineItems: draft.lineItems.filter((item) => item.id !== line.id) })
-                    }
-                  >
-                    Remove
-                  </button>
+                  <div className="mt-6 flex shrink-0 gap-3">
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-primary"
+                      data-testid="copy-line"
+                      onClick={() => patch({ lineItems: insertAfter(draft.lineItems, line.id, copyLineItem(line)) })}
+                    >
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm text-muted-foreground"
+                      onClick={() =>
+                        patch({ lineItems: draft.lineItems.filter((item) => item.id !== line.id) })
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-3 grid gap-1">
                   <Label htmlFor={`${line.id}-description`}>Description</Label>

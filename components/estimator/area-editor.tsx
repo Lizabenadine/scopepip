@@ -4,6 +4,7 @@ import { useState } from "react"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
+import { copyArea, insertAfter } from "@/lib/estimate/copy"
 import { measureArea, measuredQuantity, quantityUnit } from "@/lib/estimate/calculate"
 import { ratesForKind } from "@/lib/estimate/kinds"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
@@ -21,6 +22,7 @@ export function AreaEditor({
   areaNames,
   onAreaNames,
   onChange,
+  onDuplicate,
 }: {
   areas: AreaInput[]
   rates: ProductionRate[]
@@ -31,6 +33,7 @@ export function AreaEditor({
   areaNames: AreaName[]
   onAreaNames: (names: AreaName[]) => void
   onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
+  onDuplicate: (areas: AreaInput[]) => void
 }) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [namesOpen, setNamesOpen] = useState(false)
@@ -99,6 +102,7 @@ export function AreaEditor({
             if (next) onAreaNames(next)
           }}
           onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
+          onCopy={() => onDuplicate(insertAfter(areas, area.id, copyArea(area)))}
           onRemove={() => onChange(areas.filter((item) => item.id !== area.id))}
         />
       ))}
@@ -112,6 +116,7 @@ function AreaCard({
   areaNames,
   onKeepName,
   onChange,
+  onCopy,
   onRemove,
 }: {
   area: AreaInput
@@ -119,6 +124,7 @@ function AreaCard({
   areaNames: AreaName[]
   onKeepName: (name: string) => void
   onChange: (area: AreaInput) => void
+  onCopy: () => void
   onRemove: () => void
 }) {
   const measures = measureArea(area)
@@ -170,9 +176,14 @@ function AreaCard({
             </button>
           ) : null}
         </div>
-        <button type="button" className="text-sm text-muted-foreground" onClick={onRemove}>
-          Remove
-        </button>
+        <div className="flex shrink-0 gap-3">
+          <button type="button" className="text-sm font-medium text-primary" data-testid="copy-area" onClick={onCopy}>
+            Copy
+          </button>
+          <button type="button" className="text-sm text-muted-foreground" onClick={onRemove}>
+            Remove
+          </button>
+        </div>
       </div>
       <div className="mt-3 flex gap-2">
         {(["room", "surface"] as const).map((areaType) => (
