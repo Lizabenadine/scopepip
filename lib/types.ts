@@ -107,6 +107,8 @@ export interface EstimateSettings {
   financingMonths?: number
   financingLender?: string
   financingApplyUrl?: string
+  /** Cover, photos, testimonials, contract, and signature wording. Missing uses the built-in pages. */
+  proposalPages?: ProposalPages
   zapierWebhookUrl?: string
   /** Zapier ignores events that happened before this instant. */
   zapierSince?: string
@@ -244,7 +246,30 @@ export interface LineItemInput {
   selected?: boolean
 }
 
-export type ClientStatus = "draft" | "sent" | "accepted"
+export type ClientStatus = "draft" | "sent" | "accepted" | "declined"
+
+export interface ProposalPhoto {
+  id: string
+  caption: string
+  src: string
+}
+
+export interface ProposalTestimonial {
+  id: string
+  quote: string
+  name: string
+  detail: string
+}
+
+/** Company pages around the quote. Blank contract or wording uses the built-in text. */
+export interface ProposalPages {
+  coverLine?: string
+  photos?: ProposalPhoto[]
+  testimonials?: ProposalTestimonial[]
+  contractTerms?: string
+  acceptWording?: string
+  declineWording?: string
+}
 
 export const INBOUND_LEAD_SOURCES = ["website", "thumbtack", "angi", "google_lsa", "facebook"] as const
 
@@ -364,6 +389,8 @@ export interface Estimate {
   notes: string
   crewNote: string
   acceptedAt: string | null
+  /** Set when the customer declines. Missing means the proposal is still open. */
+  declinedAt?: string | null
   publicToken: string
   clientStatus: ClientStatus
   signature: ClientSignature | null

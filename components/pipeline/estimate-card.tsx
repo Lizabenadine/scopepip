@@ -52,6 +52,8 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
             <p className="ml-2 inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2 py-0.5 text-xs font-medium text-[oklch(0.32_0.07_155)]">
               Accepted
             </p>
+          ) : estimate.clientStatus === "declined" ? (
+            <p className="ml-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium">Declined</p>
           ) : null}
           <h3 className="mt-2 truncate text-base font-semibold">
             <Link href={`/estimates/${estimate.id}`} className="hover:underline">

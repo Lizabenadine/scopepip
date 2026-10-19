@@ -8,6 +8,7 @@ import { FollowUpEditor } from "@/components/follow-ups/follow-up-editor"
 import { QuickBooksSync } from "@/components/payments/quickbooks-sync"
 import { Connections } from "@/components/settings/connections"
 import { TeamPanel } from "@/components/settings/team-panel"
+import { ProposalPagesEditor } from "@/components/settings/proposal-pages"
 import { TimeRates } from "@/components/settings/time-rates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,7 @@ const TABS = [
   { id: "company", label: "Company" },
   { id: "brand", label: "Brand" },
   { id: "email", label: "Email" },
+  { id: "proposal", label: "Proposal" },
   { id: "app", label: "App" },
   { id: "calendar", label: "Calendar" },
   { id: "templates", label: "Templates" },
@@ -92,6 +94,7 @@ export function SettingsScreen() {
         ) : null}
         {active === "brand" ? <BrandPanel /> : null}
         {active === "email" ? <EmailFields /> : null}
+        {active === "proposal" ? <ProposalPagesEditor /> : null}
         {active === "app" ? (
           <>
             <AppFields />

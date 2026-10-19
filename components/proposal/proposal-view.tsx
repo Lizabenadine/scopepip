@@ -1,11 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { CompanyName } from "@/components/brand/company-name"
+import {
+  ProposalCover,
+  ProposalPager,
+  ProposalPhotoPage,
+  ProposalSignatureCopy,
+  ProposalTermsPage,
+  ProposalTestimonialPage,
+  pageNumber,
+} from "@/components/proposal/proposal-pages"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, jobDate, money } from "@/lib/format"
+import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 
 export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
@@ -30,9 +39,13 @@ export function ProposalView({ id }: { id: string }) {
     estimate.settings.expiryDays > 0
       ? new Date(new Date(sent).getTime() + estimate.settings.expiryDays * 86400000)
       : null
+  const companyName = displayCompanyName(scope.estimateSettings.companyName)
+  const pagesDocument = proposalDocument(scope.estimateSettings)
+  const pages = proposalPageList(pagesDocument)
+  const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
 
   return (
-    <article className="mx-auto flex max-w-2xl flex-col gap-6 pb-8">
+    <article className="mx-auto flex max-w-3xl flex-col gap-6 pb-8">
       <div className="flex items-center justify-between gap-3 text-sm">
         <Link href={`/estimates/${estimate.id}`} className="text-muted-foreground">
           Back to estimate
@@ -41,25 +54,24 @@ export function ProposalView({ id }: { id: string }) {
           Client link
         </Link>
         {estimate.acceptedAt ? <span className="font-medium">Accepted</span> : null}
+        {declined ? <span className="font-medium">Declined</span> : null}
       </div>
-      <header>
-        <CompanyName
-          name={displayCompanyName(scope.estimateSettings.companyName)}
-          className="text-sm font-semibold tracking-tight"
-        />
-        <p className="mt-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-          Proposal
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{estimate.title || "Estimate"}</h1>
-        <p className="text-sm text-muted-foreground">{client?.name}</p>
-        <p className="mt-2 text-sm">{estimate.jobAddress}</p>
-        {expires ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Expires {jobDate(expires.toISOString().slice(0, 10))}
-          </p>
-        ) : null}
-      </header>
+      <ProposalPager pages={pages} />
+      <ProposalCover
+        companyName={companyName}
+        clientName={client?.name || "Client"}
+        title={estimate.title || "Estimate"}
+        jobAddress={estimate.jobAddress}
+        companyEmail={scope.estimateSettings.companyEmail?.trim() || ""}
+        preparedOn={jobDate(sent.slice(0, 10))}
+        expiresOn={expires ? jobDate(expires.toISOString().slice(0, 10)) : null}
+        total={quote.total}
+        coverLine={pagesDocument.coverLine}
+        page={pageNumber(pages, "proposal-page-cover")}
+        pageCount={pages.length}
+      />
       {estimate.notes ? <p className="text-sm">{estimate.notes}</p> : null}
+      <div id="proposal-page-scope" data-testid="proposal-page-scope" className="flex flex-col gap-3">
       {sectionByGroup(
         quote.areas.filter((area) => area.surfaces.length > 0),
         estimate.areaGroups,
@@ -142,6 +154,33 @@ export function ProposalView({ id }: { id: string }) {
           <p className="mt-2 text-sm">Pay by {quote.paymentMethodLabel.toLowerCase()}.</p>
         )}
       </section>
+      </div>
+      {pagesDocument.photos.length > 0 ? (
+        <ProposalPhotoPage
+          photos={pagesDocument.photos}
+          page={pageNumber(pages, "proposal-page-photos")}
+          pageCount={pages.length}
+        />
+      ) : null}
+      {pagesDocument.testimonials.length > 0 ? (
+        <ProposalTestimonialPage
+          testimonials={pagesDocument.testimonials}
+          page={pageNumber(pages, "proposal-page-testimonials")}
+          pageCount={pages.length}
+        />
+      ) : null}
+      <ProposalTermsPage
+        terms={pagesDocument.contractTerms}
+        page={pageNumber(pages, "proposal-page-terms")}
+        pageCount={pages.length}
+      />
+      <section id="proposal-page-sign" data-testid="proposal-page-sign" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <h2 className="text-lg font-semibold">Signature</h2>
+        <ProposalSignatureCopy
+          acceptWording={pagesDocument.acceptWording}
+          declineWording={pagesDocument.declineWording}
+        />
+      </section>
       <section>
         <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
           Payment methods
@@ -161,7 +200,7 @@ export function ProposalView({ id }: { id: string }) {
           ))}
         </ul>
       </section>
-      {!estimate.acceptedAt ? (
+      {!estimate.acceptedAt && !declined ? (
         <button
           type="button"
           className="h-12 rounded-lg bg-primary text-sm font-medium text-primary-foreground"
@@ -169,6 +208,8 @@ export function ProposalView({ id }: { id: string }) {
         >
           Accept estimate
         </button>
+      ) : declined ? (
+        <p className="text-sm font-medium">Declined.</p>
       ) : (
         <p className="text-sm font-medium">Signed and accepted.</p>
       )}

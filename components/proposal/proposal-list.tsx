@@ -9,6 +9,7 @@ const STATUS_LABEL = {
   draft: "Draft",
   sent: "Sent",
   accepted: "Accepted",
+  declined: "Declined",
 } as const
 
 export function ProposalList() {

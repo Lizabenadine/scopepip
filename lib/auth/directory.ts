@@ -9,6 +9,7 @@ import { isScopeState, type ScopeState } from "../data/seed.ts"
 import { reconcileFollowUps } from "../follow-ups/schedule.ts"
 import { applyDeposit } from "../payments/apply-deposit.ts"
 import { applyAcceptance, type AcceptanceInput } from "../proposals/accept.ts"
+import { applyDecline } from "../proposals/decline.ts"
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
@@ -364,6 +365,21 @@ export async function publicProposal(token: string): Promise<PublicProposalView 
   const found = await findByEstimate((estimate) => estimate.publicToken === token)
   if (!found) return null
   return proposalViewFrom(found.book.state, found.estimate)
+}
+
+export async function declinePublicProposal(
+  token: string,
+  declinedAt: string,
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  if (!found) return { ok: false, reason: "This proposal link is not valid." }
+  const result = applyDecline(found.book.state, token, declinedAt)
+  if (!result.ok) return result
+  const next = reconciled(found.book.state, result.state)
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === result.estimateId)
+  if (!saved.ok || !estimate) return { ok: false, reason: "This proposal could not be saved. Try again." }
+  return { ok: true, estimate }
 }
 
 export async function acceptPublicProposal(

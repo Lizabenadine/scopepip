@@ -20,6 +20,9 @@ export function applyAcceptance(
 ): AcceptanceResult {
   const estimate = state.estimates.find((item) => item.publicToken === token)
   if (!estimate) return { ok: false, reason: "This proposal link is not valid." }
+  if (estimate.clientStatus === "declined" || estimate.declinedAt) {
+    return { ok: false, reason: "This proposal was declined." }
+  }
   if (estimate.clientStatus === "accepted" || estimate.signature) {
     return { ok: false, reason: "This proposal is already accepted." }
   }
@@ -38,6 +41,7 @@ export function applyAcceptance(
     ...estimate,
     clientStatus: "accepted",
     acceptedAt: input.signedAt,
+    declinedAt: null,
     signature,
     updatedAt: input.signedAt,
     lineItems: estimate.lineItems.map((item) =>

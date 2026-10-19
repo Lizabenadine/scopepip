@@ -2,8 +2,16 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { CompanyName } from "@/components/brand/company-name"
 import { ProposalEngagement } from "@/components/proposal/proposal-engagement"
+import {
+  ProposalCover,
+  ProposalPager,
+  ProposalPhotoPage,
+  ProposalSignatureCopy,
+  ProposalTermsPage,
+  ProposalTestimonialPage,
+  pageNumber,
+} from "@/components/proposal/proposal-pages"
 import { SignaturePad } from "@/components/proposal/signature-pad"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,19 +21,11 @@ import { readProposalCompanyName } from "@/lib/brand/profile"
 import { useScope } from "@/lib/data/store"
 import { calculateEstimate } from "@/lib/estimate/calculate"
 import { sectionByGroup } from "@/lib/estimate/groups"
-import type { EstimateSettings, PaymentMethod } from "@/lib/types"
+import type { Estimate, EstimateSettings, PaymentMethod } from "@/lib/types"
 import { jobDate, money, moneyExact } from "@/lib/format"
 import { financingTerms, monthlyPayment } from "@/lib/financing/offer"
+import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 import { proposalFigures } from "@/lib/proposals/figures"
-import type { Estimate } from "@/lib/types"
-
-const TERMS = [
-  "This proposal covers the rooms, surfaces, and add-ons you leave selected. Anything outside that scope is a change order.",
-  "The price stays firm until the date below. After that, the painter can reprice materials and labor.",
-  "You provide clear access to the work areas. Furniture and floors are protected before paint starts.",
-  "Payment follows the methods listed. A card surcharge is added only when that method is chosen.",
-  "Signing accepts this price and authorizes the painter to open the crew work order.",
-]
 
 interface ProposalPayload {
   estimate: Estimate
@@ -87,6 +87,7 @@ export function PublicProposal({ token }: { token: string }) {
       clientName={view.clientName}
       companyName={displayCompanyName(profileName?.trim() || view.companyName)}
       companyEmail={view.companyEmail}
+      estimateSettings={view.estimateSettings}
       financing={financingTerms(view.estimateSettings)}
       paymentMethods={view.paymentMethods}
       selectedIds={selectedIds}
@@ -97,6 +98,16 @@ export function PublicProposal({ token }: { token: string }) {
       onSignedName={setSignedName}
       onSignature={setSignaturePayload}
       onError={setError}
+      onDecline={async () => {
+        const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/decline`, { method: "POST" })
+        const result = (await response.json()) as { ok?: boolean; reason?: string; estimate?: Estimate }
+        if (!response.ok || !result.ok || !result.estimate) {
+          return { ok: false as const, reason: result.reason || "This proposal could not be declined." }
+        }
+        setView({ ...view, estimate: result.estimate })
+        if (scope.session) await scope.reloadBook()
+        return { ok: true as const }
+      }}
       onAccept={async (input) => {
         const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/accept`, {
           method: "POST",
@@ -120,6 +131,7 @@ function ProposalDocument({
   clientName,
   companyName,
   companyEmail,
+  estimateSettings,
   financing,
   paymentMethods,
   selectedIds,
@@ -131,11 +143,13 @@ function ProposalDocument({
   onSignature,
   onError,
   onAccept,
+  onDecline,
 }: {
   estimate: Estimate
   clientName: string
   companyName: string
   companyEmail: string
+  estimateSettings: EstimateSettings
   financing: { enabled: boolean; aprPercent: number; months: number; lender: string; applyUrl: string }
   paymentMethods: { id: string; label: string; surchargePercent: number }[]
   selectedIds: string[] | null
@@ -149,6 +163,7 @@ function ProposalDocument({
   onAccept: (input: { signedName: string; signaturePayload: string; selectedLineIds: string[] }) => Promise<
     { ok: true } | { ok: false; reason: string }
   >
+  onDecline: () => Promise<{ ok: true } | { ok: false; reason: string }>
 }) {
   const accepted = estimate.clientStatus === "accepted" && estimate.signature
   const optionalLines = estimate.lineItems.filter((item) => item.optional)
@@ -170,6 +185,12 @@ function ProposalDocument({
     estimate.settings.expiryDays > 0
       ? new Date(new Date(estimate.createdAt).getTime() + estimate.settings.expiryDays * 86400000)
       : null
+  const pagesDocument = proposalDocument(estimateSettings)
+  const pages = proposalPageList(pagesDocument)
+  const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
+  const [confirmDecline, setConfirmDecline] = useState(false)
+  const preparedOn = jobDate(estimate.createdAt.slice(0, 10))
+  const expiresOn = expires ? jobDate(expires.toISOString().slice(0, 10)) : null
 
   const toggle = (id: string) => {
     if (accepted) return
@@ -187,43 +208,33 @@ function ProposalDocument({
     }).then((result) => onError(result.ok ? null : result.reason))
   }
 
+  const decline = () => {
+    void onDecline().then((result) => {
+      if (!result.ok) onError(result.reason)
+    })
+  }
+
   return (
     <article className="flex flex-col gap-8">
       <ProposalEngagement proposalId={estimate.publicToken} />
-      <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <CompanyName
-            name={companyName}
-            testId="proposal-brand"
-            className="font-display text-3xl leading-none tracking-tight text-primary"
-          />
-          <p className="mt-2 text-sm text-muted-foreground">
-            Painting proposal #{estimate.publicToken}
-          </p>
-          <p className="text-sm text-muted-foreground">Prepared for client view</p>
-          {companyEmail ? <p className="mt-1 text-sm text-muted-foreground">{companyEmail}</p> : null}
-        </div>
-        <div className="text-sm sm:text-right">
-          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            {accepted ? "Accepted" : "Prepared for"}
-          </p>
-          <p className="font-medium">{clientName}</p>
-          <p>{estimate.jobAddress || "Job site not set"}</p>
-        </div>
-      </header>
-
-      <div>
-        <h1 className="font-display text-4xl leading-none tracking-tight">{estimate.title}</h1>
-        {expires ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Price holds through {jobDate(expires.toISOString().slice(0, 10))}
-          </p>
-        ) : null}
-      </div>
+      <ProposalPager pages={pages} />
+      <ProposalCover
+        companyName={companyName}
+        clientName={clientName}
+        title={estimate.title}
+        jobAddress={estimate.jobAddress}
+        companyEmail={companyEmail}
+        preparedOn={preparedOn}
+        expiresOn={expiresOn}
+        total={quote.total}
+        coverLine={pagesDocument.coverLine}
+        page={pageNumber(pages, "proposal-page-cover")}
+        pageCount={pages.length}
+      />
 
       {estimate.notes ? <p className="text-sm leading-6">{estimate.notes}</p> : null}
 
-      <section data-proposal-section="Project scope" className="flex flex-col gap-3">
+      <section id="proposal-page-scope" data-testid="proposal-page-scope" data-proposal-section="Project scope" className="flex flex-col gap-3">
         <div>
           <h2 className="text-xl font-semibold">Scope of work and investment summary</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -380,46 +391,75 @@ function ProposalDocument({
         </ul>
       </section>
 
-      <section data-proposal-section="Terms" className="flex flex-col gap-2">
-        <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Terms</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
-          {TERMS.map((term) => (
-            <li key={term}>{term}</li>
-          ))}
-        </ol>
-      </section>
+      {pagesDocument.photos.length > 0 ? (
+        <ProposalPhotoPage
+          photos={pagesDocument.photos}
+          page={pageNumber(pages, "proposal-page-photos")}
+          pageCount={pages.length}
+        />
+      ) : null}
+      {pagesDocument.testimonials.length > 0 ? (
+        <ProposalTestimonialPage
+          testimonials={pagesDocument.testimonials}
+          page={pageNumber(pages, "proposal-page-testimonials")}
+          pageCount={pages.length}
+        />
+      ) : null}
+      <ProposalTermsPage
+        terms={pagesDocument.contractTerms}
+        page={pageNumber(pages, "proposal-page-terms")}
+        pageCount={pages.length}
+      />
 
       {accepted && estimate.signature ? (
-        <section data-proposal-section="Accepted" className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <section id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Accepted" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-8">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Accepted</p>
-          <p className="mt-2 font-display text-3xl">{estimate.signature.signedName}</p>
+          <p className="font-display text-3xl">{estimate.signature.signedName}</p>
           {estimate.signature.signaturePayload.startsWith("data:") ? (
             <div
               role="img"
               aria-label={`Signature of ${estimate.signature.signedName}`}
-              className="mt-3 h-24 w-full rounded-xl bg-white bg-contain bg-center bg-no-repeat"
+              className="h-24 w-full rounded-xl bg-white bg-contain bg-center bg-no-repeat"
               style={{ backgroundImage: `url("${estimate.signature.signaturePayload}")` }}
             />
           ) : null}
-          <p className="mt-2 text-sm text-muted-foreground">
+          <ProposalSignatureCopy
+            acceptWording={pagesDocument.acceptWording}
+            declineWording={pagesDocument.declineWording}
+          />
+          <p className="text-sm text-muted-foreground">
             Signed {signedLabel(estimate.signature.signedAt)}. The crew work order is with your painter.
           </p>
           {estimate.paymentStatus === "deposit_paid" ? (
-            <p className="mt-3 text-sm font-medium">Deposit Paid / Scheduled</p>
+            <p className="text-sm font-medium">Deposit Paid / Scheduled</p>
           ) : (
             <Link
               href={`/estimates/${estimate.id}/pay`}
-              className="mt-4 inline-flex h-12 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
+              className="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
             >
               Pay deposit
             </Link>
           )}
+          <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+            Signature · {pageNumber(pages, "proposal-page-sign")} of {pages.length}
+          </p>
+        </section>
+      ) : declined ? (
+        <section id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Declined" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-8">
+          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Declined</p>
+          <ProposalSignatureCopy
+            acceptWording={pagesDocument.acceptWording}
+            declineWording={pagesDocument.declineWording}
+          />
+          <p className="text-sm text-muted-foreground">
+            Declined {estimate.declinedAt ? signedLabel(estimate.declinedAt) : "today"}. No work is scheduled from this proposal.
+          </p>
         </section>
       ) : (
-        <form data-proposal-section="Accept and sign" onSubmit={submit} className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <form id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Accept and sign" onSubmit={submit} className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-8">
           <div>
             <h2 className="text-lg font-semibold">Accept and sign</h2>
-            <p className="text-sm text-muted-foreground">Type your name, then sign in the box.</p>
+            <p className="text-sm text-muted-foreground">Type your name, then sign in the box. The wording under the signature is the choice you are making.</p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="signed-name">Legal name</Label>
@@ -436,10 +476,28 @@ function ProposalDocument({
               onSignature(payload)
             }}
           />
+          <ProposalSignatureCopy
+            acceptWording={pagesDocument.acceptWording}
+            declineWording={pagesDocument.declineWording}
+          />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <Button type="submit" data-testid="accept-proposal" className="h-12">
-            Accept proposal · {money(quote.total)}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="submit" data-testid="accept-proposal" className="h-12 sm:flex-1">
+              Accept proposal · {money(quote.total)}
+            </Button>
+            {confirmDecline ? (
+              <Button type="button" variant="destructive" data-testid="confirm-decline" className="h-12 sm:flex-1" onClick={decline}>
+                Decline this proposal
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" data-testid="decline-proposal" className="h-12 sm:flex-1" onClick={() => setConfirmDecline(true)}>
+                Decline
+              </Button>
+            )}
+          </div>
+          <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
+            Signature · {pageNumber(pages, "proposal-page-sign")} of {pages.length}
+          </p>
         </form>
       )}
     </article>

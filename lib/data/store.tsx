@@ -468,6 +468,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         notes: draft.notes.trim(),
         crewNote: draft.crewNote.trim(),
         acceptedAt: draft.acceptedAt,
+        declinedAt: previous?.declinedAt ?? null,
         publicToken: draft.publicToken || existingToken(latest, id),
         clientStatus: draft.clientStatus,
         signature: draft.signature,
@@ -520,6 +521,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
               ...estimate,
               clientStatus: "accepted" as const,
               acceptedAt: signedAt,
+              declinedAt: null,
               updatedAt: signedAt,
             }
           : estimate,

@@ -111,6 +111,7 @@ export function boardColumns(
 
 export function salesStageOf(estimate: Estimate): SalesStage | null {
   if (estimate.archived) return null
+  if (estimate.clientStatus === "declined") return estimate.salesStage ?? "proposal_sent"
   if (estimate.clientStatus === "accepted" || estimate.paymentStatus === "deposit_paid") return null
   if (estimate.salesStage) return estimate.salesStage
   if (estimate.clientStatus === "sent") return "proposal_sent"

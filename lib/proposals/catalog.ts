@@ -10,7 +10,12 @@ export interface ProposalListing {
 
 export function listProposals(estimates: Estimate[], clients: Client[]): ProposalListing[] {
   return estimates
-    .filter((estimate) => estimate.clientStatus === "sent" || estimate.clientStatus === "accepted")
+    .filter(
+      (estimate) =>
+        estimate.clientStatus === "sent" ||
+        estimate.clientStatus === "accepted" ||
+        estimate.clientStatus === "declined",
+    )
     .map((estimate) => ({
       id: estimate.id,
       clientName: clients.find((client) => client.id === estimate.clientId)?.name ?? "Client",

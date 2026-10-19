@@ -201,7 +201,7 @@ function text(value: string | null | undefined): string {
 }
 
 function asClientStatus(value: string | null): ClientStatus {
-  if (value === "sent" || value === "accepted") return value
+  if (value === "sent" || value === "accepted" || value === "declined") return value
   return "draft"
 }
 
