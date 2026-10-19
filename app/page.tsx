@@ -73,15 +73,15 @@ export default function Home() {
     length,
     width,
     height,
-    sqftPerHour,
+    productionRateSqFtPerHour: sqftPerHour,
     hourlyRate,
-    paintCostPerGal,
+    costPerGallon: paintCostPerGal,
   });
 
-  const wallArea = calculation.wallAreaSqFt ?? calculation.wall_sqft ?? (length + width) * 2 * height;
-  const laborHours = calculation.estimatedLaborHours ?? calculation.labor_hours ?? wallArea / sqftPerHour;
-  const gallonsNeeded = calculation.gallonsNeeded ?? calculation.gallons_needed ?? Math.ceil(wallArea / 350);
-  const totalPrice = calculation.totalPrice ?? calculation.total_price ?? 0;
+  const wallArea = calculation.wallSqFt;
+  const laborHours = calculation.laborHours;
+  const gallonsNeeded = calculation.gallonsNeeded;
+  const totalPrice = calculation.totalPrice;
   const areasTotal = areas.reduce(
     (sum, area) =>
       sum + area.items.reduce((itemSum, item) => itemSum + item.quantity * item.unitPrice, 0),
