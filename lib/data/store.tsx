@@ -762,19 +762,20 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       void saveCompanyProfile(estimateSettings).catch(() => undefined)
     },
     setCoatRate: (rateId, coats, value) => {
-      if (!Number.isFinite(value) || value < 0) return
+      if (!Number.isFinite(value) || value < 0 || !Number.isFinite(coats)) return
       const speed = Math.round(value * 1000) / 1000
+      const count = Math.min(6, Math.max(1, Math.round(coats)))
       const latest = getSnapshot().state
       commit({
         ...latest,
-        productionRates: latest.productionRates.map((rate) =>
-          rate.id !== rateId
-            ? rate
-            : {
-                ...rate,
-                coatRates: rate.coatRates.map((entry) => (entry.coats === coats ? { ...entry, value: speed } : entry)),
-              },
-        ),
+        productionRates: latest.productionRates.map((rate) => {
+          if (rate.id !== rateId) return rate
+          const exists = rate.coatRates.some((entry) => entry.coats === count)
+          const coatRates = exists
+            ? rate.coatRates.map((entry) => (entry.coats === count ? { ...entry, value: speed } : entry))
+            : [...rate.coatRates, { coats: count, value: speed }].sort((left, right) => left.coats - right.coats)
+          return { ...rate, coatRates }
+        }),
       })
     },
     savedTemplates: state.savedTemplates ?? [],

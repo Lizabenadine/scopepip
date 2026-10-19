@@ -26,7 +26,7 @@ export function TimeRates() {
           Time-based rates
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          A time-based rate is how far an experienced painter gets in an hour at a comfortable speed, for that coat count. 425 sq ft of walls painted with two coats in 5 hours is 85 sq ft/hr. When painters work at different speeds, keep this average and pay the faster ones more.
+          A time-based rate is how far an experienced painter gets in an hour at a comfortable speed, for that coat count. 425 sq ft of walls painted with two coats in 5 hours is 85 sq ft/hr. Choose three through six coats to save a speed past the two already on the rate. When painters work at different speeds, keep this average and pay the faster ones more.
         </p>
       </div>
       <div className="grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2">
@@ -95,9 +95,9 @@ export function TimeRates() {
             className="h-11 rounded-lg border border-input bg-transparent px-2 text-sm"
             onChange={(event) => setCoats(Number(event.target.value))}
           >
-            {(selected?.coatRates ?? []).map((entry) => (
-              <option key={entry.coats} value={entry.coats}>
-                {entry.coats} coats
+            {[1, 2, 3, 4, 5, 6].map((count) => (
+              <option key={count} value={count}>
+                {count} {count === 1 ? "coat" : "coats"}
               </option>
             ))}
           </select>

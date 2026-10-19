@@ -117,6 +117,20 @@ describe("toCrewSheet", () => {
     assert.equal(keysOf(sheet).includes("laborCost"), false)
   })
 
+  it("lists a third finish coat without a price", () => {
+    const bedroom = documentedBedroom()
+    bedroom.surfaces = bedroom.surfaces.map((surface) =>
+      surface.rateId === "ceiling" ? { ...surface, coatCount: 3, finishCoats: 3 } : surface,
+    )
+    const sheet = toCrewSheet({ ...estimate, areas: [bedroom] }, client, createWorkOrder(estimate))
+    const ceiling = sheet.areas[0].surfaces.find((surface) => surface.internalLabel === "Ceiling")
+    assert.equal(ceiling?.finishCoats, 3)
+    assert.equal(ceiling?.allocatedHours, 4.5)
+    assert.equal(sheet.allocatedHours, 15)
+    assert.equal(JSON.stringify(sheet).includes("$"), false)
+    assert.equal(keysOf(sheet).includes("price"), false)
+  })
+
   it("lists a surface the customer proposal hides", () => {
     const bedroom = documentedBedroom()
     bedroom.surfaces = bedroom.surfaces.map((surface) =>

@@ -477,6 +477,8 @@ function AreaCard({
                           Finish
                           <select
                             className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                            data-testid={`finish-coats-${rate.id}`}
+                            aria-label={`${rate.internalLabel} finish coats`}
                             value={surface.finishCoats ?? surface.coatCount}
                             onChange={(event) =>
                               updateSurface(surface, {
@@ -485,9 +487,9 @@ function AreaCard({
                               })
                             }
                           >
-                            {rate.coatRates.map((entry) => (
-                              <option key={entry.coats} value={entry.coats}>
-                                {entry.coats}
+                            {finishCoatChoices(rate, surface.finishCoats ?? surface.coatCount).map((coats) => (
+                              <option key={coats} value={coats}>
+                                {coats}
                               </option>
                             ))}
                           </select>
@@ -581,6 +583,15 @@ function AreaCard({
       </div>
     </div>
   )
+}
+
+function finishCoatChoices(rate: ProductionRate, selected: number): number[] {
+  const counts = new Set([1, 2, 3, 4, 5, 6])
+  for (const entry of rate.coatRates) {
+    if (entry.coats >= 1 && entry.coats <= 6) counts.add(entry.coats)
+  }
+  if (selected >= 1 && selected <= 6) counts.add(Math.round(selected))
+  return [...counts].sort((left, right) => left - right)
 }
 
 function ratesForArea(rates: ProductionRate[], kind: EstimateKind, area: AreaInput): ProductionRate[] {

@@ -363,6 +363,7 @@ describe("calculateEstimate", () => {
       paymentMethods: PAYMENT_METHODS,
     })
     assert.equal(nearest.areas[0].surfaces[0].rawHours, 432 / 100)
+    assert.equal(nearest.areas[0].surfaces[0].rateLabel, "100 sqft/hr")
 
     const primed = calculateEstimate({
       areas: [
@@ -395,6 +396,119 @@ describe("calculateEstimate", () => {
     assert.equal(dollars.areas[0].surfaces[0].laborPrice, Math.round(432 * 2.1 * 100) / 100)
     assert.equal(dollars.areas[0].surfaces[0].allocatedHours, 0)
     assert.equal(dollars.areas[0].surfaces[0].missingRate, false)
+  })
+
+  it("adds one coat of time for each coat past the highest rate", () => {
+    const bedroom = documentedBedroom()
+    const threeCoatCeiling = calculateEstimate({
+      areas: [
+        {
+          ...bedroom,
+          surfaces: bedroom.surfaces.map((surface) =>
+            surface.rateId === "ceiling" ? { ...surface, coatCount: 2, finishCoats: 3 } : surface,
+          ),
+        },
+      ],
+      lineItems: [],
+      rates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    const ceiling = threeCoatCeiling.areas[0].surfaces.find((surface) => surface.id === "ceiling")
+    const walls = threeCoatCeiling.areas[0].surfaces.find((surface) => surface.id === "walls")
+    assert.ok(ceiling && walls)
+    assert.equal(ceiling.coatCount, 3)
+    assert.equal(ceiling.rawHours, 180 / 60 + 180 / 150)
+    assert.equal(ceiling.allocatedHours, 4.5)
+    assert.equal(ceiling.paintGallons, 1.54)
+    assert.equal(ceiling.rateLabel, "60 sqft/hr + 1 coat")
+    assert.equal(walls.allocatedHours, 5.5)
+    assert.equal(walls.rateLabel, "85 sqft/hr")
+    assert.equal(threeCoatCeiling.allocatedHours, 15)
+    assert.equal(threeCoatCeiling.laborPrice, 1125)
+    assert.equal(threeCoatCeiling.paintGallons, 4.38)
+    assert.equal(quoteBedroom().allocatedHours, 13.5)
+    assert.equal(quoteBedroom().paintGallons, 3.87)
+
+    const wallRate = rates.find((rate) => rate.id === "walls")
+    assert.ok(wallRate)
+    const wallOnly = {
+      ...bedroom,
+      surfaces: bedroom.surfaces.filter((surface) => surface.rateId === "walls"),
+    }
+    const threeCoatWalls = calculateEstimate({
+      areas: [{ ...wallOnly, surfaces: [{ ...wallOnly.surfaces[0], coatCount: 3 }] }],
+      lineItems: [],
+      rates,
+      settings: { ...settings, hourRounding: 0 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(threeCoatWalls.areas[0].surfaces[0].rawHours, 432 / 85 + 432 / 200)
+    assert.equal(threeCoatWalls.areas[0].surfaces[0].paintGallons, 3.7)
+    assert.equal(threeCoatWalls.areas[0].surfaces[0].rateLabel, "85 sqft/hr + 1 coat")
+
+    const doorOnly = {
+      ...bedroom,
+      surfaces: bedroom.surfaces.filter((surface) => surface.rateId === "door-frame"),
+    }
+    const threeCoatDoor = calculateEstimate({
+      areas: [{ ...doorOnly, surfaces: [{ ...doorOnly.surfaces[0], coatCount: 3 }] }],
+      lineItems: [],
+      rates,
+      settings: { ...settings, hourRounding: 0 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(threeCoatDoor.areas[0].surfaces[0].rawHours, 1.5 + 1)
+    assert.equal(threeCoatDoor.areas[0].surfaces[0].rateLabel, "1.5 hrs/item + 1 coat")
+
+    const savedThird = calculateEstimate({
+      areas: [{ ...wallOnly, surfaces: [{ ...wallOnly.surfaces[0], coatCount: 3 }] }],
+      lineItems: [],
+      rates: [{ ...wallRate, coatRates: [...wallRate.coatRates, { coats: 3, value: 70 }] }],
+      settings: { ...settings, hourRounding: 0 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(savedThird.areas[0].surfaces[0].rawHours, 432 / 70)
+    assert.equal(savedThird.areas[0].surfaces[0].rateLabel, "70 sqft/hr")
+
+    const dollars = calculateEstimate({
+      areas: [{ ...wallOnly, surfaces: [{ ...wallOnly.surfaces[0], coatCount: 3 }] }],
+      lineItems: [],
+      rates: [
+        {
+          ...wallRate,
+          basis: "dollars_per_sqft",
+          coatRates: [{ coats: 1, value: 1.25 }, { coats: 2, value: 2.1 }],
+          coveragePerCoat: 0,
+        },
+      ],
+      settings: { ...settings, hourRounding: 0 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(dollars.areas[0].surfaces[0].laborPrice, Math.round((432 * 2.1 + 432 * 1.25) * 100) / 100)
+    assert.equal(dollars.areas[0].surfaces[0].rateLabel, "$2.1 / sq ft + 1 coat")
+    assert.equal(dollars.areas[0].surfaces[0].allocatedHours, 0)
+
+    const splitHighest = calculateEstimate({
+      areas: [{ ...wallOnly, surfaces: [{ ...wallOnly.surfaces[0], coatCount: 4 }] }],
+      lineItems: [],
+      rates: [{ ...wallRate, coatRates: [{ coats: 2, value: 100 }] }],
+      settings: { ...settings, hourRounding: 0 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(splitHighest.areas[0].surfaces[0].rawHours, 432 / 100 + (432 / 100 / 2) * 2)
+    assert.equal(splitHighest.areas[0].surfaces[0].rateLabel, "100 sqft/hr + 2 coats")
+
+    const capped = calculateEstimate({
+      areas: [{ ...wallOnly, surfaces: [{ ...wallOnly.surfaces[0], coatCount: 8 }] }],
+      lineItems: [],
+      rates,
+      settings: { ...settings, hourRounding: 0 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(capped.areas[0].surfaces[0].coatCount, 6)
+    assert.equal(capped.areas[0].surfaces[0].rawHours, 432 / 85 + (432 / 200) * 4)
+    assert.equal(capped.areas[0].surfaces[0].rateLabel, "85 sqft/hr + 4 coats")
   })
 
   it("uses a typed square-foot or linear-foot amount on one surface", () => {

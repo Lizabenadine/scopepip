@@ -1,6 +1,7 @@
 import type {
   AreaInput,
   AreaScope,
+  CoatRate,
   EstimateCalculationResult,
   EstimateLineItem,
   EstimateSettings,
@@ -273,21 +274,59 @@ function typedHours(surface: SurfaceInput): number | null {
   return nonNegative(surface.hoursOverride)
 }
 
-/** Exact coat box, otherwise the nearest defined box. A tie uses the lower coat count. */
-function coatBoxValue(rate: ProductionRate, coats: number): number | null {
-  const boxes = rate.coatRates.filter(
+function coatBoxes(rate: ProductionRate): CoatRate[] {
+  return rate.coatRates.filter(
     (entry) => Number.isFinite(entry.value) && entry.value >= 0 && Number.isFinite(entry.coats),
   )
+}
+
+/** Exact coat box, otherwise the nearest defined box. A tie uses the lower coat count. */
+function nearestCoatBox(boxes: CoatRate[], coats: number): CoatRate | null {
   if (boxes.length === 0) return null
   const exact = boxes.find((entry) => entry.coats === coats)
-  if (exact) return exact.value
-  const nearest = boxes.reduce((best, entry) => {
+  if (exact) return exact
+  return boxes.reduce((best, entry) => {
     const distance = Math.abs(entry.coats - coats)
     const bestDistance = Math.abs(best.coats - coats)
     if (distance < bestDistance || (distance === bestDistance && entry.coats < best.coats)) return entry
     return best
   })
-  return nearest.value
+}
+
+/**
+ * A coat count above the highest box keeps that finished speed, then adds one
+ * coat for each coat past it. The one-coat box is that extra coat when it exists.
+ */
+function finishProduction(
+  rate: ProductionRate,
+  quantity: number,
+  coats: number,
+  pricedByArea: boolean,
+): { hours: number; price: number; labelSpeed: number | null; extraCoats: number } {
+  const boxes = coatBoxes(rate)
+  const empty = { hours: 0, price: 0, labelSpeed: null, extraCoats: 0 }
+  if (boxes.length === 0 || coats <= 0) return empty
+  const highest = boxes.reduce((best, entry) => (entry.coats > best.coats ? entry : best))
+  const exact = boxes.find((entry) => entry.coats === coats)
+  const extraCoats = !exact && coats > highest.coats ? coats - highest.coats : 0
+  const base = exact ?? (extraCoats > 0 ? highest : nearestCoatBox(boxes, coats))
+  if (!base) return empty
+  const oneCoat = boxes.find((entry) => entry.coats === 1)
+  const baseAmount = amountFor(rate, quantity, base.value, pricedByArea)
+  const oneCoatAmount = oneCoat
+    ? amountFor(rate, quantity, oneCoat.value, pricedByArea)
+    : highest.coats > 0
+      ? amountFor(rate, quantity, highest.value, pricedByArea) / highest.coats
+      : 0
+  const total = baseAmount + (extraCoats > 0 ? oneCoatAmount * extraCoats : 0)
+  return pricedByArea
+    ? { hours: 0, price: total, labelSpeed: base.value, extraCoats }
+    : { hours: total, price: 0, labelSpeed: base.value, extraCoats }
+}
+
+function amountFor(rate: ProductionRate, quantity: number, speed: number, pricedByArea: boolean): number {
+  if (pricedByArea) return quantity * speed
+  return firstCoatHours(quantity, speed, rate.basis)
 }
 
 function accessFactorOf(area: AreaInput): number {
@@ -327,21 +366,21 @@ function priceSurface(
   const quantity = quantityFor(rate, area, surface)
   const finishCoats = Math.min(Math.round(nonNegative(surface.finishCoats ?? surface.coatCount)), 6)
   const primerCoats = Math.min(Math.round(nonNegative(surface.primerCoats ?? 0)), 6)
-  const finishSpeed = finishCoats > 0 ? coatBoxValue(rate, finishCoats) : null
   const hourlyRate = rate.customHourlyRate ?? settings.hourlyRate
   const pricedByArea = rate.basis === "dollars_per_sqft" || rate.basis === "dollars_per_lnft" || rate.basis === "dollars_per_item"
+  const finish = finishCoats > 0 ? finishProduction(rate, quantity, finishCoats, pricedByArea) : null
+  const finishSpeed = finish?.labelSpeed ?? null
   const typed = typedHours(surface)
   let rawHours = 0
   let laborPrice = 0
   if (pricedByArea) {
-    laborPrice = quantity * (finishSpeed ?? 0)
+    laborPrice = finish?.price ?? 0
     if (typed !== null) rawHours = typed
   } else if (typed !== null) {
     rawHours = typed
   } else {
     const primerSpeed = Number.isFinite(rate.primerRate) ? nonNegative(rate.primerRate) : 0
-    const finishHours =
-      finishSpeed !== null && finishSpeed > 0 ? firstCoatHours(quantity, finishSpeed, rate.basis) : 0
+    const finishHours = finish?.hours ?? 0
     // Primer has one speed. Each primer coat takes that full time.
     const primerHours =
       primerCoats > 0 && primerSpeed > 0 ? firstCoatHours(quantity, primerSpeed, rate.basis) * primerCoats : 0
@@ -381,7 +420,10 @@ function priceSurface(
     primerCoats,
     rawHours,
     allocatedHours,
-    rateLabel: finishRateLabel(rate, pricedByArea, finishSpeed, primerCoats),
+    rateLabel:
+      finish && finish.extraCoats > 0
+        ? `${finishRateLabel(rate, pricedByArea, finishSpeed, primerCoats)} + ${finish.extraCoats} coat${finish.extraCoats === 1 ? "" : "s"}`
+        : finishRateLabel(rate, pricedByArea, finishSpeed, primerCoats),
     laborPrice: cents(laborPrice),
     paintGallons,
     materialCost: cents(materialCost),
