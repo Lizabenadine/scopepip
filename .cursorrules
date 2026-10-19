@@ -1,0 +1,26 @@
+# ScopePipe
+
+Write TypeScript for the Next.js App Router the way a senior engineer would: small modules, explicit types, and no drive-by refactors.
+
+## Comments
+
+Skip comments that restate the code. Comment only complex math or logic that is not obvious from the names, such as gross-margin pricing and how labor cost is spread across wall area.
+
+## Names
+
+Use domain words in the estimating and crew code:
+
+- `wallSqFt` for paintable wall area
+- `paintGallons` for total gallons across walls, trim, and cabinets
+- `laborCostPerSqFt` for labor cost spread across wall area
+- `allocatedHours` for the crew's target hours
+
+Do not abbreviate client, estimate, stage, or work order names into single letters.
+
+## Structure
+
+- Keep route files thin. Put UI in `components/` and domain math in `lib/`.
+- Share screen state through custom hooks: `useEstimator`, `usePipeline`, and `useWorkOrders`.
+- The only pricer is `calculateEstimate` in `lib/estimate/calculate.ts`.
+- Crew sheets (`/work-orders/[id]`) never render prices, costs, or margins.
+- Controlled inputs from `@/components/ui/input` use `onValueChange`, not `onChange`.
