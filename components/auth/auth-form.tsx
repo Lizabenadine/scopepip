@@ -28,12 +28,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       })
       const result = (await response.json()) as { ok?: boolean; reason?: string }
       if (!response.ok || !result.ok) {
-        setError(result.reason || "That sign-in did not work.")
+        setError(result.reason || (signup ? "That account could not be created." : "That sign-in did not work."))
         return
       }
       window.location.assign("/")
     } catch {
-      setError("That sign-in did not work.")
+      setError(signup ? "That account could not be created." : "That sign-in did not work.")
     } finally {
       setPending(false)
     }

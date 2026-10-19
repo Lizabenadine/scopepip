@@ -19,7 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return Response.json({ ok: false, reason: "That signature is too large." }, { status: 400 })
   }
   const signedAt = new Date().toISOString()
-  const result = acceptPublicProposal(token, { signedName, signaturePayload, signedAt, selectedLineIds })
+  const result = await acceptPublicProposal(token, { signedName, signaturePayload, signedAt, selectedLineIds })
   if (!result.ok) return Response.json(result, { status: 400 })
   void syncAcceptance(token, { signedName, signaturePayload, signedAt, selectedLineIds }).catch(() => undefined)
   return Response.json({ ok: true, estimate: result.estimate })

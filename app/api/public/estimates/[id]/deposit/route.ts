@@ -26,7 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
   const body = await request.json().catch(() => null)
   if (!isReceipt(body)) return Response.json({ ok: false, reason: "The deposit could not be read." }, { status: 400 })
-  const result = recordPublicDeposit(id, body)
+  const result = await recordPublicDeposit(id, body)
   if (!result.ok) return Response.json(result, { status: 400 })
   return Response.json(result)
 }

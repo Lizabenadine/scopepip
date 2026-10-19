@@ -4,7 +4,7 @@ import { readSession, signSession } from "./session-token.ts"
 
 export type { OfficeSession }
 
-export function sessionFromRequest(request: Request): OfficeSession | null {
+export async function sessionFromRequest(request: Request): Promise<OfficeSession | null> {
   const token = readCookie(request.headers.get("cookie"))
   if (!token) return null
   const userId = readSession(token, authSecret())

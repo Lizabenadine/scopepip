@@ -5,7 +5,7 @@ import type { CloudWorkOrder, EstimateSyncPayload } from "@/lib/supabase/sync"
 export const runtime = "nodejs"
 
 export async function GET(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   try {
     const cloud = await readCloud(session.companyId)
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   const body = (await request.json().catch(() => null)) as {
     payload?: EstimateSyncPayload
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   const estimateId = new URL(request.url).searchParams.get("estimateId")
   if (!estimateId) return Response.json({ reason: "Name the estimate." }, { status: 400 })

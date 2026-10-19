@@ -31,6 +31,6 @@ export async function POST(request: Request, context: { params: Promise<{ source
   const leadSource = SOURCES[source]
   if (!leadSource) return Response.json({ ok: false }, { status: 404 })
   const slug = new URL(request.url).searchParams.get("company")?.trim()
-  const companyId = slug ? companyBySlug(slug)?.id : undefined
+  const companyId = slug ? (await companyBySlug(slug))?.id : undefined
   return storeLead(leadSource, await readBody(request), companyId)
 }

@@ -25,13 +25,13 @@ describe("accounts", () => {
   })
 
   it("gives each company its own book and keeps the owner role on the account", async () => {
-    const hale = signup({
+    const hale = await signup({
       name: "Ada Hale",
       email: "ada@hale.test",
       password: "password1",
       companyName: "Hale Painting",
     })
-    const other = signup({
+    const other = await signup({
       name: "Bea Ortiz",
       email: "bea@ortiz.test",
       password: "password2",
@@ -43,8 +43,8 @@ describe("accounts", () => {
     assert.equal(hale.user.role, "owner")
     assert.notEqual(hale.user.companyId, other.user.companyId)
 
-    const haleBook = readCompanyBook(hale.user.companyId)
-    const otherBook = readCompanyBook(other.user.companyId)
+    const haleBook = await readCompanyBook(hale.user.companyId)
+    const otherBook = await readCompanyBook(other.user.companyId)
     assert.ok(haleBook)
     assert.ok(otherBook)
     if (!haleBook || !otherBook) return
@@ -52,13 +52,13 @@ describe("accounts", () => {
     assert.notEqual(haleBook.state.estimates[0]?.publicToken, otherBook.state.estimates[0]?.publicToken)
     assert.equal(haleBook.state.clients.some((client) => client.name === "Maya Chen"), true)
 
-    const cleared = writeCompanyBook(hale.user.companyId, haleBook.revision, { ...haleBook.state, clients: [] })
+    const cleared = await writeCompanyBook(hale.user.companyId, haleBook.revision, { ...haleBook.state, clients: [] })
     assert.equal(cleared.ok, true)
-    const again = writeCompanyBook(hale.user.companyId, haleBook.revision, haleBook.state)
+    const again = await writeCompanyBook(hale.user.companyId, haleBook.revision, haleBook.state)
     assert.equal(again.ok, false)
-    assert.equal(readCompanyBook(other.user.companyId)?.state.clients.length, otherBook.state.clients.length)
+    assert.equal((await readCompanyBook(other.user.companyId))?.state.clients.length, otherBook.state.clients.length)
 
-    const manager = addProjectManager(hale.user.id, {
+    const manager = await addProjectManager(hale.user.id, {
       name: "Priya Shah",
       email: "priya@hale.test",
       password: "password3",
@@ -67,11 +67,11 @@ describe("accounts", () => {
     if (!manager.ok) return
     assert.equal(manager.user.role, "project_manager")
     assert.equal(manager.user.companyId, hale.user.companyId)
-    const signedIn = login({ email: "priya@hale.test", password: "password3" })
+    const signedIn = await login({ email: "priya@hale.test", password: "password3" })
     assert.equal(signedIn.ok, true)
     if (!signedIn.ok) return
     assert.equal(signedIn.user.role, "project_manager")
-    const rejected = addProjectManager(manager.user.id, {
+    const rejected = await addProjectManager(manager.user.id, {
       name: "Sam",
       email: "sam@hale.test",
       password: "password4",
@@ -80,10 +80,10 @@ describe("accounts", () => {
 
     const token = otherBook.state.estimates.find((estimate) => estimate.clientId.startsWith("client-ortiz"))?.publicToken
     assert.ok(token)
-    const view = publicProposal(token!)
+    const view = await publicProposal(token!)
     assert.equal(view?.clientName, "Ortiz Property Group")
     assert.equal(view?.companyName, "Ortiz Painting")
     assert.equal("clients" in (view ?? {}), false)
-    assert.equal(login({ email: "ada@hale.test", password: "nope" }).ok, false)
+    assert.equal((await login({ email: "ada@hale.test", password: "nope" })).ok, false)
   })
 })

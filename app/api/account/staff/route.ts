@@ -3,20 +3,20 @@ import { sessionFromRequest } from "@/lib/auth/request"
 
 export const runtime = "nodejs"
 
-export function GET(request: Request) {
-  const session = sessionFromRequest(request)
+export async function GET(request: Request) {
+  const session = await sessionFromRequest(request)
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
-  return Response.json({ people: listPeople(session.id) })
+  return Response.json({ people: await listPeople(session.id) })
 }
 
 export async function POST(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   if (session.role !== "owner") {
     return Response.json({ ok: false, reason: "Only the owner can add a project manager." }, { status: 403 })
   }
   const body = (await request.json().catch(() => null)) as { name?: string; email?: string; password?: string } | null
-  const result = addProjectManager(session.id, {
+  const result = await addProjectManager(session.id, {
     name: body?.name ?? "",
     email: body?.email ?? "",
     password: body?.password ?? "",
