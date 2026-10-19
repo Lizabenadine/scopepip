@@ -496,6 +496,7 @@ function AreaCard({
                     ) : null}
                   </div>
                   {surface ? (
+                    <div className="flex flex-col gap-2">
                     <div className={unit === "items" ? "grid max-w-xs gap-2" : "grid grid-cols-2 gap-2"}>
                       {unit === "items" ? null : (
                         <div className="grid gap-1">
@@ -550,6 +551,26 @@ function AreaCard({
                           ) : null}
                         </p>
                       </div>
+                    </div>
+                    <label className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        data-testid={`hide-proposal-${rate.id}`}
+                        checked={Boolean(surface.hideFromCustomer ?? rate.hideFromCustomer)}
+                        onChange={(event) =>
+                          updateSurface(surface, { hideFromCustomer: event.target.checked })
+                        }
+                      />
+                      <span>
+                        Hide on the proposal
+                        {surface.hideFromCustomer ?? rate.hideFromCustomer ? (
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            Hours stay in the price. The work order still lists it.
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
                     </div>
                   ) : null}
                 </div>

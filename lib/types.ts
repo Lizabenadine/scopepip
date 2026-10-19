@@ -192,6 +192,7 @@ export interface SurfaceInput {
   itemCount: number
   quantityOverride: number | null
   hoursOverride?: number | null
+  hideFromCustomer?: boolean
   crewNote: string
   primerCoats?: number
   finishCoats?: number

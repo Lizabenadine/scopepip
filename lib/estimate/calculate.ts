@@ -389,7 +389,7 @@ function priceSurface(
     productName: rate.productName,
     clientDescription: rate.clientDescription,
     crewNote: surface.crewNote || rate.crewNote,
-    hideFromCustomer: rate.hideFromCustomer,
+    hideFromCustomer: surface.hideFromCustomer ?? rate.hideFromCustomer,
     showCoats: rate.showCoats,
     showPrice: rate.showPrice,
     missingRate: !pricedByArea && finishCoats > 0 && (finishSpeed === null || finishSpeed <= 0),
@@ -508,11 +508,7 @@ export function calculateEstimate(input: ScopeInput): EstimateQuote {
       surfaces,
       allocatedHours: surfaces.reduce((sum, surface) => sum + surface.allocatedHours, 0),
       price: cents(surfaces.reduce((sum, surface) => sum + surface.price, 0)),
-      clientPrice: cents(
-        surfaces
-          .filter((surface) => !surface.hideFromCustomer)
-          .reduce((sum, surface) => sum + surface.price, 0),
-      ),
+      clientPrice: cents(surfaces.reduce((sum, surface) => sum + surface.price, 0)),
     }
   })
   const lineItems = input.lineItems

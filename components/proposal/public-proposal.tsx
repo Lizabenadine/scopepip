@@ -231,7 +231,7 @@ function ProposalDocument({
           </p>
         </div>
         {sectionByGroup(
-          quote.areas.filter((area) => area.surfaces.some((surface) => !surface.hideFromCustomer)),
+          quote.areas.filter((area) => area.surfaces.length > 0),
           estimate.areaGroups,
           (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
         ).map((section) => (

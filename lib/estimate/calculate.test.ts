@@ -491,4 +491,56 @@ describe("calculateEstimate", () => {
     assert.equal(quote.areas[0].surfaces[0].allocatedHours, 3)
     assert.equal(quote.areas[0].surfaces[0].rawHours, 3)
   })
+
+  it("hides one surface from the customer without removing its hours from the price", () => {
+    const bedroom = documentedBedroom()
+    const quote = calculateEstimate({
+      areas: [
+        {
+          ...bedroom,
+          surfaces: bedroom.surfaces.map((surface) =>
+            surface.rateId === "ceiling" ? { ...surface, hideFromCustomer: true } : surface,
+          ),
+        },
+      ],
+      lineItems: [],
+      rates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    const ceiling = quote.areas[0].surfaces.find((surface) => surface.id === "ceiling")
+    const plain = quoteBedroom()
+    assert.equal(ceiling?.hideFromCustomer, true)
+    assert.equal(ceiling?.allocatedHours, 3)
+    assert.equal(quote.allocatedHours, 13.5)
+    assert.equal(quote.laborPrice, 1012.5)
+    assert.equal(quote.areas[0].clientPrice, quote.areas[0].price)
+    assert.equal(quote.total, plain.total)
+
+    const fromRate = calculateEstimate({
+      areas: [bedroom],
+      lineItems: [],
+      rates: rates.map((rate) => (rate.id === "ceiling" ? { ...rate, hideFromCustomer: true } : rate)),
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(fromRate.areas[0].surfaces.find((surface) => surface.id === "ceiling")?.hideFromCustomer, true)
+    assert.equal(fromRate.allocatedHours, 13.5)
+
+    const shown = calculateEstimate({
+      areas: [
+        {
+          ...bedroom,
+          surfaces: bedroom.surfaces.map((surface) =>
+            surface.rateId === "ceiling" ? { ...surface, hideFromCustomer: false } : surface,
+          ),
+        },
+      ],
+      lineItems: [],
+      rates: rates.map((rate) => (rate.id === "ceiling" ? { ...rate, hideFromCustomer: true } : rate)),
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(shown.areas[0].surfaces.find((surface) => surface.id === "ceiling")?.hideFromCustomer, false)
+  })
 })
