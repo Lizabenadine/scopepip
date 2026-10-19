@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { listJsonNames, readJsonFile, writeJsonFile } from "./account-store.ts"
+import { supabaseServerKey } from "../supabase/admin.ts"
 import { recordStageChanges } from "../clients/activity.ts"
 import { createCompanyBook } from "../data/company-book.ts"
 import { isScopeState, type ScopeState } from "../data/seed.ts"
@@ -71,7 +72,7 @@ function secretFile(): string {
 
 export function authSecret(): string {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET
-  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+  const key = supabaseServerKey()
   if (key) return createHash("sha256").update(`scopepipe.session.${key}`).digest("hex")
   const file = secretFile()
   try {

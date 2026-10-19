@@ -26,6 +26,9 @@ export async function readJsonFile(localPath: string, remoteKey: string): Promis
 export async function writeJsonFile(localPath: string, remoteKey: string, text: string): Promise<void> {
   const admin = remoteClient()
   if (!admin) {
+    if (process.env.VERCEL || localPath.startsWith("/var/task")) {
+      throw new Error("Add SUPABASE_SECRET_KEY in the Vercel project settings, then redeploy. The host cannot create /var/task/data/books.")
+    }
     fs.mkdirSync(path.dirname(localPath), { recursive: true })
     const tmp = `${localPath}.${process.pid}.tmp`
     fs.writeFileSync(tmp, text)
