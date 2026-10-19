@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
 import { isScopeState, type ScopeState } from "@/lib/data/seed"
@@ -171,6 +172,7 @@ async function pumpBook() {
     dirty = false
     const state = getSnapshot().state
     const revision = bookRevision
+    if (officeSession) saveBrowserBook(officeSession.companyId, revision, state)
     try {
       const response = await fetch("/api/account/book", {
         method: "PUT",
@@ -195,9 +197,12 @@ async function pumpBook() {
       if (response.ok) {
         const saved = (await response.json()) as { revision?: number }
         if (typeof saved.revision === "number") bookRevision = saved.revision
+      } else if (response.status !== 409) {
+        dirty = false
+        break
       }
     } catch {
-      dirty = true
+      dirty = false
       break
     }
   }
@@ -208,12 +213,11 @@ async function loadOfficeBook() {
   if (!officeSession) return
   const response = await fetch("/api/account/book")
   if (!response.ok) {
-    current = {
-      state: createBlankState(),
-      notice: "This account's jobs could not be loaded.",
-      ready: true,
-      session: officeSession,
-    }
+    const cached = readBrowserBook(officeSession.companyId)
+    const state = cached?.state ?? createCompanyBook(officeSession.companyName)
+    bookRevision = cached?.revision ?? 1
+    if (!cached) saveBrowserBook(officeSession.companyId, bookRevision, state)
+    current = { state, notice: null, ready: true, session: officeSession }
     emit()
     return
   }

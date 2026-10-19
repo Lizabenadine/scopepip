@@ -2,6 +2,9 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { readBrowserLogin, saveBrowserBook, saveBrowserLogin } from "@/lib/auth/browser-book"
+import type { OfficeSession } from "@/lib/auth/session"
+import { isScopeState } from "@/lib/data/seed"
 import { BrandLogo } from "@/components/brand/brand-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,15 +24,31 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setPending(true)
     setError(null)
     try {
+      const remembered = signup ? null : readBrowserLogin(email)
       const response = await fetch(signup ? "/api/auth/signup" : "/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(signup ? { name, companyName, email, password } : { email, password }),
+        body: JSON.stringify(
+          signup
+            ? { name, companyName, email, password }
+            : { email, password, passwordHash: remembered?.passwordHash, hostedUser: remembered?.user },
+        ),
       })
-      const result = (await response.json()) as { ok?: boolean; reason?: string }
-      if (!response.ok || !result.ok) {
+      const result = (await response.json()) as {
+        ok?: boolean
+        reason?: string
+        passwordHash?: string
+        revision?: number
+        book?: unknown
+        user?: OfficeSession
+      }
+      if (!response.ok || !result.ok || !result.user) {
         setError(result.reason || (signup ? "That account could not be created." : "That sign-in did not work."))
         return
+      }
+      if (result.passwordHash) saveBrowserLogin(result.user, result.passwordHash)
+      if (typeof result.revision === "number" && isScopeState(result.book)) {
+        saveBrowserBook(result.user.companyId, result.revision, result.book)
       }
       window.location.assign("/")
     } catch {

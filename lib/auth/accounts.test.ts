@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { describe, it } from "node:test"
 import { hashPassword, verifyPassword } from "./password.ts"
-import { readSession, signSession } from "./session-token.ts"
+import { readOfficeSession, readSession, signOfficeSession, signSession } from "./session-token.ts"
 
 const dir = mkdtempSync(path.join(tmpdir(), "scopepipe-accounts-"))
 process.env.ACCOUNTS_PATH = path.join(dir, "accounts.json")
@@ -85,5 +85,66 @@ describe("accounts", () => {
     assert.equal(view?.companyName, "Ortiz Painting")
     assert.equal("clients" in (view ?? {}), false)
     assert.equal((await login({ email: "ada@hale.test", password: "nope" })).ok, false)
+  })
+
+  it("creates a hosted company on Vercel without writing a book file", async () => {
+    const session = {
+      id: "user-hosted",
+      name: "Nadine Lizabe",
+      email: "nadine@example.test",
+      role: "owner" as const,
+      companyId: "company-hosted",
+      companyName: "PB Painting",
+      companySlug: "pb-painting",
+    }
+    const token = signOfficeSession(session, "test-secret", 1_000)
+    assert.deepEqual(readOfficeSession(token, "test-secret", 1_000), session)
+    assert.equal(readOfficeSession(token, "other-secret", 1_000), null)
+
+    const previousVercel = process.env.VERCEL
+    const previousSecret = process.env.SUPABASE_SECRET_KEY
+    const previousRole = process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.VERCEL = "1"
+    delete process.env.SUPABASE_SECRET_KEY
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY
+    try {
+      const created = await signup({
+        name: "Nadine Lizabe",
+        email: "nadine-hosted@example.test",
+        password: "password1",
+        companyName: "PB Painting",
+      })
+      assert.equal(created.ok, true)
+      if (!created.ok) return
+      assert.equal(created.hosted, true)
+      assert.equal(created.book?.estimateSettings.companyName, "PB Painting")
+      assert.equal(created.revision, 1)
+      assert.equal(await readCompanyBook(created.user.companyId), null)
+      const again = await login({
+        email: "nadine-hosted@example.test",
+        password: "password1",
+        passwordHash: created.passwordHash,
+        hostedUser: created.user,
+      })
+      assert.equal(again.ok, true)
+      if (!again.ok) return
+      assert.equal(again.hosted, true)
+      assert.equal(again.user.companyName, "PB Painting")
+      process.env.SUPABASE_SECRET_KEY = "not-a-real-key"
+      const blocked = await login({
+        email: "nadine-hosted@example.test",
+        password: "password1",
+        passwordHash: created.passwordHash,
+        hostedUser: created.user,
+      })
+      assert.equal(blocked.ok, false)
+    } finally {
+      if (previousVercel === undefined) delete process.env.VERCEL
+      else process.env.VERCEL = previousVercel
+      if (previousSecret === undefined) delete process.env.SUPABASE_SECRET_KEY
+      else process.env.SUPABASE_SECRET_KEY = previousSecret
+      if (previousRole === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY
+      else process.env.SUPABASE_SERVICE_ROLE_KEY = previousRole
+    }
   })
 })

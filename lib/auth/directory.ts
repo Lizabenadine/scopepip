@@ -74,6 +74,7 @@ export function authSecret(): string {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET
   const key = supabaseServerKey()
   if (key) return createHash("sha256").update(`scopepipe.session.${key}`).digest("hex")
+  if (process.env.VERCEL) return "scopepipe-hosted-session-v1"
   const file = secretFile()
   try {
     const existing = fs.readFileSync(file, "utf8").trim()
@@ -191,7 +192,10 @@ export async function signup(input: {
   email: string
   password: string
   companyName: string
-}): Promise<{ ok: true; user: OfficeSession } | { ok: false; reason: string }> {
+}): Promise<
+  | { ok: true; user: OfficeSession; hosted?: boolean; passwordHash?: string; revision?: number; book?: ReturnType<typeof createCompanyBook> }
+  | { ok: false; reason: string }
+> {
   const name = input.name.trim()
   const companyName = input.companyName.trim()
   const email = normalizeEmail(input.email)
@@ -221,19 +225,43 @@ export async function signup(input: {
     companyId: company.id,
     createdAt: now,
   }
+  const session = toSession(user, company)
+  if (process.env.VERCEL && !supabaseServerKey()) {
+    return {
+      ok: true,
+      hosted: true,
+      user: session,
+      passwordHash: user.passwordHash,
+      revision: 1,
+      book: createCompanyBook(companyName),
+    }
+  }
   await writeBook(company.id, { revision: 1, state: createCompanyBook(companyName) })
   await writeAccounts({ users: [...accounts.users, user], companies: [...accounts.companies, company] })
-  return { ok: true, user: toSession(user, company) }
+  return { ok: true, user: session }
 }
 
 export async function login(input: {
   email: string
   password: string
-}): Promise<{ ok: true; user: OfficeSession } | { ok: false; reason: string }> {
+  passwordHash?: string
+  hostedUser?: OfficeSession
+}): Promise<{ ok: true; user: OfficeSession; hosted?: boolean } | { ok: false; reason: string }> {
   const email = normalizeEmail(input.email)
   const accounts = await readAccounts()
   const user = accounts.users.find((item) => item.email === email)
   if (!user || !verifyPassword(input.password, user.passwordHash)) {
+    const hosted = input.hostedUser
+    if (
+      process.env.VERCEL &&
+      !supabaseServerKey() &&
+      input.passwordHash &&
+      hosted &&
+      normalizeEmail(hosted.email) === email &&
+      verifyPassword(input.password, input.passwordHash)
+    ) {
+      return { ok: true, hosted: true, user: hosted }
+    }
     return { ok: false, reason: "That email and password do not match." }
   }
   const company = accounts.companies.find((item) => item.id === user.companyId)
