@@ -12,6 +12,7 @@ import { displayCompanyName } from "@/lib/brand/company"
 import { readProposalCompanyName } from "@/lib/brand/profile"
 import { useScope } from "@/lib/data/store"
 import { calculateEstimate } from "@/lib/estimate/calculate"
+import { sectionByGroup } from "@/lib/estimate/groups"
 import type { EstimateSettings, PaymentMethod } from "@/lib/types"
 import { jobDate, money, moneyExact } from "@/lib/format"
 import { financingTerms, monthlyPayment } from "@/lib/financing/offer"
@@ -229,38 +230,50 @@ function ProposalDocument({
             Review your customized proposal, scope breakdown, and payment terms below.
           </p>
         </div>
-        {quote.areas.map((area) => {
-          const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
-          if (visible.length === 0) return null
-          return (
-            <div key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-lg font-semibold">{area.name}</h3>
-                <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {area.areaType === "room"
-                  ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
-                  : `${area.lengthFt} × ${area.heightFt} ft`}
-                {area.wallSqFt > 0 ? ` · ${area.wallSqFt} sq ft walls` : ""}
+        {sectionByGroup(
+          quote.areas.filter((area) => area.surfaces.some((surface) => !surface.hideFromCustomer)),
+          estimate.areaGroups,
+          (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
+        ).map((section) => (
+          <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
+            {section.groupName ? (
+              <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="proposal-group">
+                {section.groupName}
               </p>
-              <ul className="mt-3 flex flex-col gap-2">
-                {visible.map((surface) => (
-                  <li key={surface.id} className="flex items-baseline justify-between gap-3 text-sm">
-                    <span>
-                      <span className="font-medium">{surface.clientLabel}</span>
-                      {surface.showCoats && surface.coatCount > 0 ? ` · ${surface.coatCount} coats` : ""}
-                      {surface.clientDescription ? (
-                        <span className="block text-muted-foreground">{surface.clientDescription}</span>
-                      ) : null}
-                    </span>
-                    {surface.showPrice ? <span className="tabular-nums">{money(surface.price)}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        })}
+            ) : null}
+            {section.items.map((area) => {
+              const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
+              return (
+                <div key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-lg font-semibold">{area.name}</h3>
+                    <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {area.areaType === "room"
+                      ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
+                      : `${area.lengthFt} × ${area.heightFt} ft`}
+                    {area.wallSqFt > 0 ? ` · ${area.wallSqFt} sq ft walls` : ""}
+                  </p>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {visible.map((surface) => (
+                      <li key={surface.id} className="flex items-baseline justify-between gap-3 text-sm">
+                        <span>
+                          <span className="font-medium">{surface.clientLabel}</span>
+                          {surface.showCoats && surface.coatCount > 0 ? ` · ${surface.coatCount} coats` : ""}
+                          {surface.clientDescription ? (
+                            <span className="block text-muted-foreground">{surface.clientDescription}</span>
+                          ) : null}
+                        </span>
+                        {surface.showPrice ? <span className="tabular-nums">{money(surface.price)}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </section>
 
       {quote.lineItems.filter((line) => !optionalLines.some((item) => item.id === line.id)).length > 0 ? (

@@ -17,7 +17,7 @@ import {
   type EstimateKind,
 } from "@/lib/estimate/templates"
 import { applySavedTemplate, savedTemplateSummary, type SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import type { AreaInput, LineItemInput } from "@/lib/types"
+import type { AreaGroup, AreaInput, LineItemInput } from "@/lib/types"
 
 export function TemplatePicker({
   open,
@@ -29,7 +29,7 @@ export function TemplatePicker({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAdd: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
+  onAdd: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[], areaGroups?: AreaGroup[]) => void
   kind: EstimateKind
   savedTemplates: SavedEstimateTemplate[]
   onDeleteSaved: (id: string) => void
@@ -71,7 +71,7 @@ export function TemplatePicker({
                   data-testid={`saved-template-${template.id}`}
                   onClick={() => {
                     const applied = applySavedTemplate(template)
-                    onAdd(applied.areas, applied.title, applied.lineItems)
+                    onAdd(applied.areas, applied.title, applied.lineItems, applied.areaGroups)
                     onOpenChange(false)
                   }}
                   className="min-w-0 flex-1 rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-foreground/10"

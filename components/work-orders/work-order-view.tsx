@@ -120,8 +120,19 @@ export function WorkOrderView({ id }: { id: string }) {
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {sheet.areas.map((area) => (
-          <section key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        {sheet.areas.map((area, index) => {
+          const showGroup = Boolean(area.groupName) && sheet.areas[index - 1]?.groupName !== area.groupName
+          return (
+            <div key={area.id} className="contents">
+              {showGroup ? (
+                <h2
+                  className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase md:col-span-2"
+                  data-testid="crew-group"
+                >
+                  {area.groupName}
+                </h2>
+              ) : null}
+              <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold">{area.name}</h2>
               {showItems ? (
@@ -156,9 +167,11 @@ export function WorkOrderView({ id }: { id: string }) {
                   ) : null}
                 </li>
               ))}
-            </ul>
-          </section>
-        ))}
+              </ul>
+            </section>
+            </div>
+          )
+        })}
       </div>
       {sheet.lineItems.length > 0 ? (
         <section className="flex flex-col gap-2">

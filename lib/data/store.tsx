@@ -460,6 +460,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         jobAddress: draft.jobAddress.trim(),
         estimateKind: draft.estimateKind ?? previous?.estimateKind ?? "interior",
         areas: draft.areas,
+        areaGroups: draft.areaGroups && draft.areaGroups.length > 0 ? draft.areaGroups : undefined,
         lineItems: draft.lineItems,
         rates: draft.rates,
         settings: draft.settings,

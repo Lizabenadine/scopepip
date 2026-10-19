@@ -87,6 +87,36 @@ describe("toCrewSheet", () => {
     }
   })
 
+  it("labels a group without adding a price", () => {
+    const bedroom = documentedBedroom()
+    const copy = { ...documentedBedroom(), id: "hall", name: "Hall" }
+    bedroom.groupId = "upstairs"
+    copy.groupId = "front"
+    const sheet = toCrewSheet(
+      {
+        ...estimate,
+        areas: [bedroom, copy],
+        areaGroups: [
+          { id: "front", name: "Front of the house" },
+          { id: "upstairs", name: "Upstairs" },
+        ],
+      },
+      client,
+      createWorkOrder(estimate),
+    )
+    assert.deepEqual(
+      sheet.areas.map((area) => [area.groupName, area.name]),
+      [
+        ["Front of the house", "Hall"],
+        ["Upstairs", "Bedroom"],
+      ],
+    )
+    assert.equal(sheet.allocatedHours, 27)
+    assert.equal(JSON.stringify(sheet).includes("$"), false)
+    assert.equal(keysOf(sheet).includes("price"), false)
+    assert.equal(keysOf(sheet).includes("laborCost"), false)
+  })
+
   it("keeps a cleared prep note empty", () => {
     const sheet = toCrewSheet(estimate, client, { ...createWorkOrder(estimate), prepNotes: "" })
     assert.equal(sheet.crewNote, "")

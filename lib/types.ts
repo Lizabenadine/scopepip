@@ -197,6 +197,12 @@ export interface SurfaceInput {
   finishCoats?: number
 }
 
+/** A named section of rooms, such as Upstairs or Front of the house. */
+export interface AreaGroup {
+  id: string
+  name: string
+}
+
 export interface AreaInput {
   id: string
   name: string
@@ -209,6 +215,8 @@ export interface AreaInput {
   prepLevel?: PrepLevel
   prepHours?: number | null
   accessFactor?: number
+  /** Missing means the area is not in a group. */
+  groupId?: string
 }
 
 export interface LineMaterial {
@@ -346,6 +354,8 @@ export interface Estimate {
   /** Missing estimates stay interior. */
   estimateKind?: EstimateKind
   areas: AreaInput[]
+  /** Missing means every area is ungrouped. */
+  areaGroups?: AreaGroup[]
   lineItems: LineItemInput[]
   rates: ProductionRate[]
   settings: EstimateSettings
@@ -408,6 +418,7 @@ export interface EstimateDraft {
   jobAddress: string
   estimateKind?: EstimateKind
   areas: AreaInput[]
+  areaGroups?: AreaGroup[]
   lineItems: LineItemInput[]
   rates: ProductionRate[]
   settings: EstimateSettings

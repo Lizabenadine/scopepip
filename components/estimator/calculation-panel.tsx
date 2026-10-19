@@ -1,15 +1,22 @@
 import type { EstimateQuote } from "@/lib/estimate/calculate"
+import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, money } from "@/lib/format"
-import type { EstimateSettings } from "@/lib/types"
+import type { AreaGroup, AreaInput, EstimateSettings } from "@/lib/types"
 
 export function CalculationPanel({
   quote,
   settings,
+  areas,
+  areaGroups,
 }: {
   quote: EstimateQuote
   settings: EstimateSettings
+  areas?: AreaInput[]
+  areaGroups?: AreaGroup[]
 }) {
   const paintingHours = Math.round(quote.areas.reduce((sum, area) => sum + area.allocatedHours, 0) * 1000) / 1000
+  const groupIdOf = new Map((areas ?? []).map((area) => [area.id, area.groupId]))
+  const sections = sectionByGroup(quote.areas, areaGroups, (area) => groupIdOf.get(area.id))
   return (
     <div className="flex flex-col gap-3 text-sm">
       <p className="text-muted-foreground">
@@ -21,26 +28,35 @@ export function CalculationPanel({
         Typed hours are used as entered. Labor is those hours times ${settings.hourlyRate}/hr.
         Materials are added on their own.
       </p>
-      {quote.areas.map((area) => (
-        <section key={area.id}>
-          <h3 className="font-medium">{area.name}</h3>
-          <div className="mt-1 grid grid-cols-[minmax(0,1.4fr)_auto_auto_auto] gap-x-3 gap-y-1 text-xs">
-            <span className="text-muted-foreground">Surface</span>
-            <span className="text-muted-foreground">Measure</span>
-            <span className="text-muted-foreground">Time rate</span>
-            <span className="text-right text-muted-foreground">Hours</span>
-            {area.surfaces.map((surface) => (
-              <div key={surface.id} className="contents" data-testid={`priced-surface-${surface.internalLabel}`}>
-                <span>{surface.internalLabel}</span>
-                <span className="tabular-nums">
-                  {surface.quantity} {surface.quantityUnit}
-                </span>
-                <span>{surface.rateLabel}</span>
-                <span className="text-right tabular-nums">{hoursLabel(surface.allocatedHours)}</span>
+      {sections.map((section) => (
+        <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
+          {section.groupName ? (
+            <h3 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="price-group">
+              {section.groupName}
+            </h3>
+          ) : null}
+          {section.items.map((area) => (
+            <section key={area.id}>
+              <h3 className="font-medium">{area.name}</h3>
+              <div className="mt-1 grid grid-cols-[minmax(0,1.4fr)_auto_auto_auto] gap-x-3 gap-y-1 text-xs">
+                <span className="text-muted-foreground">Surface</span>
+                <span className="text-muted-foreground">Measure</span>
+                <span className="text-muted-foreground">Time rate</span>
+                <span className="text-right text-muted-foreground">Hours</span>
+                {area.surfaces.map((surface) => (
+                  <div key={surface.id} className="contents" data-testid={`priced-surface-${surface.internalLabel}`}>
+                    <span>{surface.internalLabel}</span>
+                    <span className="tabular-nums">
+                      {surface.quantity} {surface.quantityUnit}
+                    </span>
+                    <span>{surface.rateLabel}</span>
+                    <span className="text-right tabular-nums">{hoursLabel(surface.allocatedHours)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
+          ))}
+        </div>
       ))}
       <dl className="grid grid-cols-2 gap-2 border-t border-border pt-3">
         <div className="col-span-2">

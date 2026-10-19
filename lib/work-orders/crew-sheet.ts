@@ -1,5 +1,6 @@
 import { PAYMENT_METHODS } from "../defaults.ts"
 import { calculateEstimate, type PricedArea, type PricedLine, type PricedSurface } from "../estimate/calculate.ts"
+import { sectionByGroup } from "../estimate/groups.ts"
 import type { Client, Estimate, PrepLevel, SitePhoto, WorkOrder } from "../types.ts"
 
 export interface CrewSurface {
@@ -17,6 +18,8 @@ export interface CrewSurface {
 export interface CrewArea {
   id: string
   name: string
+  /** Set when the room sits in a named group. The sheet never carries a price. */
+  groupName?: string
   dimensionLabel: string
   prepLevel: PrepLevel
   accessFactor: number
@@ -87,12 +90,12 @@ function prepNote(area: PricedArea): string {
   return notes.join(" · ")
 }
 
-function areaRow(area: PricedArea): CrewArea {
+function areaRow(area: PricedArea, groupName: string | null): CrewArea {
   const size =
     area.areaType === "surface"
       ? `${area.lengthFt} ft × ${area.heightFt} ft`
       : `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
-  return {
+  const row: CrewArea = {
     id: area.id,
     name: area.name,
     dimensionLabel: size,
@@ -102,6 +105,8 @@ function areaRow(area: PricedArea): CrewArea {
     allocatedHours: area.allocatedHours,
     surfaces: area.surfaces.map(surfaceRow),
   }
+  if (groupName) row.groupName = groupName
+  return row
 }
 
 function lineRow(line: PricedLine): CrewLine {
@@ -137,7 +142,9 @@ export function toCrewSheet(
     address: estimate.jobAddress || client?.address || "",
     scheduledOn: estimate.scheduledOn,
     crewNote: workOrder.prepNotes,
-    areas: quote.areas.map(areaRow),
+    areas: sectionByGroup(quote.areas, estimate.areaGroups, (area) => {
+      return estimate.areas.find((item) => item.id === area.id)?.groupId
+    }).flatMap((section) => section.items.map((area) => areaRow(area, section.groupName))),
     lineItems: quote.lineItems
       .filter((line) => !line.hiddenOnWorkOrder && !changeOrderItemIds.has(line.id))
       .map(lineRow),

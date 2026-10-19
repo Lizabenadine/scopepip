@@ -38,6 +38,7 @@ function fromEstimate(estimate: Estimate, clientName: string): EstimateDraft {
     jobAddress: estimate.jobAddress,
     estimateKind: estimate.estimateKind ?? "interior",
     areas: estimate.areas,
+    areaGroups: estimate.areaGroups,
     lineItems: estimate.lineItems,
     rates: estimate.rates,
     settings: estimate.settings,
@@ -191,6 +192,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
         kind: draft.estimateKind ?? "interior",
         title: draft.title,
         areas: draft.areas,
+        areaGroups: draft.areaGroups,
         lineItems: draft.lineItems,
       })
       if (!template) return null

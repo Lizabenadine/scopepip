@@ -4,6 +4,7 @@ import Link from "next/link"
 import { CompanyName } from "@/components/brand/company-name"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
+import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, jobDate, money } from "@/lib/format"
 
 export function ProposalView({ id }: { id: string }) {
@@ -59,39 +60,51 @@ export function ProposalView({ id }: { id: string }) {
         ) : null}
       </header>
       {estimate.notes ? <p className="text-sm">{estimate.notes}</p> : null}
-      {quote.areas.map((area) => {
-        const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
-        if (visible.length === 0) return null
-        return (
-          <section key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-lg font-semibold">{area.name}</h2>
-              <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {area.areaType === "room"
-                ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
-                : `${area.lengthFt} × ${area.heightFt} ft`}
-            </p>
-            <ul className="mt-3 flex flex-col gap-3">
-              {visible.map((surface) => (
-                <li key={surface.id}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="font-medium">{surface.clientLabel}</p>
-                    {surface.showPrice ? (
-                      <p className="tabular-nums">{money(surface.price)}</p>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {surface.clientDescription}
-                    {surface.showCoats ? ` · ${surface.coatCount} coats` : ""}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )
-      })}
+      {sectionByGroup(
+        quote.areas.filter((area) => area.surfaces.some((surface) => !surface.hideFromCustomer)),
+        estimate.areaGroups,
+        (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
+      ).map((section) => (
+        <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
+          {section.groupName ? (
+            <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="proposal-group">
+              {section.groupName}
+            </h2>
+          ) : null}
+          {section.items.map((area) => {
+            const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
+            return (
+              <section key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2 className="text-lg font-semibold">{area.name}</h2>
+                  <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {area.areaType === "room"
+                    ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
+                    : `${area.lengthFt} × ${area.heightFt} ft`}
+                </p>
+                <ul className="mt-3 flex flex-col gap-3">
+                  {visible.map((surface) => (
+                    <li key={surface.id}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-medium">{surface.clientLabel}</p>
+                        {surface.showPrice ? (
+                          <p className="tabular-nums">{money(surface.price)}</p>
+                        ) : null}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {surface.clientDescription}
+                        {surface.showCoats ? ` · ${surface.coatCount} coats` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
+        </div>
+      ))}
       {quote.lineItems.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">

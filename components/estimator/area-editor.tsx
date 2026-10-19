@@ -6,14 +6,23 @@ import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
 import { copyArea, insertAfter } from "@/lib/estimate/copy"
 import { measureArea, measuredQuantity, quantityUnit } from "@/lib/estimate/calculate"
+import {
+  createAreaGroup,
+  moveAreaGroup,
+  placeArea,
+  removeAreaGroup,
+  renameAreaGroup,
+  sectionByGroup,
+} from "@/lib/estimate/groups"
 import { ratesForKind } from "@/lib/estimate/kinds"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import type { AreaInput, EstimateKind, LineItemInput, ProductionRate, SurfaceInput } from "@/lib/types"
+import type { AreaGroup, AreaInput, EstimateKind, LineItemInput, ProductionRate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export function AreaEditor({
   areas,
+  areaGroups,
   rates,
   kind,
   savedTemplates,
@@ -22,9 +31,11 @@ export function AreaEditor({
   areaNames,
   onAreaNames,
   onChange,
+  onGroups,
   onDuplicate,
 }: {
   areas: AreaInput[]
+  areaGroups: AreaGroup[]
   rates: ProductionRate[]
   kind: EstimateKind
   savedTemplates: SavedEstimateTemplate[]
@@ -33,10 +44,25 @@ export function AreaEditor({
   areaNames: AreaName[]
   onAreaNames: (names: AreaName[]) => void
   onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
+  onGroups: (groups: AreaGroup[]) => void
   onDuplicate: (areas: AreaInput[]) => void
 }) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [namesOpen, setNamesOpen] = useState(false)
+  const [groupDraft, setGroupDraft] = useState("")
+  const [groupError, setGroupError] = useState<string | null>(null)
+  const sections = sectionByGroup(areas, areaGroups, (area) => area.groupId, { includeEmpty: true })
+
+  const addGroup = () => {
+    const group = createAreaGroup(groupDraft)
+    if (!group) {
+      setGroupError("Enter a group name, such as Upstairs.")
+      return
+    }
+    onGroups([...areaGroups, group])
+    setGroupDraft("")
+    setGroupError(null)
+  }
 
   return (
     <section className="flex flex-col gap-3">
@@ -71,6 +97,41 @@ export function AreaEditor({
           </button>
         </div>
       </div>
+      <div className="rounded-2xl bg-card p-3 ring-1 ring-foreground/10">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="grid min-w-0 flex-1 gap-1">
+            <Label htmlFor="new-group-name">New group</Label>
+            <Input
+              id="new-group-name"
+              data-testid="new-group-name"
+              value={groupDraft}
+              placeholder="Upstairs, Front of the house"
+              className="h-11"
+              onValueChange={(value) => {
+                setGroupDraft(value)
+                setGroupError(null)
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return
+                event.preventDefault()
+                addGroup()
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            data-testid="add-group"
+            className="h-11 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
+            onClick={addGroup}
+          >
+            Add group
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Groups such as Upstairs or Front of the house keep those rooms together on the proposal and the crew sheet. Hours and the price stay the same.
+        </p>
+        {groupError ? <p className="mt-2 text-sm text-destructive">{groupError}</p> : null}
+      </div>
       <AreaNamesDialog
         open={namesOpen}
         names={areaNames}
@@ -84,28 +145,96 @@ export function AreaEditor({
         savedTemplates={savedTemplates}
         onDeleteSaved={onDeleteSaved}
         onOpenChange={setTemplatesOpen}
-        onAdd={(next, title, lineItems) => onChange([...areas, ...next], title, lineItems)}
+        onAdd={(next, title, lineItems, groups) => {
+          onChange([...areas, ...next], title, lineItems)
+          if (groups && groups.length > 0) onGroups([...areaGroups, ...groups])
+        }}
       />
-      {areas.length === 0 ? (
+      {areas.length === 0 && areaGroups.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
           Open Templates for a measured room. Area names are labels you keep and reorder. A blank room starts empty.
         </p>
       ) : null}
-      {areas.map((area) => (
-        <AreaCard
-          key={area.id}
-          area={area}
-          rates={ratesForArea(rates, kind, area)}
-          areaNames={areaNames}
-          onKeepName={(name) => {
-            const next = addAreaName(areaNames, name)
-            if (next) onAreaNames(next)
-          }}
-          onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
-          onCopy={() => onDuplicate(insertAfter(areas, area.id, copyArea(area)))}
-          onRemove={() => onChange(areas.filter((item) => item.id !== area.id))}
-        />
-      ))}
+      {sections.map((section) => {
+        const groupIndex = section.groupId ? areaGroups.findIndex((group) => group.id === section.groupId) : -1
+        const showUngroupedLabel = section.groupId === null && areaGroups.length > 0 && section.items.length > 0
+        return (
+          <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
+            {section.groupId ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end" data-testid="group-section">
+                <div className="grid min-w-0 flex-1 gap-1">
+                  <Label htmlFor={`group-${section.groupId}`}>Group</Label>
+                  <Input
+                    id={`group-${section.groupId}`}
+                    aria-label="Group name"
+                    data-testid="group-name"
+                    value={areaGroups[groupIndex]?.name ?? ""}
+                    className="h-11"
+                    onValueChange={(name) => onGroups(renameAreaGroup(areaGroups, section.groupId!, name))}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="h-11 px-2 text-sm font-medium text-primary disabled:opacity-40"
+                    data-testid="group-up"
+                    disabled={groupIndex <= 0}
+                    onClick={() => onGroups(moveAreaGroup(areaGroups, section.groupId!, -1))}
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    className="h-11 px-2 text-sm font-medium text-primary disabled:opacity-40"
+                    data-testid="group-down"
+                    disabled={groupIndex < 0 || groupIndex >= areaGroups.length - 1}
+                    onClick={() => onGroups(moveAreaGroup(areaGroups, section.groupId!, 1))}
+                  >
+                    Move down
+                  </button>
+                  <button
+                    type="button"
+                    className="h-11 px-2 text-sm text-muted-foreground"
+                    data-testid="remove-group"
+                    onClick={() => {
+                      const removed = removeAreaGroup(areaGroups, areas, section.groupId!)
+                      onChange(removed.areas)
+                      onGroups(removed.groups)
+                    }}
+                  >
+                    Remove group
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {showUngroupedLabel ? (
+              <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Not in a group</p>
+            ) : null}
+            {section.groupId && section.items.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border px-4 py-4 text-sm text-muted-foreground">
+                No rooms in this group yet. Choose it from a room&apos;s Group menu.
+              </p>
+            ) : null}
+            {section.items.map((area) => (
+              <AreaCard
+                key={area.id}
+                area={area}
+                rates={ratesForArea(rates, kind, area)}
+                areaNames={areaNames}
+                areaGroups={areaGroups}
+                onKeepName={(name) => {
+                  const next = addAreaName(areaNames, name)
+                  if (next) onAreaNames(next)
+                }}
+                onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
+                onPlace={(groupId) => onChange(placeArea(areas, area.id, groupId))}
+                onCopy={() => onDuplicate(insertAfter(areas, area.id, copyArea(area)))}
+                onRemove={() => onChange(areas.filter((item) => item.id !== area.id))}
+              />
+            ))}
+          </div>
+        )
+      })}
     </section>
   )
 }
@@ -114,16 +243,20 @@ function AreaCard({
   area,
   rates,
   areaNames,
+  areaGroups,
   onKeepName,
   onChange,
+  onPlace,
   onCopy,
   onRemove,
 }: {
   area: AreaInput
   rates: ProductionRate[]
   areaNames: AreaName[]
+  areaGroups: AreaGroup[]
   onKeepName: (name: string) => void
   onChange: (area: AreaInput) => void
+  onPlace: (groupId: string | null) => void
   onCopy: () => void
   onRemove: () => void
 }) {
@@ -185,6 +318,25 @@ function AreaCard({
           </button>
         </div>
       </div>
+      {areaGroups.length > 0 ? (
+        <div className="mt-3 grid gap-1">
+          <Label htmlFor={`${area.id}-group`}>Group</Label>
+          <select
+            id={`${area.id}-group`}
+            data-testid="area-group"
+            className="h-11 rounded-lg border border-input bg-transparent px-2"
+            value={area.groupId && areaGroups.some((group) => group.id === area.groupId) ? area.groupId : ""}
+            onChange={(event) => onPlace(event.target.value || null)}
+          >
+            <option value="">Not in a group</option>
+            {areaGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name.trim() || "Group"}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       <div className="mt-3 flex gap-2">
         {(["room", "surface"] as const).map((areaType) => (
           <button

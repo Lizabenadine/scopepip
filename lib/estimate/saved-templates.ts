@@ -1,4 +1,4 @@
-import type { EstimateKind } from "../types.ts"
+import type { AreaGroup, EstimateKind } from "../types.ts"
 import type { AreaInput, LineItemInput, ProductionRate, SurfaceInput } from "../types.ts"
 
 export interface SavedEstimateTemplate {
@@ -7,6 +7,8 @@ export interface SavedEstimateTemplate {
   kind: EstimateKind
   title: string
   areas: AreaInput[]
+  /** Missing means the saved rooms are ungrouped. */
+  areaGroups?: AreaGroup[]
   lineItems: LineItemInput[]
   createdAt: string
 }
@@ -16,32 +18,39 @@ export function captureEstimateTemplate(input: {
   kind: EstimateKind
   title: string
   areas: AreaInput[]
+  areaGroups?: AreaGroup[]
   lineItems: LineItemInput[]
   now?: string
 }): SavedEstimateTemplate | null {
   const name = input.name.trim()
   if (!name) return null
   if (input.areas.length === 0 && input.lineItems.length === 0) return null
-  return {
+  const { groups, idMap } = cloneGroups(input.areaGroups, false)
+  const template: SavedEstimateTemplate = {
     id: crypto.randomUUID(),
     name,
     kind: input.kind,
     title: input.title.trim() || name,
-    areas: input.areas.map((area) => cloneArea(area, false)),
+    areas: input.areas.map((area) => assignGroup(cloneArea(area, false), groups, idMap)),
     lineItems: input.lineItems.map((line) => cloneLine(line, false)),
     createdAt: input.now ?? new Date().toISOString(),
   }
+  if (groups.length > 0) template.areaGroups = groups
+  return template
 }
 
 export function applySavedTemplate(template: SavedEstimateTemplate): {
   areas: AreaInput[]
   lineItems: LineItemInput[]
   title: string
+  areaGroups: AreaGroup[]
 } {
+  const { groups, idMap } = cloneGroups(template.areaGroups, true)
   return {
     title: template.title,
-    areas: template.areas.map((area) => cloneArea(area, true)),
+    areas: template.areas.map((area) => assignGroup(cloneArea(area, true), groups, idMap)),
     lineItems: template.lineItems.map((line) => cloneLine(line, true)),
+    areaGroups: groups,
   }
 }
 
@@ -71,6 +80,33 @@ export function withCurrentRates(
     const fresh = currentById.get(rateId)
     if (fresh) next.push(cloneRate(fresh))
   }
+  return next
+}
+
+function cloneGroups(
+  groups: AreaGroup[] | undefined,
+  freshIds: boolean,
+): { groups: AreaGroup[]; idMap: Map<string, string> } {
+  const idMap = new Map<string, string>()
+  const next = (groups ?? []).map((group) => {
+    const id = freshIds ? crypto.randomUUID() : group.id
+    idMap.set(group.id, id)
+    return { id, name: group.name }
+  })
+  return { groups: next, idMap }
+}
+
+function assignGroup(area: AreaInput, groups: AreaGroup[], idMap: Map<string, string>): AreaInput {
+  if (groups.length === 0) return withoutGroup(area)
+  const groupId = area.groupId ? idMap.get(area.groupId) : undefined
+  if (!groupId) return withoutGroup(area)
+  return { ...area, groupId }
+}
+
+function withoutGroup(area: AreaInput): AreaInput {
+  if (area.groupId === undefined) return area
+  const next = { ...area }
+  delete next.groupId
   return next
 }
 

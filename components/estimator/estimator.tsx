@@ -228,6 +228,7 @@ export function Estimator({
           </div>
           <AreaEditor
             areas={draft.areas}
+            areaGroups={draft.areaGroups ?? []}
             rates={draft.rates}
             kind={draft.estimateKind ?? "interior"}
             savedTemplates={savedTemplates}
@@ -248,6 +249,7 @@ export function Estimator({
                 ...(title && draft.title.trim().length === 0 ? { title } : {}),
               })
             }}
+            onGroups={(areaGroups) => patch({ areaGroups })}
             onDuplicate={(areas) => patch({ areas })}
           />
           <section className="flex min-w-0 flex-col gap-2">
@@ -634,7 +636,14 @@ export function Estimator({
           status={status}
           onAdvance={onAdvance}
           onExplain={() => setExplainOpen(true)}
-          details={<CalculationPanel quote={quote} settings={draft.settings} />}
+          details={
+            <CalculationPanel
+              quote={quote}
+              settings={draft.settings}
+              areas={draft.areas}
+              areaGroups={draft.areaGroups}
+            />
+          }
         />
       </div>
       <PriceSummary
@@ -657,7 +666,12 @@ export function Estimator({
             </SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
-            <CalculationPanel quote={quote} settings={draft.settings} />
+            <CalculationPanel
+              quote={quote}
+              settings={draft.settings}
+              areas={draft.areas}
+              areaGroups={draft.areaGroups}
+            />
           </div>
         </SheetContent>
       </Sheet>
@@ -679,7 +693,7 @@ export function Estimator({
           <DialogHeader>
             <DialogTitle>Save as a template</DialogTitle>
             <DialogDescription>
-              The rooms and line items are saved for this {ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"].toLowerCase()} type. The next time you add it, the hours use your current production rates.
+              The rooms, their groups, and the line items are saved for this {ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"].toLowerCase()} type. The next time you add it, the hours use your current production rates.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-1">
