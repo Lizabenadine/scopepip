@@ -16,21 +16,27 @@ import {
   estimateTemplatesFor,
   type EstimateKind,
 } from "@/lib/estimate/templates"
-import type { AreaInput } from "@/lib/types"
+import { applySavedTemplate, savedTemplateSummary, type SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
+import type { AreaInput, LineItemInput } from "@/lib/types"
 
 export function TemplatePicker({
   open,
   onOpenChange,
   onAdd,
   kind,
+  savedTemplates,
+  onDeleteSaved,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAdd: (areas: AreaInput[], title?: string) => void
+  onAdd: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
   kind: EstimateKind
+  savedTemplates: SavedEstimateTemplate[]
+  onDeleteSaved: (id: string) => void
 }) {
   const jobs = estimateTemplatesFor(kind)
   const areas = areaTemplatesFor(kind)
+  const saved = savedTemplates.filter((template) => template.kind === kind)
 
   const addJob = (templateId: string) => {
     const next = areasFromEstimateTemplate(templateId)
@@ -52,9 +58,39 @@ export function TemplatePicker({
         <DialogHeader>
           <DialogTitle>{ESTIMATE_KIND_LABEL[kind]} templates</DialogTitle>
           <DialogDescription>
-            Start from a whole {ESTIMATE_KIND_LABEL[kind].toLowerCase()} job, or add one area. Sizes are a starting point. Change length, width, and height after it lands on the estimate.
+            Start from a whole {ESTIMATE_KIND_LABEL[kind].toLowerCase()} job, or add one area. A template you saved uses your current production rates.
           </DialogDescription>
         </DialogHeader>
+        {saved.length > 0 ? (
+          <div className="grid gap-2">
+            <h3 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Your templates</h3>
+            {saved.map((template) => (
+              <div key={template.id} className="flex items-stretch gap-2">
+                <button
+                  type="button"
+                  data-testid={`saved-template-${template.id}`}
+                  onClick={() => {
+                    const applied = applySavedTemplate(template)
+                    onAdd(applied.areas, applied.title, applied.lineItems)
+                    onOpenChange(false)
+                  }}
+                  className="min-w-0 flex-1 rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-foreground/10"
+                >
+                  <span className="block text-sm font-medium">{template.name}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">{savedTemplateSummary(template)}</span>
+                </button>
+                <button
+                  type="button"
+                  className="px-2 text-sm text-muted-foreground"
+                  data-testid={`delete-template-${template.id}`}
+                  onClick={() => onDeleteSaved(template.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="grid gap-2">
           <h3 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Whole job</h3>
           {jobs.map((template) => (

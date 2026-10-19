@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
@@ -338,6 +339,9 @@ export interface ScopeApi {
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
+  savedTemplates: SavedEstimateTemplate[]
+  saveEstimateTemplate: (template: SavedEstimateTemplate) => void
+  deleteEstimateTemplate: (id: string) => void
   followUpSequences: FollowUpSequence[]
   saveFollowUpSequences: (sequences: FollowUpSequence[]) => void
   markCustomerReply: (estimateId: string) => void
@@ -767,6 +771,18 @@ function buildApi(snapshot: Snapshot): ScopeApi {
                 coatRates: rate.coatRates.map((entry) => (entry.coats === coats ? { ...entry, value: speed } : entry)),
               },
         ),
+      })
+    },
+    savedTemplates: state.savedTemplates ?? [],
+    saveEstimateTemplate: (template) => {
+      const latest = getSnapshot().state
+      commit({ ...latest, savedTemplates: [template, ...(latest.savedTemplates ?? [])] })
+    },
+    deleteEstimateTemplate: (id) => {
+      const latest = getSnapshot().state
+      commit({
+        ...latest,
+        savedTemplates: (latest.savedTemplates ?? []).filter((template) => template.id !== id),
       })
     },
     followUpSequences: resolveSequences(state.followUpSequences),

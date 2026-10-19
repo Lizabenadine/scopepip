@@ -4,7 +4,8 @@ import { useState } from "react"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { measureArea } from "@/lib/estimate/calculate"
 import { ratesForKind } from "@/lib/estimate/kinds"
-import type { AreaInput, EstimateKind, ProductionRate, SurfaceInput } from "@/lib/types"
+import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
+import type { AreaInput, EstimateKind, LineItemInput, ProductionRate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -12,12 +13,18 @@ export function AreaEditor({
   areas,
   rates,
   kind,
+  savedTemplates,
+  onDeleteSaved,
+  onSaveTemplate,
   onChange,
 }: {
   areas: AreaInput[]
   rates: ProductionRate[]
   kind: EstimateKind
-  onChange: (areas: AreaInput[], title?: string) => void
+  savedTemplates: SavedEstimateTemplate[]
+  onDeleteSaved: (id: string) => void
+  onSaveTemplate: () => void
+  onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
 }) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
 
@@ -47,6 +54,14 @@ export function AreaEditor({
           <button
             type="button"
             className="text-sm font-medium text-primary"
+            data-testid="save-template"
+            onClick={onSaveTemplate}
+          >
+            Save as template
+          </button>
+          <button
+            type="button"
+            className="text-sm font-medium text-primary"
             data-testid="open-templates"
             onClick={() => setTemplatesOpen(true)}
           >
@@ -60,8 +75,10 @@ export function AreaEditor({
       <TemplatePicker
         open={templatesOpen}
         kind={kind}
+        savedTemplates={savedTemplates}
+        onDeleteSaved={onDeleteSaved}
         onOpenChange={setTemplatesOpen}
-        onAdd={(next, title) => onChange([...areas, ...next], title)}
+        onAdd={(next, title, lineItems) => onChange([...areas, ...next], title, lineItems)}
       />
       {areas.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">

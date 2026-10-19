@@ -32,6 +32,7 @@ import {
 import { useEstimator } from "@/hooks/use-estimator"
 import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
+import { withCurrentRates } from "@/lib/estimate/saved-templates"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
@@ -50,6 +51,9 @@ export function Estimator({
   const [explainOpen, setExplainOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [templateName, setTemplateName] = useState("")
+  const [templateError, setTemplateError] = useState<string | null>(null)
 
   if (!estimator.ready) {
     return (
@@ -77,6 +81,10 @@ export function Estimator({
     moveStage,
     deleteEstimate,
     paymentMethods,
+    productionRates,
+    savedTemplates,
+    saveEstimateTemplate,
+    deleteEstimateTemplate,
   } = estimator
 
   if (missing || !draft || !quote) {
@@ -219,12 +227,22 @@ export function Estimator({
             areas={draft.areas}
             rates={draft.rates}
             kind={draft.estimateKind ?? "interior"}
-            onChange={(areas, title) =>
+            savedTemplates={savedTemplates}
+            onDeleteSaved={deleteEstimateTemplate}
+            onSaveTemplate={() => {
+              setTemplateName(draft.title.trim() || `${ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"]} template`)
+              setTemplateError(null)
+              setSaveOpen(true)
+            }}
+            onChange={(areas, title, lineItems) => {
+              const added = areas.length > draft.areas.length ? areas.slice(draft.areas.length) : []
               patch({
                 areas,
+                rates: withCurrentRates(draft.rates, productionRates, added),
+                ...(lineItems && lineItems.length > 0 ? { lineItems: [...draft.lineItems, ...lineItems] } : {}),
                 ...(title && draft.title.trim().length === 0 ? { title } : {}),
               })
-            }
+            }}
           />
           <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
@@ -640,6 +658,44 @@ export function Estimator({
           router.push(`/work-orders/${draft.id}`)
         }}
       />
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save as a template</DialogTitle>
+            <DialogDescription>
+              The rooms and line items are saved for this {ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"].toLowerCase()} type. The next time you add it, the hours use your current production rates.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-1">
+            <Label htmlFor="template-name">Template name</Label>
+            <Input
+              id="template-name"
+              data-testid="template-name"
+              value={templateName}
+              className="h-11"
+              onValueChange={setTemplateName}
+            />
+          </div>
+          {templateError ? <p className="text-sm text-destructive">{templateError}</p> : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              className="h-11"
+              data-testid="template-save"
+              onClick={() => {
+                const saved = saveEstimateTemplate(templateName)
+                if (!saved) {
+                  setTemplateError("Add an area or a line item, and name the template.")
+                  return
+                }
+                setSaveOpen(false)
+              }}
+            >
+              Save template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>

@@ -59,7 +59,7 @@ export function SettingsScreen() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Company, estimating, messages, payments, and connections. A saved estimate keeps the rates it was priced with.
+          Company, estimating, messages, payments, and connections. A saved estimate keeps the rates it was priced with. A template you save picks up the current production rates when you add it again.
         </p>
       </div>
       <div role="tablist" aria-label="Settings" className="flex gap-1 overflow-x-auto border-b border-border">

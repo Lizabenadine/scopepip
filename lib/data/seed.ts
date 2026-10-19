@@ -22,6 +22,7 @@ import type {
   WorkOrder,
 } from "../types.ts"
 import { PAYMENT_METHODS } from "../defaults.ts"
+import type { SavedEstimateTemplate } from "../estimate/saved-templates.ts"
 
 export const SCOPE_VERSION = 9 as const
 
@@ -41,6 +42,8 @@ export interface ScopeState {
   customColumns?: CustomColumn[]
   /** Labels for the built-in stage columns. The stage id stays put. */
   columnLabels?: Record<string, string>
+  /** Company templates. Surfaces keep rate ids, so the current production rate prices them. */
+  savedTemplates?: SavedEstimateTemplate[]
 }
 
 export const CREWS: CrewLead[] = [
@@ -478,6 +481,7 @@ export function isScopeState(value: unknown): value is ScopeState {
     Array.isArray(state.crews) &&
     Array.isArray(state.productionRates) &&
     typeof state.estimateSettings?.hourlyRate === "number" &&
-    Array.isArray(state.paymentMethods)
+    Array.isArray(state.paymentMethods) &&
+    (state.savedTemplates === undefined || Array.isArray(state.savedTemplates))
   )
 }

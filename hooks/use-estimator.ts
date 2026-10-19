@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
 import { selectEstimateKind } from "@/lib/estimate/kinds"
+import { captureEstimateTemplate, type SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { useScope } from "@/lib/data/store"
 import { PAYMENT_METHODS } from "@/lib/defaults"
 import { adjacentStage } from "@/lib/stages"
@@ -181,5 +182,22 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     moveStage: scope.moveStage,
     deleteEstimate: scope.deleteEstimate,
     paymentMethods: PAYMENT_METHODS,
+    productionRates: scope.productionRates,
+    savedTemplates: scope.savedTemplates,
+    saveEstimateTemplate: (name: string): SavedEstimateTemplate | null => {
+      if (!draft) return null
+      const template = captureEstimateTemplate({
+        name,
+        kind: draft.estimateKind ?? "interior",
+        title: draft.title,
+        areas: draft.areas,
+        lineItems: draft.lineItems,
+      })
+      if (!template) return null
+      scope.saveEstimateTemplate(template)
+      setStatus("Saved as a template")
+      return template
+    },
+    deleteEstimateTemplate: scope.deleteEstimateTemplate,
   }
 }
