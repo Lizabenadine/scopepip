@@ -4,7 +4,7 @@ import { useState } from "react"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
-import { measureArea } from "@/lib/estimate/calculate"
+import { measureArea, measuredQuantity, quantityUnit } from "@/lib/estimate/calculate"
 import { ratesForKind } from "@/lib/estimate/kinds"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import type { AreaInput, EstimateKind, LineItemInput, ProductionRate, SurfaceInput } from "@/lib/types"
@@ -122,6 +122,12 @@ function AreaCard({
   onRemove: () => void
 }) {
   const measures = measureArea(area)
+  const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
+    onChange({
+      ...area,
+      surfaces: area.surfaces.map((item) => (item.id === surface.id ? { ...item, ...patch } : item)),
+    })
+  }
   const toggle = (rate: ProductionRate) => {
     const existing = area.surfaces.find((surface) => surface.rateId === rate.id)
     const surfaces = existing
@@ -134,6 +140,7 @@ function AreaCard({
             coatCount: rate.coatRates[rate.coatRates.length - 1]?.coats ?? 2,
             itemCount: rate.measure === "items" ? 1 : 0,
             quantityOverride: null,
+            hoursOverride: null,
             crewNote: "",
           } satisfies SurfaceInput,
         ]
@@ -267,72 +274,119 @@ function AreaCard({
             <p className="text-xs font-medium text-muted-foreground">{group.category}</p>
             {group.rates.map((rate) => {
               const surface = area.surfaces.find((item) => item.rateId === rate.id)
+              const unit = quantityUnit(rate)
+              const roomQuantity = measuredQuantity(rate, area, surface?.itemCount ?? 0)
               return (
-                <div key={rate.id} className="flex items-center justify-between gap-2">
-                  <button type="button" className="text-left text-sm font-medium" onClick={() => toggle(rate)}>
-                    <span className={surface ? "" : "text-muted-foreground"}>{rate.internalLabel}</span>
-                  </button>
+                <div key={rate.id} className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button type="button" className="text-left text-sm font-medium" onClick={() => toggle(rate)}>
+                      <span className={surface ? "" : "text-muted-foreground"}>{rate.internalLabel}</span>
+                    </button>
+                    {surface ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {rate.measure === "items" || rate.measure === "shutters" ? (
+                          <Input
+                            aria-label={`${rate.internalLabel} count`}
+                            value={String(surface.itemCount)}
+                            className="h-10 w-16 text-center"
+                            onValueChange={(value) =>
+                              updateSurface(surface, { itemCount: Number(value) || 0 })
+                            }
+                          />
+                        ) : null}
+                        <label className="text-xs text-muted-foreground">
+                          Primer
+                          <select
+                            className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                            value={surface.primerCoats ?? 0}
+                            onChange={(event) =>
+                              updateSurface(surface, { primerCoats: Number(event.target.value) })
+                            }
+                          >
+                            {[0, 1, 2].map((coats) => (
+                              <option key={coats} value={coats}>
+                                {coats}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-xs text-muted-foreground">
+                          Finish
+                          <select
+                            className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                            value={surface.finishCoats ?? surface.coatCount}
+                            onChange={(event) =>
+                              updateSurface(surface, {
+                                coatCount: Number(event.target.value),
+                                finishCoats: Number(event.target.value),
+                              })
+                            }
+                          >
+                            {rate.coatRates.map((entry) => (
+                              <option key={entry.coats} value={entry.coats}>
+                                {entry.coats}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
                   {surface ? (
-                    <div className="flex items-center gap-2">
-                      {rate.measure === "items" || rate.measure === "shutters" ? (
-                        <Input
-                          aria-label={`${rate.internalLabel} count`}
-                          value={String(surface.itemCount)}
-                          className="h-10 w-16 text-center"
-                          onValueChange={(value) =>
-                            onChange({
-                              ...area,
-                              surfaces: area.surfaces.map((item) =>
-                                item.id === surface.id ? { ...item, itemCount: Number(value) || 0 } : item,
-                              ),
-                            })
-                          }
+                    <div className={unit === "items" ? "grid max-w-xs gap-2" : "grid grid-cols-2 gap-2"}>
+                      {unit === "items" ? null : (
+                        <div className="grid gap-1">
+                          <OverrideField
+                            id={`${surface.id}-quantity`}
+                            label={unit === "ln ft" ? "Ln ft" : "Sq ft"}
+                            ariaLabel={`${rate.internalLabel} ${unit === "ln ft" ? "linear feet" : "square feet"}`}
+                            testId={`surface-quantity-${rate.id}`}
+                            value={surface.quantityOverride}
+                            onChange={(quantityOverride) => updateSurface(surface, { quantityOverride })}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Room math is {roomQuantity} {unit}
+                            {surface.quantityOverride !== null ? (
+                              <>
+                                {" "}
+                                <button
+                                  type="button"
+                                  className="font-medium text-primary"
+                                  data-testid={`use-room-${rate.id}`}
+                                  onClick={() => updateSurface(surface, { quantityOverride: null })}
+                                >
+                                  Use room math
+                                </button>
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                      )}
+                      <div className="grid gap-1">
+                        <OverrideField
+                          id={`${surface.id}-hours`}
+                          label="Hours"
+                          ariaLabel={`${rate.internalLabel} hours`}
+                          testId={`surface-hours-${rate.id}`}
+                          value={surface.hoursOverride ?? null}
+                          onChange={(hoursOverride) => updateSurface(surface, { hoursOverride })}
                         />
-                      ) : null}
-                      <label className="text-xs text-muted-foreground">
-                        Primer
-                        <select
-                          className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
-                          value={surface.primerCoats ?? 0}
-                          onChange={(event) =>
-                            onChange({
-                              ...area,
-                              surfaces: area.surfaces.map((item) =>
-                                item.id === surface.id ? { ...item, primerCoats: Number(event.target.value) } : item,
-                              ),
-                            })
-                          }
-                        >
-                          {[0, 1, 2].map((coats) => (
-                            <option key={coats} value={coats}>
-                              {coats}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-xs text-muted-foreground">
-                        Finish
-                        <select
-                          className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
-                          value={surface.finishCoats ?? surface.coatCount}
-                          onChange={(event) =>
-                            onChange({
-                              ...area,
-                              surfaces: area.surfaces.map((item) =>
-                                item.id === surface.id
-                                  ? { ...item, coatCount: Number(event.target.value), finishCoats: Number(event.target.value) }
-                                  : item,
-                              ),
-                            })
-                          }
-                        >
-                          {rate.coatRates.map((entry) => (
-                            <option key={entry.coats} value={entry.coats}>
-                              {entry.coats}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                        <p className="text-xs text-muted-foreground">
+                          {surface.hoursOverride !== null && surface.hoursOverride !== undefined
+                            ? "Used as typed. "
+                            : "Leave blank to calculate. "}
+                          {surface.hoursOverride !== null && surface.hoursOverride !== undefined ? (
+                            <button
+                              type="button"
+                              className="font-medium text-primary"
+                              data-testid={`use-calculated-hours-${rate.id}`}
+                              onClick={() => updateSurface(surface, { hoursOverride: null })}
+                            >
+                              Use calculated hours
+                            </button>
+                          ) : null}
+                        </p>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -372,6 +426,58 @@ function accessPreset(factor: number | undefined): "1" | "1.25" | "custom" {
 function customAccess(factor: number | undefined): number {
   if (factor && factor !== 1 && factor !== 1.25) return factor
   return 1.5
+}
+
+function OverrideField({
+  id,
+  label,
+  ariaLabel,
+  testId,
+  value,
+  onChange,
+}: {
+  id: string
+  label: string
+  ariaLabel: string
+  testId: string
+  value: number | null
+  onChange: (value: number | null) => void
+}) {
+  const [text, setText] = useState<string | null>(null)
+  const shown = text ?? (value === null ? "" : String(value))
+  return (
+    <div className="grid gap-1">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        inputMode="decimal"
+        aria-label={ariaLabel}
+        data-testid={testId}
+        value={shown}
+        placeholder="Override"
+        className="h-10"
+        onFocus={() => setText(value === null ? "" : String(value))}
+        onBlur={() => setText(null)}
+        onValueChange={(next) => {
+          const cleaned = decimalText(next)
+          setText(cleaned)
+          if (cleaned === "" || cleaned === ".") {
+            onChange(null)
+            return
+          }
+          const parsed = Number(cleaned)
+          if (Number.isFinite(parsed)) onChange(parsed)
+        }}
+      />
+    </div>
+  )
+}
+
+function decimalText(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, "")
+  const dot = cleaned.indexOf(".")
+  if (dot === -1) return cleaned
+  return `${cleaned.slice(0, dot + 1)}${cleaned.slice(dot + 1).replace(/\./g, "")}`
 }
 
 function NumberField({

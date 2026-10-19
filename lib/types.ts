@@ -191,6 +191,7 @@ export interface SurfaceInput {
   coatCount: number
   itemCount: number
   quantityOverride: number | null
+  hoursOverride?: number | null
   crewNote: string
   primerCoats?: number
   finishCoats?: number

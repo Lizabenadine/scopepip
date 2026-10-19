@@ -17,7 +17,9 @@ export function CalculationPanel({
         hours are the count times hours per item. Primer repeats its one-coat speed for each primer
         coat. Hours then round up
         to the nearest {settings.hourRounding === 0 ? "exact hour" : `${settings.hourRounding} hr`}.
-        Labor is those hours times ${settings.hourlyRate}/hr. Materials are added on their own.
+        A typed square-foot, linear-foot, or hour amount on a surface replaces that part of the math.
+        Typed hours are used as entered. Labor is those hours times ${settings.hourlyRate}/hr.
+        Materials are added on their own.
       </p>
       {quote.areas.map((area) => (
         <section key={area.id}>

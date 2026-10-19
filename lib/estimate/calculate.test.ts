@@ -396,4 +396,99 @@ describe("calculateEstimate", () => {
     assert.equal(dollars.areas[0].surfaces[0].allocatedHours, 0)
     assert.equal(dollars.areas[0].surfaces[0].missingRate, false)
   })
+
+  it("uses a typed square-foot or linear-foot amount on one surface", () => {
+    const bedroom = documentedBedroom()
+    const walls = bedroom.surfaces.find((surface) => surface.rateId === "walls")
+    const trim = bedroom.surfaces.find((surface) => surface.rateId === "baseboards")
+    assert.ok(walls && trim)
+    const quote = calculateEstimate({
+      areas: [
+        {
+          ...bedroom,
+          surfaces: bedroom.surfaces.map((surface) => {
+            if (surface.rateId === "walls") return { ...surface, quantityOverride: 200 }
+            if (surface.rateId === "baseboards") return { ...surface, quantityOverride: 20 }
+            return surface
+          }),
+        },
+      ],
+      lineItems: [],
+      rates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    const priced = Object.fromEntries(quote.areas[0].surfaces.map((surface) => [surface.id, surface]))
+    assert.equal(priced.walls.quantity, 200)
+    assert.equal(priced.walls.quantityUnit, "sq ft")
+    assert.equal(priced.walls.allocatedHours, 2.5)
+    assert.equal(priced.walls.paintGallons, 1.14)
+    assert.equal(priced.ceiling.quantity, 180)
+    assert.equal(priced.ceiling.allocatedHours, 3)
+    assert.equal(priced.baseboards.quantity, 20)
+    assert.equal(priced.baseboards.quantityUnit, "ln ft")
+    assert.equal(priced.baseboards.allocatedHours, 1)
+    assert.equal(quote.areas[0].ceilingSqFt, 180)
+    assert.equal(quote.wallSqFt, 432)
+  })
+
+  it("uses typed hours as entered and leaves gallons on the quantity", () => {
+    const bedroom = documentedBedroom()
+    const quote = calculateEstimate({
+      areas: [
+        {
+          ...bedroom,
+          accessFactor: HIGH_ACCESS_FACTOR,
+          surfaces: bedroom.surfaces.map((surface) =>
+            surface.rateId === "walls" ? { ...surface, hoursOverride: 2 } : { ...surface, hoursOverride: null },
+          ),
+        },
+      ],
+      lineItems: [],
+      rates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    const walls = quote.areas[0].surfaces.find((surface) => surface.id === "walls")
+    assert.ok(walls)
+    assert.equal(walls.quantity, 432)
+    assert.equal(walls.rawHours, 2)
+    assert.equal(walls.allocatedHours, 2)
+    assert.equal(walls.laborPrice, 150)
+    assert.equal(walls.paintGallons, 2.47)
+    const ceiling = quote.areas[0].surfaces.find((surface) => surface.id === "ceiling")
+    assert.equal(ceiling?.allocatedHours, 4)
+    const calculated = quoteBedroom()
+    assert.equal(calculated.areas[0].surfaces.find((surface) => surface.id === "walls")?.allocatedHours, 5.5)
+    assert.equal(calculated.allocatedHours, 13.5)
+  })
+
+  it("keeps a dollar-per-area price when hours are typed for the crew", () => {
+    const walls = rates.find((rate) => rate.id === "walls")
+    const wallSurface = documentedBedroom().surfaces.find((surface) => surface.rateId === "walls")
+    assert.ok(walls && wallSurface)
+    const bedroom = documentedBedroom()
+    const quote = calculateEstimate({
+      areas: [
+        {
+          ...bedroom,
+          surfaces: [{ ...wallSurface, hoursOverride: 3 }],
+        },
+      ],
+      lineItems: [],
+      rates: [
+        {
+          ...walls,
+          basis: "dollars_per_sqft",
+          coatRates: [{ coats: 1, value: 1.25 }, { coats: 2, value: 2.1 }],
+          coveragePerCoat: 0,
+        },
+      ],
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(quote.areas[0].surfaces[0].laborPrice, Math.round(432 * 2.1 * 100) / 100)
+    assert.equal(quote.areas[0].surfaces[0].allocatedHours, 3)
+    assert.equal(quote.areas[0].surfaces[0].rawHours, 3)
+  })
 })

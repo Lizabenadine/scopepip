@@ -241,10 +241,8 @@ export function applyMinimumCharge(total: number, minimumJobCharge: number): num
   return Math.max(nonNegative(total), nonNegative(minimumJobCharge))
 }
 
-function quantityFor(rate: ProductionRate, area: AreaInput, surface: SurfaceInput): number {
-  if (surface.quantityOverride !== null && Number.isFinite(surface.quantityOverride)) {
-    return nonNegative(surface.quantityOverride)
-  }
+/** Room or item math before a typed square-foot or linear-foot override. */
+export function measuredQuantity(rate: ProductionRate, area: AreaInput, itemCount: number): number {
   const measures = measureArea(area)
   if (rate.measure === "walls" || rate.measure === "siding" || rate.measure === "soffit" || rate.measure === "wainscot" || rate.measure === "accent") {
     return measures.wallSqFt
@@ -252,13 +250,27 @@ function quantityFor(rate: ProductionRate, area: AreaInput, surface: SurfaceInpu
   if (rate.measure === "ceiling") return measures.ceilingSqFt
   if (rate.measure === "deck") return nonNegative(area.lengthFt) * nonNegative(area.widthFt)
   if (rate.measure === "trim" || rate.measure === "fascia" || rate.measure === "crown") return measures.perimeterLnFt
-  return nonNegative(surface.itemCount)
+  return nonNegative(itemCount)
 }
 
-function unitFor(rate: ProductionRate): string {
+function quantityFor(rate: ProductionRate, area: AreaInput, surface: SurfaceInput): number {
+  if (surface.quantityOverride !== null && Number.isFinite(surface.quantityOverride)) {
+    return nonNegative(surface.quantityOverride)
+  }
+  return measuredQuantity(rate, area, surface.itemCount)
+}
+
+export function quantityUnit(rate: ProductionRate): string {
   if (rate.measure === "trim" || rate.measure === "fascia" || rate.measure === "crown") return "ln ft"
   if (rate.measure === "items" || rate.measure === "shutters") return "items"
   return "sq ft"
+}
+
+/** A typed hour amount is the time used. Access and hour rounding stay on calculated hours. */
+function typedHours(surface: SurfaceInput): number | null {
+  if (surface.hoursOverride === null || surface.hoursOverride === undefined) return null
+  if (!Number.isFinite(surface.hoursOverride)) return null
+  return nonNegative(surface.hoursOverride)
 }
 
 /** Exact coat box, otherwise the nearest defined box. A tie uses the lower coat count. */
@@ -318,10 +330,14 @@ function priceSurface(
   const finishSpeed = finishCoats > 0 ? coatBoxValue(rate, finishCoats) : null
   const hourlyRate = rate.customHourlyRate ?? settings.hourlyRate
   const pricedByArea = rate.basis === "dollars_per_sqft" || rate.basis === "dollars_per_lnft" || rate.basis === "dollars_per_item"
+  const typed = typedHours(surface)
   let rawHours = 0
   let laborPrice = 0
   if (pricedByArea) {
     laborPrice = quantity * (finishSpeed ?? 0)
+    if (typed !== null) rawHours = typed
+  } else if (typed !== null) {
+    rawHours = typed
   } else {
     const primerSpeed = Number.isFinite(rate.primerRate) ? nonNegative(rate.primerRate) : 0
     const finishHours =
@@ -331,7 +347,7 @@ function priceSurface(
       primerCoats > 0 && primerSpeed > 0 ? firstCoatHours(quantity, primerSpeed, rate.basis) * primerCoats : 0
     rawHours = applyAccessFactor(finishHours + primerHours, accessFactorOf(area))
   }
-  const allocatedHours = roundHours(rawHours, settings.hourRounding)
+  const allocatedHours = typed !== null ? typed : roundHours(rawHours, settings.hourRounding)
   if (!pricedByArea) laborPrice = allocatedHours * nonNegative(hourlyRate)
   const coverage = nonNegative(rate.coveragePerCoat)
   const itemGallons = rate.measure === "items" || rate.measure === "shutters"
@@ -360,7 +376,7 @@ function priceSurface(
     internalLabel: rate.internalLabel,
     clientLabel: rate.clientLabel || rate.internalLabel,
     quantity,
-    quantityUnit: unitFor(rate),
+    quantityUnit: quantityUnit(rate),
     coatCount: finishCoats,
     primerCoats,
     rawHours,
