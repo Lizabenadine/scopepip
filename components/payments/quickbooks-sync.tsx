@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useScope } from "@/lib/data/store"
-import { quickBooksInvoice } from "@/lib/quickbooks/invoice"
+import { quickBooksCredit, quickBooksInvoice } from "@/lib/quickbooks/invoice"
 import { listPaymentRows } from "@/lib/payments/ledger"
 
 export function QuickBooksSync() {
@@ -30,22 +30,43 @@ export function QuickBooksSync() {
         })
       })
       .filter((invoice) => invoice !== null)
+    const credits = scope.estimates.flatMap((estimate) => {
+      const client = scope.clients.find((item) => item.id === estimate.clientId)
+      return (estimate.credits ?? [])
+        .filter((credit) => !credit.quickbooksCreditId)
+        .map((credit) =>
+          quickBooksCredit({
+            estimateId: estimate.id,
+            creditId: credit.id,
+            customerName: client?.name ?? "",
+            email: client?.email ?? "",
+            description: credit.label,
+            amount: credit.amount,
+          }),
+        )
+        .filter((credit) => credit !== null)
+    })
     try {
       const response = await fetch("/api/quickbooks/sync", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invoices }),
+        body: JSON.stringify({ invoices, credits }),
       })
       const payload = (await response.json()) as {
         connected?: boolean
         detail?: string
         invoices?: { estimateId: string; quickbooksInvoiceId?: string; delivery: string }[]
+        credits?: { estimateId: string; creditId: string; quickbooksCreditId?: string; delivery: string }[]
       }
       const syncedAt = new Date().toISOString()
       const applied = (payload.invoices ?? [])
         .filter((invoice) => invoice.delivery === "synced" && invoice.quickbooksInvoiceId)
         .map((invoice) => ({ estimateId: invoice.estimateId, quickbooksInvoiceId: invoice.quickbooksInvoiceId!, syncedAt }))
       if (applied.length > 0) scope.applyQuickBooks(applied)
+      const appliedCredits = (payload.credits ?? [])
+        .filter((credit) => credit.delivery === "synced" && credit.quickbooksCreditId)
+        .map((credit) => ({ estimateId: credit.estimateId, creditId: credit.creditId, quickbooksCreditId: credit.quickbooksCreditId! }))
+      if (appliedCredits.length > 0) scope.applyQuickBooksCredits(appliedCredits)
       setDetail(payload.detail || (payload.connected ? "QuickBooks did not accept the invoices." : "QuickBooks is not connected."))
     } catch {
       setDetail("QuickBooks could not be reached.")
@@ -53,6 +74,8 @@ export function QuickBooksSync() {
       setSending(false)
     }
   }
+
+  if (scope.session?.role === "project_manager") return null
 
   return (
     <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="quickbooks-sync">

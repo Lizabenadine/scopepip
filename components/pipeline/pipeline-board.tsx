@@ -30,6 +30,7 @@ function todayIso(): string {
 
 export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   const scope = useScope()
+  const progressOnly = kind === "jobs" && scope.session?.role === "project_manager"
   const [filters, setFilters] = useState<BoardFilters>(OPEN_FILTERS)
   const [crew, setCrew] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -72,13 +73,16 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
     )
   }
 
-  const title = kind === "sales" ? "Sales Pipeline" : "Jobs Pipeline"
+  const title = progressOnly ? "Progress jobs" : kind === "sales" ? "Sales Pipeline" : "Jobs Pipeline"
   const footerLabel = kind === "sales" ? "Total Value" : "Total Revenue"
+  const visibleColumns = progressOnly
+    ? columns.filter((column) => column.id === "project_in_progress")
+    : columns
 
   return (
     <div className="flex flex-col gap-4" data-testid={kind === "sales" ? "sales-pipeline" : "jobs-pipeline"}>
-      <PipelineTabs kind={kind} crew={crew} onCrew={setCrew} />
-      {crew && kind === "jobs" ? (
+      {progressOnly ? null : <PipelineTabs kind={kind} crew={crew} onCrew={setCrew} />}
+      {crew && kind === "jobs" && !progressOnly ? (
         <DispatchBoard />
       ) : (
         <>
@@ -86,12 +90,13 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
               <p className="text-sm text-muted-foreground">
-                {columns.reduce((sum, column) => sum + column.cards.length, 0)} in view
+                {visibleColumns.reduce((sum, column) => sum + column.cards.length, 0)} in view
                 {kind === "sales"
                   ? ". The website form, Thumbtack, Angi, Google Local Services, and Facebook open a Cold Leads card and start that sequence."
                   : ""}
               </p>
             </div>
+            {progressOnly ? null : (
             <div className="flex gap-4">
               {kind === "sales" ? (
                 <Link href={scope.session ? `/request/${scope.session.companySlug}` : "/signup"} data-testid="website-form" className="text-sm font-medium text-primary hover:underline">
@@ -102,7 +107,9 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                 Follow-ups
               </Link>
             </div>
+            )}
           </div>
+          {progressOnly ? null : (
           <div className="flex flex-wrap items-center gap-2">
             <Link href="/estimates/new" data-testid="new-lead" className={cn(buttonVariants(), "h-9")}>
               + New Lead
@@ -154,8 +161,9 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
               ))}
             </FilterSelect>
           </div>
+          )}
           <div className="flex items-start gap-3 overflow-x-auto pb-2">
-            {columns.map((column) => (
+            {visibleColumns.map((column) => (
               <section
                 key={column.id}
                 data-testid={`column-${column.id}`}
@@ -189,7 +197,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                   )}
                   <span className="text-xs tabular-nums text-muted-foreground">{column.cards.length}</span>
                 </header>
-                {renaming === column.id ? null : (
+                {renaming === column.id || progressOnly ? null : (
                   <div className="flex gap-2 px-1">
                     <button
                       type="button"
@@ -246,6 +254,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                 </footer>
               </section>
             ))}
+            {progressOnly ? null : (
             <form
               className="flex w-72 shrink-0 flex-col gap-2 self-start rounded-2xl border border-dashed border-border p-3"
               data-testid="add-column"
@@ -295,6 +304,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                 </p>
               ) : null}
             </form>
+            )}
           </div>
         </>
       )}

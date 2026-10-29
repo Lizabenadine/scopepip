@@ -15,6 +15,7 @@ import { cloudWorkOrder, deleteSyncedEstimate, mergeCloud, pullCloud, syncSavedE
 import { applyDeposit } from "@/lib/payments/apply-deposit"
 import { readCompanyProfile, saveCompanyProfile } from "@/lib/brand/profile"
 import { applyChangeOrder } from "@/lib/change-orders/apply"
+import { signPendingWork } from "@/lib/estimate/pending"
 import { syncChangeOrder } from "@/lib/change-orders/sync"
 import { applyAcceptance, type AcceptanceInput } from "@/lib/proposals/accept"
 import { syncAcceptance } from "@/lib/proposals/sync"
@@ -381,6 +382,12 @@ export interface ScopeApi {
     changeOrder: ChangeOrder,
     lineItems: LineItemInput[],
   ) => { ok: true } | { ok: false; reason: string }
+  applyPendingSignature: (
+    estimateId: string,
+    lineIds: string[],
+    clientSignatureUrl: string,
+  ) => { ok: true } | { ok: false; reason: string }
+  applyQuickBooksCredits: (rows: { estimateId: string; creditId: string; quickbooksCreditId: string }[]) => void
   addSitePhoto: (
     estimateId: string,
     photo: Pick<SitePhoto, "caption" | "storagePath" | "url" | "tag" | "linkKind" | "linkId"> &
@@ -482,6 +489,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         boardColumnId: previous?.boardColumnId ?? null,
         archived: previous?.archived,
         changeOrders: previous?.changeOrders ? [...previous.changeOrders] : [],
+        credits: previous?.credits ? [...previous.credits] : undefined,
         estimateVisitOn: previous?.estimateVisitOn ?? null,
         estimateVisitAt: previous?.estimateVisitAt ?? null,
         followUp: previous?.followUp ?? null,
@@ -1114,6 +1122,38 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       commit(result.state)
       void syncChangeOrder(changeOrder).catch(() => undefined)
       return { ok: true }
+    },
+    applyPendingSignature: (estimateId, lineIds, clientSignatureUrl) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return { ok: false, reason: "This work order is not on file." }
+      const signed = signPendingWork(estimate, { lineIds, clientSignatureUrl })
+      if (!signed.ok) return signed
+      commit({
+        ...latest,
+        estimates: latest.estimates.map((item) => (item.id === estimateId ? signed.estimate : item)),
+      })
+      if (signed.changeOrder) void syncChangeOrder(signed.changeOrder).catch(() => undefined)
+      return { ok: true }
+    },
+    applyQuickBooksCredits: (rows) => {
+      const latest = getSnapshot().state
+      const byCredit = new Map(rows.filter((row) => row.quickbooksCreditId).map((row) => [`${row.estimateId}:${row.creditId}`, row.quickbooksCreditId]))
+      let changed = false
+      const estimates = latest.estimates.map((estimate) => {
+        if (!estimate.credits?.length) return estimate
+        let creditChanged = false
+        const credits = estimate.credits.map((credit) => {
+          const quickbooksCreditId = byCredit.get(`${estimate.id}:${credit.id}`)
+          if (!quickbooksCreditId || credit.quickbooksCreditId === quickbooksCreditId) return credit
+          creditChanged = true
+          return { ...credit, quickbooksCreditId }
+        })
+        if (!creditChanged) return estimate
+        changed = true
+        return { ...estimate, credits }
+      })
+      if (changed) commit({ ...latest, estimates })
     },
     addSitePhoto: (estimateId, photo) => {
       const latest = getSnapshot().state

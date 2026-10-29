@@ -67,6 +67,8 @@ export interface ProductionRate {
   customHourlyRate: number | null
   /** Empty uses the rate's category. A rate can belong to more than one type. */
   estimateKinds?: EstimateKind[]
+  /** True prices this estimate only. The company rate book never receives it. */
+  oneOff?: boolean
 }
 
 export interface PaymentMethod {
@@ -244,6 +246,8 @@ export interface LineItemInput {
   materials: LineMaterial[]
   optional?: boolean
   selected?: boolean
+  /** Held off the invoice until the customer signs it. A negative price becomes a credit. */
+  pending?: boolean
 }
 
 export type ClientStatus = "draft" | "sent" | "accepted" | "declined"
@@ -414,6 +418,8 @@ export interface Estimate {
   proposalOpens?: ProposalOpen[]
   noteLog?: NoteEntry[]
   changeOrders?: ChangeOrder[]
+  /** Signed reductions. Each amount is positive and comes off the balance. */
+  credits?: JobCredit[]
   quickbooksInvoiceId?: string
   quickbooksSyncedAt?: string
   googleEventId?: string
@@ -425,6 +431,16 @@ export interface ChangeOrderItem {
   id: string
   label: string
   amount: number
+}
+
+/** A signed reduction. QuickBooks receives the amount as a credit memo. */
+export interface JobCredit {
+  id: string
+  label: string
+  amount: number
+  clientSignatureUrl: string
+  createdAt: string
+  quickbooksCreditId?: string
 }
 
 /** Signed extra work. The amount is a custom line on the estimate, so the invoice reprices through calculateEstimate. */

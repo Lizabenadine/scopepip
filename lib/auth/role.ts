@@ -16,3 +16,11 @@ export function writeUserRole(role: UserRole) {
 export function isUserRole(value: string): value is UserRole {
   return (USER_ROLES as readonly string[]).includes(value)
 }
+
+export function homeForRole(role: UserRole): string {
+  return role === "project_manager" ? "/dispatch" : "/"
+}
+
+export function roleSignInReason(role: UserRole): string {
+  return role === "project_manager" ? "That login is a project manager." : "That login is the owner."
+}

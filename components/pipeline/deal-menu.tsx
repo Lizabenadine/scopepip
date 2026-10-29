@@ -27,8 +27,9 @@ export function DealMenu({
   clientName: string
   mode: "sales" | "jobs"
 }) {
-  const { stages, moveStage, addEstimateNote, scheduleSalesVisit, advanceSalesStage, archiveEstimate, assignWorkOrder, workOrders, markCustomerReply, placeOnColumn, customColumns, columnLabels } =
+  const { session, stages, moveStage, addEstimateNote, scheduleSalesVisit, advanceSalesStage, archiveEstimate, assignWorkOrder, workOrders, markCustomerReply, placeOnColumn, customColumns, columnLabels } =
     useScope()
+  const limited = session?.role === "project_manager"
   const menuRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [appointments, setAppointments] = useState(false)
@@ -90,6 +91,18 @@ export function DealMenu({
             className="fixed z-50 max-h-[70vh] w-60 overflow-y-auto rounded-2xl border border-border bg-popover py-1 text-sm text-popover-foreground shadow-md"
             style={{ top: point.top, left: point.left }}
           >
+            {limited ? (
+              <>
+                <MenuLink href={`/work-orders/${estimate.id}`} onClick={() => setOpen(false)}>
+                  Work order
+                </MenuLink>
+                <MenuLink href="/payments" onClick={() => setOpen(false)}>
+                  Invoices
+                </MenuLink>
+              </>
+            ) : null}
+            {limited ? null : (
+            <>
             <MenuLink href={`/estimates/${estimate.id}`} onClick={() => setOpen(false)}>
               Open estimate
             </MenuLink>
@@ -234,6 +247,8 @@ export function DealMenu({
             >
               Archive
             </MenuButton>
+            </>
+            )}
           </div>
         </>
       ) : null}

@@ -71,6 +71,14 @@ describe("accounts", () => {
     assert.equal(signedIn.ok, true)
     if (!signedIn.ok) return
     assert.equal(signedIn.user.role, "project_manager")
+    const ownerAtWrongRole = await login({ email: "ada@hale.test", password: "password1", role: "project_manager" })
+    assert.equal(ownerAtWrongRole.ok, false)
+    if (!ownerAtWrongRole.ok) assert.equal(ownerAtWrongRole.reason, "That login is the owner.")
+    const managerAtWrongRole = await login({ email: "priya@hale.test", password: "password3", role: "owner" })
+    assert.equal(managerAtWrongRole.ok, false)
+    if (!managerAtWrongRole.ok) assert.equal(managerAtWrongRole.reason, "That login is a project manager.")
+    const managerAtRole = await login({ email: "priya@hale.test", password: "password3", role: "project_manager" })
+    assert.equal(managerAtRole.ok, true)
     const rejected = await addProjectManager(manager.user.id, {
       name: "Sam",
       email: "sam@hale.test",

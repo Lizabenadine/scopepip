@@ -42,6 +42,14 @@ export interface CrewChangeOrder {
   signedAt: string
 }
 
+/** Work the customer has not signed. The price stays on the invoice. */
+export interface CrewPendingWork {
+  id: string
+  label: string
+  crewNote: string
+  allocatedHours: number
+}
+
 /** Crew copy. Dollar fields never enter this object. */
 export interface CrewSheet {
   estimateId: string
@@ -54,6 +62,7 @@ export interface CrewSheet {
   crewNote: string
   areas: CrewArea[]
   lineItems: CrewLine[]
+  pendingWork: CrewPendingWork[]
   changeOrders: CrewChangeOrder[]
   allocatedHours: number
   paintGallons: number
@@ -148,14 +157,29 @@ export function toCrewSheet(
     lineItems: quote.lineItems
       .filter((line) => !line.hiddenOnWorkOrder && !changeOrderItemIds.has(line.id))
       .map(lineRow),
-    changeOrders: (estimate.changeOrders ?? []).map((order) => ({
-      id: order.id,
-      description: order.items
-        .map((item) => item.label.trim())
-        .filter(Boolean)
-        .join(", ") || "Extra work",
-      signedAt: order.createdAt,
-    })),
+    pendingWork: estimate.lineItems
+      .filter((line) => line.pending)
+      .map((line) => ({
+        id: line.id,
+        label: line.label.trim() || "Additional work",
+        crewNote: line.crewNote,
+        allocatedHours: line.mode === "hourly" ? Math.max(0, line.hours) : Math.max(0, line.workOrderHours),
+      })),
+    changeOrders: [
+      ...(estimate.changeOrders ?? []).map((order) => ({
+        id: order.id,
+        description: order.items
+          .map((item) => item.label.trim())
+          .filter(Boolean)
+          .join(", ") || "Extra work",
+        signedAt: order.createdAt,
+      })),
+      ...(estimate.credits ?? []).map((credit) => ({
+        id: credit.id,
+        description: `Credit: ${credit.label.trim() || "Credit"}`,
+        signedAt: credit.createdAt,
+      })),
+    ],
     allocatedHours:
       quote.allocatedHours -
       quote.lineItems

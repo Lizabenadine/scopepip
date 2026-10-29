@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { PaintRoller } from "lucide-react"
+import { PendingWork } from "@/components/payments/pending-work"
 import { StripePaymentForm } from "@/components/payments/stripe-payment-form"
 import { Button } from "@/components/ui/button"
 import {
@@ -189,6 +190,12 @@ export function DepositCheckout({ id }: { id: string }) {
           <span className="text-muted-foreground">Job total</span>
           <span className="tabular-nums">{money(quote.total)}</span>
         </div>
+        {(estimate.credits ?? []).reduce((sum, credit) => sum + credit.amount, 0) > 0 ? (
+          <div className="mt-2 flex justify-between text-sm">
+            <span className="text-muted-foreground">Credits</span>
+            <span className="tabular-nums">{money(-((estimate.credits ?? []).reduce((sum, credit) => sum + credit.amount, 0)))}</span>
+          </div>
+        ) : null}
         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
           <p className="font-medium">{percent}% deposit</p>
           <p data-testid="deposit-amount" className="font-display text-4xl text-price tabular-nums">
@@ -196,6 +203,13 @@ export function DepositCheckout({ id }: { id: string }) {
           </p>
         </div>
       </section>
+      <PendingWork
+        estimate={estimate}
+        onSigned={(next) => {
+          setEstimate(next)
+          if (scope.session) void scope.reloadBook()
+        }}
+      />
       {estimate.clientStatus !== "accepted" ? (
         <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-center">
           <p className="font-medium">Accept the proposal before paying the deposit.</p>

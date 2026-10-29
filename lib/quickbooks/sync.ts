@@ -1,4 +1,4 @@
-import { quickBooksConfigured, type QuickBooksInvoiceDraft } from "./invoice.ts"
+import { quickBooksConfigured, type QuickBooksCreditDraft, type QuickBooksInvoiceDraft } from "./invoice.ts"
 
 export interface QuickBooksSyncResult {
   connected: boolean
@@ -81,8 +81,13 @@ async function findInvoice(host: string, realm: string, token: string, docNumber
   return payload.QueryResponse?.Invoice?.[0]?.Id ?? null
 }
 
-async function findOrCreateCustomer(host: string, realm: string, token: string, invoice: QuickBooksInvoiceDraft): Promise<string | null> {
-  const query = `select Id from Customer where DisplayName = '${invoice.customerName.replace(/'/g, "\\'")}'`
+async function findOrCreateCustomer(
+  host: string,
+  realm: string,
+  token: string,
+  person: { customerName: string; email: string },
+): Promise<string | null> {
+  const query = `select Id from Customer where DisplayName = '${person.customerName.replace(/'/g, "\\'")}'`
   const found = await qbo(host, realm, token, `query?query=${encodeURIComponent(query)}&minorversion=73`, { method: "GET" })
   if (found.ok) {
     const payload = (await found.json()) as { QueryResponse?: { Customer?: { Id?: string }[] } }
@@ -92,8 +97,8 @@ async function findOrCreateCustomer(host: string, realm: string, token: string, 
   const created = await qbo(host, realm, token, "customer?minorversion=73", {
     method: "POST",
     body: JSON.stringify({
-      DisplayName: invoice.customerName,
-      PrimaryEmailAddr: invoice.email.includes("@") ? { Address: invoice.email } : undefined,
+      DisplayName: person.customerName,
+      PrimaryEmailAddr: person.email.includes("@") ? { Address: person.email } : undefined,
     }),
   })
   if (!created.ok) return null
@@ -121,4 +126,89 @@ async function createInvoice(host: string, realm: string, token: string, invoice
   if (!response.ok) return null
   const payload = (await response.json()) as { Invoice?: { Id?: string } }
   return payload.Invoice?.Id ?? null
+}
+
+export interface QuickBooksCreditSync {
+  credits: { estimateId: string; creditId: string; quickbooksCreditId?: string; delivery: "synced" | "failed" | "skipped" }[]
+  detail: string
+}
+
+export async function syncQuickBooksCredits(credits: QuickBooksCreditDraft[]): Promise<QuickBooksCreditSync> {
+  if (credits.length === 0 || !quickBooksConfigured()) {
+    return {
+      credits: credits.map((credit) => ({ estimateId: credit.estimateId, creditId: credit.creditId, delivery: "skipped" })),
+      detail: "",
+    }
+  }
+  try {
+    const token = await accessToken()
+    const realm = process.env.QUICKBOOKS_REALM_ID || ""
+    const host = process.env.QUICKBOOKS_ENVIRONMENT === "sandbox" ? "https://sandbox-quickbooks.api.intuit.com" : "https://quickbooks.api.intuit.com"
+    const results: QuickBooksCreditSync["credits"] = []
+    for (const credit of credits.slice(0, 30)) {
+      try {
+        const existing = credit.quickbooksCreditId || (await findCredit(host, realm, token, credit.docNumber))
+        if (existing) {
+          results.push({ estimateId: credit.estimateId, creditId: credit.creditId, quickbooksCreditId: existing, delivery: "synced" })
+          continue
+        }
+        const customerId = await findOrCreateCustomer(host, realm, token, credit)
+        if (!customerId) {
+          results.push({ estimateId: credit.estimateId, creditId: credit.creditId, delivery: "failed" })
+          continue
+        }
+        const created = await createCreditMemo(host, realm, token, credit, customerId)
+        results.push(
+          created
+            ? { estimateId: credit.estimateId, creditId: credit.creditId, quickbooksCreditId: created, delivery: "synced" }
+            : { estimateId: credit.estimateId, creditId: credit.creditId, delivery: "failed" },
+        )
+      } catch {
+        results.push({ estimateId: credit.estimateId, creditId: credit.creditId, delivery: "failed" })
+      }
+    }
+    const synced = results.filter((row) => row.delivery === "synced").length
+    return { credits: results, detail: synced > 0 ? `Synced ${synced} credits.` : "QuickBooks did not accept the credits." }
+  } catch {
+    return {
+      credits: credits.map((credit) => ({ estimateId: credit.estimateId, creditId: credit.creditId, delivery: "failed" })),
+      detail: "QuickBooks could not be reached.",
+    }
+  }
+}
+
+async function findCredit(host: string, realm: string, token: string, docNumber: string): Promise<string | null> {
+  const query = `select Id from CreditMemo where DocNumber = '${docNumber.replace(/'/g, "\\'")}'`
+  const response = await qbo(host, realm, token, `query?query=${encodeURIComponent(query)}&minorversion=73`, { method: "GET" })
+  if (!response.ok) return null
+  const payload = (await response.json()) as { QueryResponse?: { CreditMemo?: { Id?: string }[] } }
+  return payload.QueryResponse?.CreditMemo?.[0]?.Id ?? null
+}
+
+async function createCreditMemo(
+  host: string,
+  realm: string,
+  token: string,
+  credit: QuickBooksCreditDraft,
+  customerId: string,
+): Promise<string | null> {
+  const response = await qbo(host, realm, token, "creditmemo?minorversion=73", {
+    method: "POST",
+    body: JSON.stringify({
+      DocNumber: credit.docNumber,
+      CustomerRef: { value: customerId },
+      BillEmail: credit.email.includes("@") ? { Address: credit.email } : undefined,
+      Line: [
+        {
+          DetailType: "SalesItemLineDetail",
+          Amount: credit.amount,
+          Description: credit.description,
+          SalesItemLineDetail: { Qty: 1, UnitPrice: credit.amount },
+        },
+      ],
+    }),
+  })
+  if (!response.ok) return null
+  const payload = (await response.json()) as { CreditMemo?: { Id?: string } }
+  return payload.CreditMemo?.Id ?? null
 }

@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { readBrowserLogin, saveBrowserBook, saveBrowserLogin } from "@/lib/auth/browser-book"
+import { homeForRole, type UserRole } from "@/lib/auth/role"
 import type { OfficeSession } from "@/lib/auth/session"
 import { isScopeState } from "@/lib/data/seed"
 import { BrandLogo } from "@/components/brand/brand-logo"
@@ -16,6 +17,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [companyName, setCompanyName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [role, setRole] = useState<UserRole>("owner")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -31,7 +33,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         body: JSON.stringify(
           signup
             ? { name, companyName, email, password }
-            : { email, password, passwordHash: remembered?.passwordHash, hostedUser: remembered?.user },
+            : { email, password, role, passwordHash: remembered?.passwordHash, hostedUser: remembered?.user },
         ),
       })
       const result = (await response.json()) as {
@@ -50,7 +52,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (typeof result.revision === "number" && isScopeState(result.book)) {
         saveBrowserBook(result.user.companyId, result.revision, result.book)
       }
-      window.location.assign("/")
+      window.location.assign(signup ? "/" : homeForRole(result.user.role))
     } catch {
       setError(signup ? "That account could not be created." : "That sign-in did not work.")
     } finally {
@@ -67,7 +69,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <p className="mt-1 text-sm text-muted-foreground">
             {signup
               ? "You are the owner. The sample jobs are copied onto this login only. Another company cannot see them."
-              : "Jobs stay on this account. A project manager uses the email the owner created."}
+              : "Sign in as the role on this account. An owner opens the office. A project manager opens progress jobs, work orders, and invoices."}
           </p>
         </div>
         {signup ? (
@@ -81,7 +83,33 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               <Input id="signup-company" data-testid="signup-company" value={companyName} onValueChange={setCompanyName} autoComplete="organization" className="h-11" />
             </div>
           </>
-        ) : null}
+        ) : (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">Role</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="role"
+                value="owner"
+                data-testid="login-role-owner"
+                checked={role === "owner"}
+                onChange={() => setRole("owner")}
+              />
+              Owner
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="role"
+                value="project_manager"
+                data-testid="login-role-project-manager"
+                checked={role === "project_manager"}
+                onChange={() => setRole("project_manager")}
+              />
+              Project manager
+            </label>
+          </fieldset>
+        )}
         <div className="grid gap-1">
           <Label htmlFor="auth-email">Email</Label>
           <Input

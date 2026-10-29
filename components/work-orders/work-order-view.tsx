@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react"
 import { CompanyName } from "@/components/brand/company-name"
 import { CompletionChecklist } from "@/components/work-orders/completion-checklist"
 import { OnSiteChangeOrder } from "@/components/work-orders/on-site-change-order"
+import { PendingSign } from "@/components/work-orders/pending-sign"
 import { SubcontractorWorkOrder } from "@/components/work-orders/subcontractor-work-order"
 import { CompanyCamSync } from "@/components/work-orders/companycam-sync"
 import { PhotoCapture } from "@/components/photos/photo-capture"
@@ -33,7 +34,8 @@ function signedWhen(iso: string): string {
 
 export function WorkOrderView({ id }: { id: string }) {
   const crew = useWorkOrders(id)
-  const { estimateSettings } = useScope()
+  const { estimateSettings, session } = useScope()
+  const limited = session?.role === "project_manager"
   const brand = displayCompanyName(estimateSettings.companyName)
 
   if (!crew.ready) {
@@ -48,8 +50,8 @@ export function WorkOrderView({ id }: { id: string }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Hours, dimensions, prep notes, and paint specs come from the scheduled estimate.
         </p>
-        <Link href={`/estimates/${id}`} className="mt-4 inline-block text-sm font-medium text-primary">
-          Open the estimate
+        <Link href={limited ? "/work-orders" : `/estimates/${id}`} className="mt-4 inline-block text-sm font-medium text-primary">
+          {limited ? "Back to work orders" : "Open the estimate"}
         </Link>
       </div>
     )
@@ -59,8 +61,8 @@ export function WorkOrderView({ id }: { id: string }) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center">
         <h1 className="text-xl font-semibold">This work order isn&apos;t on this device</h1>
-        <Link href="/" className="mt-4 inline-block text-sm font-medium text-primary">
-          Back to jobs
+        <Link href={limited ? "/work-orders" : "/"} className="mt-4 inline-block text-sm font-medium text-primary">
+          {limited ? "Back to work orders" : "Back to jobs"}
         </Link>
       </div>
     )
@@ -72,9 +74,9 @@ export function WorkOrderView({ id }: { id: string }) {
 
   return (
     <article data-testid="crew-sheet" className="mx-auto flex max-w-2xl flex-col gap-6 pb-8 md:max-w-5xl">
-      <Link href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+      <Link href={limited ? "/work-orders" : "/"} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
         <ChevronLeft className="size-4" />
-        Jobs
+        {limited ? "Work orders" : "Jobs"}
       </Link>
       {crew.packet ? (
         <SubcontractorWorkOrder
@@ -191,6 +193,22 @@ export function WorkOrderView({ id }: { id: string }) {
           ))}
         </section>
       ) : null}
+      {sheet.pendingWork.length > 0 ? (
+        <section className="flex flex-col gap-2" data-testid="pending-work-list">
+          <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+            Pending additional work
+          </h2>
+          {sheet.pendingWork.map((line) => (
+            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+              <div className="flex justify-between gap-3">
+                <p className="font-medium">{line.label}</p>
+                {showItems ? <p className="tabular-nums">{hoursLabel(line.allocatedHours)}</p> : null}
+              </div>
+              {line.crewNote ? <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm">{line.crewNote}</p> : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
       {sheet.changeOrders.length > 0 ? (
         <section className="flex flex-col gap-2" data-testid="change-order-list">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
@@ -204,6 +222,7 @@ export function WorkOrderView({ id }: { id: string }) {
           ))}
         </section>
       ) : null}
+      <PendingSign estimateId={id} />
       <OnSiteChangeOrder estimateId={id} />
       <CompletionChecklist items={sheet.checklist} onToggle={crew.toggleChecklist} />
       <CompanyCamSync estimateId={id} />

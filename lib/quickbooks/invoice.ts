@@ -30,6 +30,41 @@ export function quickBooksInvoice(input: {
   }
 }
 
+export interface QuickBooksCreditDraft {
+  estimateId: string
+  creditId: string
+  docNumber: string
+  customerName: string
+  email: string
+  description: string
+  amount: number
+  quickbooksCreditId?: string
+}
+
+export function quickBooksCredit(input: {
+  estimateId: string
+  creditId: string
+  customerName: string
+  email: string
+  description: string
+  amount: number
+  quickbooksCreditId?: string
+}): QuickBooksCreditDraft | null {
+  const amount = Math.round(input.amount * 100) / 100
+  const customerName = input.customerName.trim()
+  if (!input.estimateId || !input.creditId || !customerName || !Number.isFinite(amount) || amount <= 0) return null
+  return {
+    estimateId: input.estimateId,
+    creditId: input.creditId,
+    docNumber: input.creditId.replace(/[^a-zA-Z0-9-]/g, "").slice(-21),
+    customerName: customerName.slice(0, 500),
+    email: input.email.trim(),
+    description: input.description.trim().slice(0, 4000) || "Credit",
+    amount,
+    quickbooksCreditId: input.quickbooksCreditId,
+  }
+}
+
 export function quickBooksConfigured(): boolean {
   return Boolean(
     process.env.QUICKBOOKS_CLIENT_ID &&

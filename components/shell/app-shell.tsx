@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Plus, Settings, X } from "lucide-react"
+import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Plus, Receipt, Settings, X } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
 import { BrandLogo } from "@/components/brand/brand-logo"
@@ -11,7 +11,8 @@ import { buttonVariants } from "@/components/ui/button"
 import type { UserRole } from "@/lib/auth/role"
 import { PLAN_PRICE } from "@/lib/defaults"
 import { useScope } from "@/lib/data/store"
-import { navigationSections, type OfficeSection } from "@/lib/shell/navigation"
+import { homeForRole } from "@/lib/auth/role"
+import { managerCanOpen, navigationSections, type OfficeSection } from "@/lib/shell/navigation"
 import { cn } from "@/lib/utils"
 
 const SECTION_ICONS = {
@@ -20,6 +21,7 @@ const SECTION_ICONS = {
   Jobs: ClipboardList,
   Daily: CalendarDays,
   Documents: FileText,
+  Invoices: Receipt,
   Settings: Settings,
 } as const
 
@@ -43,9 +45,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { notice, dismissNotice, ready, session } = useScope()
   const sections = navigationSections(session?.role ?? "owner")
+  const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
+  const marketingPage = pathname === "/innova" || pathname.startsWith("/innova/")
   const publicProposal =
+    marketingPage ||
     pathname.startsWith("/p/") ||
     pathname.endsWith("/pay") ||
     pathname === "/request" ||
@@ -75,6 +80,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  if (marketingPage) return children
+
   if (publicProposal) {
     return (
       <div className="min-h-dvh bg-background text-foreground">
@@ -100,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <FollowUpRunner />
       <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <BrandLogo />
+          <BrandLogo href={homeForRole(session.role)} />
           <nav className="hidden min-w-0 items-center gap-0.5 md:flex" aria-label="Primary" data-nav-root="bar">
             {sections.map((section) => (
               <SectionControl
@@ -109,6 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 pathname={pathname}
                 open={openSection === section.name}
                 onOpen={() => setOpenSection(openSection === section.name ? null : section.name)}
+                onClose={() => setOpenSection(null)}
                 placement="bar"
               />
             ))}
@@ -131,10 +139,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ) : (
             <p className="hidden text-sm text-slate-500 xl:block">${PLAN_PRICE}/mo</p>
           )}
-          <Link href="/estimate" className={cn(buttonVariants({ size: "lg" }), "h-9 shrink-0")}>
-            <Plus />
-            <span className="hidden sm:inline">New estimate</span>
-          </Link>
+          {session.role === "project_manager" ? null : (
+            <Link href="/estimate" className={cn(buttonVariants({ size: "lg" }), "h-9 shrink-0")}>
+              <Plus />
+              <span className="hidden sm:inline">New estimate</span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -153,7 +163,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         ) : null}
         <main className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-4 pb-24 md:px-8 md:py-8 md:pb-8">
-          {children}
+          {managerLimited ? (
+            <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
+              <h1 className="text-xl font-semibold">This login stays on the job</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                A project manager can open progress jobs, work orders, and invoices.
+              </p>
+            </div>
+          ) : (
+            children
+          )}
         </main>
         <nav
           className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur md:hidden"
@@ -178,6 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 pathname={pathname}
                 open={openSection === section.name}
                 onOpen={() => setOpenSection(openSection === section.name ? null : section.name)}
+                onClose={() => setOpenSection(null)}
                 placement="dock"
               />
             ))}
@@ -202,12 +222,14 @@ function SectionControl({
   pathname,
   open,
   onOpen,
+  onClose,
   placement,
 }: {
   section: OfficeSection
   pathname: string
   open: boolean
   onOpen: () => void
+  onClose: () => void
   placement: "bar" | "dock"
 }) {
   const active = sectionIsActive(pathname, section)
@@ -264,7 +286,7 @@ function SectionControl({
       </button>
       {placement === "bar" && open ? (
         <div className="absolute left-0 top-full z-30 mt-2">
-          <SectionMenu section={section} pathname={pathname} onNavigate={onOpen} />
+          <SectionMenu section={section} pathname={pathname} onNavigate={onClose} />
         </div>
       ) : null}
     </div>
@@ -297,7 +319,10 @@ function SectionMenu({
             role="menuitem"
             aria-current={active ? "page" : undefined}
             data-testid={linkTestId(link.href)}
-            onClick={onNavigate}
+            onClick={(event) => {
+              event.stopPropagation()
+              window.setTimeout(onNavigate, 0)
+            }}
             className={cn(
               "block rounded-lg px-3 py-2 text-sm font-medium",
               active ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50",

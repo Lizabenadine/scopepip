@@ -166,7 +166,7 @@ function ProposalDocument({
   onDecline: () => Promise<{ ok: true } | { ok: false; reason: string }>
 }) {
   const accepted = estimate.clientStatus === "accepted" && estimate.signature
-  const optionalLines = estimate.lineItems.filter((item) => item.optional)
+  const optionalLines = estimate.lineItems.filter((item) => item.optional && item.pending !== true)
   const chosen =
     selectedIds ??
     (accepted

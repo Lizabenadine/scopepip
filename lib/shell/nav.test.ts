@@ -34,13 +34,15 @@ describe("office nav data", () => {
       "Proposals",
       "Invoices & Payments",
     ])
-    const managerSales = manager.find((section) => section.name === "Sales")?.links ?? []
-    assert.equal(managerSales.some((link) => link.name === "Clients"), false)
-    assert.equal(
-      manager.find((section) => section.name === "Daily")?.links.some((link) => link.name === "Appointments"),
-      true,
+    assert.deepEqual(
+      manager.map((section) => section.name),
+      ["Jobs", "Invoices"],
     )
-    assert.equal(managerSales.length, (owner.find((section) => section.name === "Sales")?.links.length ?? 0) - 1)
+    assert.deepEqual(manager.find((section) => section.name === "Jobs")?.links.map((link) => link.name), [
+      "Progress jobs",
+      "Work Orders",
+    ])
+    assert.equal(manager.find((section) => section.name === "Invoices")?.href, "/payments")
   })
 
   it("lists sent and accepted proposals", () => {

@@ -554,7 +554,7 @@ export function calculateEstimate(input: ScopeInput): EstimateQuote {
     }
   })
   const lineItems = input.lineItems
-    .filter((item) => item.optional !== true || item.selected !== false)
+    .filter((item) => item.pending !== true && (item.optional !== true || item.selected !== false))
     .map((item) => priceLine(item, settings))
   const surfaces = areas.flatMap((area) => area.surfaces)
   const wallSqFt = areas.reduce((sum, area) => sum + area.wallSqFt, 0)

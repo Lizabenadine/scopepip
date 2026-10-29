@@ -9,9 +9,27 @@ export type OfficeSection = {
   links: OfficeLink[]
 }
 
+const MANAGER_PATHS = ["/dispatch", "/work-orders", "/payments"]
+
+export function managerCanOpen(pathname: string): boolean {
+  return MANAGER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+}
+
 /** Office pages grouped the way a painting CRM splits the day: sales, jobs, daily work, and documents. */
 export function navigationSections(userRole: UserRole): OfficeSection[] {
-  const clients: OfficeLink[] = userRole === "project_manager" ? [] : [{ name: "Clients", href: "/clients" }]
+  if (userRole === "project_manager") {
+    return [
+      {
+        name: "Jobs",
+        short: "Jobs",
+        links: [
+          { name: "Progress jobs", href: "/dispatch" },
+          { name: "Work Orders", href: "/work-orders" },
+        ],
+      },
+      { name: "Invoices", short: "Invoices", href: "/payments", links: [] },
+    ]
+  }
   return [
     { name: "Dashboard", short: "Dashboard", href: "/", links: [] },
     {
@@ -20,7 +38,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       links: [
         { name: "Sales Pipeline", href: "/sales-pipeline" },
         { name: "Estimator", href: "/estimate" },
-        ...clients,
+        { name: "Clients", href: "/clients" },
       ],
     },
     {

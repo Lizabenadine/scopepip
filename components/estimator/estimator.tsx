@@ -33,6 +33,7 @@ import { useEstimator } from "@/hooks/use-estimator"
 import { copyLineItem, insertAfter } from "@/lib/estimate/copy"
 import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
+import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
@@ -240,11 +241,11 @@ export function Estimator({
             }}
             areaNames={areaNames}
             onAreaNames={setAreaNames}
-            onChange={(areas, title, lineItems) => {
+            onChange={(areas, title, lineItems, rates) => {
               const added = areas.length > draft.areas.length ? areas.slice(draft.areas.length) : []
               patch({
                 areas,
-                rates: withCurrentRates(draft.rates, productionRates, added),
+                rates: rates ?? withCurrentRates(draft.rates, productionRates, added),
                 ...(lineItems && lineItems.length > 0 ? { lineItems: [...draft.lineItems, ...lineItems] } : {}),
                 ...(title && draft.title.trim().length === 0 ? { title } : {}),
               })
@@ -331,8 +332,35 @@ export function Estimator({
                   />
                   Optional add-on
                 </label>
-                {line.optional && line.selected === false ? (
+                {line.optional && line.selected === false && !line.pending ? (
                   <p className="mt-2 text-sm text-muted-foreground">The client left this off the accepted proposal.</p>
+                ) : null}
+                {draft.clientStatus === "accepted" ? (
+                  <label className="mt-2 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      data-testid={`pending-${line.id}`}
+                      checked={Boolean(line.pending)}
+                      onChange={(event) => {
+                        if (!event.target.checked && pendingAmount(line, draft.settings) < 0) return
+                        updateLine(
+                          draft.lineItems,
+                          line.id,
+                          event.target.checked
+                            ? { pending: true, optional: true, selected: false }
+                            : { pending: false, selected: true },
+                          patch,
+                        )
+                      }}
+                    />
+                    Pending additional work
+                  </label>
+                ) : null}
+                {line.pending ? (
+                  <p className="mt-2 text-sm text-muted-foreground" data-testid={`pending-note-${line.id}`}>
+                    Off the invoice until the customer signs. A negative price becomes a QuickBooks credit.{" "}
+                    {money(pendingAmount(line, draft.settings))} is waiting.
+                  </p>
                 ) : null}
                 <fieldset className="mt-3">
                   <legend className="text-sm font-medium">Calculate Price By</legend>
@@ -384,6 +412,7 @@ export function Estimator({
                     <NumberBox
                       label="Price ($)"
                       value={line.customPrice}
+                      allowNegative={Boolean(line.pending)}
                       onChange={(customPrice) =>
                         updateLine(draft.lineItems, line.id, { customPrice }, patch)
                       }
@@ -790,12 +819,14 @@ function NumberBox({
   onChange,
   ariaLabel,
   hideLabel,
+  allowNegative = false,
 }: {
   label: string
   value: number
   onChange: (value: number) => void
   ariaLabel?: string
   hideLabel?: boolean
+  allowNegative?: boolean
 }) {
   const [draft, setDraft] = useState<string | null>(null)
   return (
@@ -809,9 +840,11 @@ function NumberBox({
         onFocus={() => setDraft(String(value))}
         onBlur={() => setDraft(null)}
         onValueChange={(next) => {
+          const negative = allowNegative && next.trim().startsWith("-")
           const cleaned = next.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-          setDraft(cleaned)
-          const parsed = cleaned === "" || cleaned === "." ? 0 : Number(cleaned)
+          const shown = negative ? `-${cleaned}` : cleaned
+          setDraft(shown)
+          const parsed = cleaned === "" || cleaned === "." ? 0 : Number(shown)
           onChange(Number.isFinite(parsed) ? parsed : 0)
         }}
       />

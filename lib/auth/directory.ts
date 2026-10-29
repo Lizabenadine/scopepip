@@ -7,13 +7,14 @@ import { recordStageChanges } from "../clients/activity.ts"
 import { createCompanyBook } from "../data/company-book.ts"
 import { isScopeState, type ScopeState } from "../data/seed.ts"
 import { reconcileFollowUps } from "../follow-ups/schedule.ts"
+import { signPendingWork } from "../estimate/pending.ts"
 import { applyDeposit } from "../payments/apply-deposit.ts"
 import { applyAcceptance, type AcceptanceInput } from "../proposals/accept.ts"
 import { applyDecline } from "../proposals/decline.ts"
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
-import type { UserRole } from "./role.ts"
+import { roleSignInReason, type UserRole } from "./role.ts"
 
 interface StoredUser {
   id: string
@@ -247,6 +248,7 @@ export async function login(input: {
   password: string
   passwordHash?: string
   hostedUser?: OfficeSession
+  role?: UserRole
 }): Promise<{ ok: true; user: OfficeSession; hosted?: boolean } | { ok: false; reason: string }> {
   const email = normalizeEmail(input.email)
   const accounts = await readAccounts()
@@ -261,12 +263,14 @@ export async function login(input: {
       normalizeEmail(hosted.email) === email &&
       verifyPassword(input.password, input.passwordHash)
     ) {
+      if (input.role && input.role !== hosted.role) return { ok: false, reason: roleSignInReason(hosted.role) }
       return { ok: true, hosted: true, user: hosted }
     }
     return { ok: false, reason: "That email and password do not match." }
   }
   const company = accounts.companies.find((item) => item.id === user.companyId)
   if (!company) return { ok: false, reason: "That email and password do not match." }
+  if (input.role && input.role !== user.role) return { ok: false, reason: roleSignInReason(user.role) }
   return { ok: true, user: toSession(user, company) }
 }
 
@@ -420,6 +424,24 @@ export async function recordPublicDeposit(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "The deposit could not be saved. Try again." }
+  return { ok: true, estimate }
+}
+
+export async function recordPendingSignature(
+  estimateId: string,
+  input: { lineIds: string[]; clientSignatureUrl: string },
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const found = await findByEstimate((estimate) => estimate.id === estimateId)
+  if (!found) return { ok: false, reason: "This estimate is not on file." }
+  const signed = signPendingWork(found.estimate, input)
+  if (!signed.ok) return signed
+  const next = reconciled(found.book.state, {
+    ...found.book.state,
+    estimates: found.book.state.estimates.map((item) => (item.id === estimateId ? signed.estimate : item)),
+  })
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === estimateId)
+  if (!saved.ok || !estimate) return { ok: false, reason: "The signature could not be saved. Try again." }
   return { ok: true, estimate }
 }
 

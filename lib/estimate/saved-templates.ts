@@ -71,7 +71,7 @@ export function withCurrentRates(
   if (used.size === 0) return draftRates
   const currentById = new Map(currentRates.map((rate) => [rate.id, rate]))
   const next = draftRates.map((rate) => {
-    if (!used.has(rate.id)) return rate
+    if (rate.oneOff || !used.has(rate.id)) return rate
     const fresh = currentById.get(rate.id)
     return fresh ? cloneRate(fresh) : rate
   })

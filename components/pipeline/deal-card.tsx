@@ -30,6 +30,7 @@ export function DealCard({
   mode: "sales" | "jobs"
 }) {
   const scope = useScope()
+  const limited = scope.session?.role === "project_manager"
   const { setEstimateTags } = scope
   const [labelsOpen, setLabelsOpen] = useState(false)
   const [sendingSuggestion, setSendingSuggestion] = useState(false)
@@ -121,7 +122,7 @@ export function DealCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate font-medium">
-            <Link href={`/estimates/${estimate.id}`} className="hover:underline">
+            <Link href={limited ? `/work-orders/${estimate.id}` : `/estimates/${estimate.id}`} className="hover:underline">
               {clientName}
             </Link>
           </h3>
@@ -137,7 +138,7 @@ export function DealCard({
         </div>
       </div>
       <p className="text-sm">{estimate.jobAddress || "No address yet"}</p>
-      {mode === "sales" ? (
+      {mode === "sales" && !limited ? (
         <Link href={`/book/${estimate.publicToken}`} className="text-xs font-medium text-primary" data-testid={`book-link-${estimate.id}`}>
           Booking page
         </Link>
@@ -147,6 +148,8 @@ export function DealCard({
           {appointmentLabel(visitDay, estimate.estimateVisitAt)}
         </p>
       ) : null}
+      {limited ? null : (
+      <>
       <p className="text-xs text-muted-foreground" data-testid={`follow-up-${estimate.id}`}>
         {followUpStatus}
       </p>
@@ -186,12 +189,14 @@ export function DealCard({
           Texts
         </Link>
       )}
-      {lastMessage ? (
+      </>
+      )}
+      {limited || !lastMessage ? null : (
         <p className="line-clamp-2 text-xs text-muted-foreground" data-testid={`follow-up-last-${estimate.id}`}>
           {lastMessage.delivery === "logged" ? "Logged" : lastMessage.delivery === "sent" ? "Sent" : "Skipped"}:{" "}
           {lastMessage.body}
         </p>
-      ) : null}
+      )}
       <p className="text-xs text-muted-foreground">
         {source ? LEAD_SOURCE_LABELS[source] : "No source"}
         {estimate.salesperson ? ` · ${estimate.salesperson}` : ""}

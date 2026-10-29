@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
+import { OneOffRateForm } from "@/components/estimator/one-off-rate"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
 import { copyArea, insertAfter } from "@/lib/estimate/copy"
@@ -15,6 +16,7 @@ import {
   sectionByGroup,
 } from "@/lib/estimate/groups"
 import { ratesForKind } from "@/lib/estimate/kinds"
+import { attachOneOffRate, detachRateSurface } from "@/lib/estimate/one-off"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import type { AreaGroup, AreaInput, EstimateKind, LineItemInput, ProductionRate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
@@ -43,7 +45,7 @@ export function AreaEditor({
   onSaveTemplate: () => void
   areaNames: AreaName[]
   onAreaNames: (names: AreaName[]) => void
-  onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[]) => void
+  onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[], rates?: ProductionRate[]) => void
   onGroups: (groups: AreaGroup[]) => void
   onDuplicate: (areas: AreaInput[]) => void
 }) {
@@ -219,6 +221,7 @@ export function AreaEditor({
               <AreaCard
                 key={area.id}
                 area={area}
+                kind={kind}
                 rates={ratesForArea(rates, kind, area)}
                 areaNames={areaNames}
                 areaGroups={areaGroups}
@@ -229,7 +232,23 @@ export function AreaEditor({
                 onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
                 onPlace={(groupId) => onChange(placeArea(areas, area.id, groupId))}
                 onCopy={() => onDuplicate(insertAfter(areas, area.id, copyArea(area)))}
-                onRemove={() => onChange(areas.filter((item) => item.id !== area.id))}
+                onRemove={() => {
+                  const nextAreas = areas.filter((item) => item.id !== area.id)
+                  const used = new Set(nextAreas.flatMap((item) => item.surfaces.map((surface) => surface.rateId)))
+                  const nextRates = rates.filter((rate) => !rate.oneOff || used.has(rate.id))
+                  onChange(nextAreas, undefined, undefined, nextRates)
+                }}
+                onApplyOneOff={(rate) => {
+                  const next = attachOneOffRate(areas, area.id, rates, rate)
+                  onChange(next.areas, undefined, undefined, next.rates)
+                }}
+                onToggleOneOff={(rate) => {
+                  const on = area.surfaces.some((surface) => surface.rateId === rate.id)
+                  const next = on
+                    ? detachRateSurface(areas, area.id, rates, rate.id)
+                    : attachOneOffRate(areas, area.id, rates, rate)
+                  onChange(next.areas, undefined, undefined, next.rates)
+                }}
               />
             ))}
           </div>
@@ -241,6 +260,7 @@ export function AreaEditor({
 
 function AreaCard({
   area,
+  kind,
   rates,
   areaNames,
   areaGroups,
@@ -249,8 +269,11 @@ function AreaCard({
   onPlace,
   onCopy,
   onRemove,
+  onApplyOneOff,
+  onToggleOneOff,
 }: {
   area: AreaInput
+  kind: EstimateKind
   rates: ProductionRate[]
   areaNames: AreaName[]
   areaGroups: AreaGroup[]
@@ -259,6 +282,8 @@ function AreaCard({
   onPlace: (groupId: string | null) => void
   onCopy: () => void
   onRemove: () => void
+  onApplyOneOff: (rate: ProductionRate) => void
+  onToggleOneOff: (rate: ProductionRate) => void
 }) {
   const measures = measureArea(area)
   const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
@@ -268,6 +293,10 @@ function AreaCard({
     })
   }
   const toggle = (rate: ProductionRate) => {
+    if (rate.oneOff) {
+      onToggleOneOff(rate)
+      return
+    }
     const existing = area.surfaces.find((surface) => surface.rateId === rate.id)
     const surfaces = existing
       ? area.surfaces.filter((surface) => surface.rateId !== rate.id)
@@ -444,6 +473,9 @@ function AreaCard({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <button type="button" className="text-left text-sm font-medium" onClick={() => toggle(rate)}>
                       <span className={surface ? "" : "text-muted-foreground"}>{rate.internalLabel}</span>
+                      {rate.oneOff ? (
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">This job only</span>
+                      ) : null}
                     </button>
                     {surface ? (
                       <div className="flex flex-wrap items-center gap-2">
@@ -580,6 +612,9 @@ function AreaCard({
             })}
           </div>
         ))}
+      </div>
+      <div className="mt-3">
+        <OneOffRateForm kind={kind} onAdd={onApplyOneOff} />
       </div>
     </div>
   )
