@@ -13,11 +13,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import type { ChangeOrder, LineItemInput } from "@/lib/types"
 
 export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
   const { applyChangeOrder } = useScope()
+  const { copy } = useFieldLanguage()
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
@@ -28,7 +30,7 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
   const submit = async () => {
     const price = Number(amount)
     if (!description.trim() || !Number.isFinite(price) || price <= 0 || !signature) {
-      setError("Add the scope, the amount, and the client's signature.")
+      setError(copy.changeError)
       return
     }
     setPending(true)
@@ -49,7 +51,7 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
         lineItems?: LineItemInput[]
       } | null
       if (!response.ok || !body?.changeOrder || !body.lineItems) {
-        setError(body?.error ?? "Could not apply the change order.")
+        setError(body?.error ?? copy.changeFailed)
         return
       }
       const applied = applyChangeOrder(body.changeOrder, body.lineItems)
@@ -62,7 +64,7 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
       setSignature("")
       setOpen(false)
     } catch {
-      setError("Could not apply the change order.")
+      setError(copy.changeFailed)
     } finally {
       setPending(false)
     }
@@ -76,15 +78,13 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
         data-testid="create-change-order"
         onClick={() => setOpen(true)}
       >
-        Create on-site change order
+        {copy.createChange}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>On-site change order</DialogTitle>
-            <DialogDescription>
-              The client signs the extra work. The invoice updates, and this sheet keeps the price off.
-            </DialogDescription>
+            <DialogTitle>{copy.changeTitle}</DialogTitle>
+            <DialogDescription>{copy.changeBody}</DialogDescription>
           </DialogHeader>
           <form
             className="grid gap-3"
@@ -94,18 +94,18 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
             }}
           >
             <div className="grid gap-2">
-              <Label htmlFor="on-site-change-order-scope">Scope / reason</Label>
+              <Label htmlFor="on-site-change-order-scope">{copy.scopeReason}</Label>
               <Input
                 id="on-site-change-order-scope"
                 value={description}
                 className="h-11"
-                placeholder="Extra wood rot repair on fascia"
+                placeholder={copy.changePlaceholder}
                 data-testid="change-order-scope"
                 onValueChange={setDescription}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="on-site-change-order-amount">Additional amount</Label>
+              <Label htmlFor="on-site-change-order-amount">{copy.additionalAmount}</Label>
               <Input
                 id="on-site-change-order-amount"
                 inputMode="decimal"
@@ -119,10 +119,10 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <DialogFooter className="sm:flex-row">
               <Button type="button" variant="outline" className="h-11" onClick={() => setOpen(false)}>
-                Cancel
+                {copy.cancel}
               </Button>
               <Button type="submit" className="h-11" disabled={pending} data-testid="apply-change-order">
-                {pending ? "Applying" : "Sign and apply"}
+                {pending ? copy.applying : copy.signAndApply}
               </Button>
             </DialogFooter>
           </form>

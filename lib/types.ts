@@ -267,6 +267,12 @@ export interface LineItemInput {
   label: string
   clientNote: string
   crewNote: string
+  /** Spanish saved beside the English name. */
+  labelEs?: string
+  /** Spanish saved beside the customer description. */
+  clientNoteEs?: string
+  /** Spanish saved beside the crew note. */
+  crewNoteEs?: string
   mode: LinePricingMode
   hours: number
   units: number
@@ -427,6 +433,8 @@ export interface EstimateVersion {
   settings: EstimateSettings
   notes: string
   crewNote: string
+  notesEs?: string
+  crewNoteEs?: string
 }
 
 export interface Client {
@@ -459,6 +467,8 @@ export interface Estimate {
   scheduledOn: string | null
   notes: string
   crewNote: string
+  notesEs?: string
+  crewNoteEs?: string
   acceptedAt: string | null
   /** Set when the customer declines. Missing means the proposal is still open. */
   declinedAt?: string | null
@@ -542,6 +552,8 @@ export interface EstimateDraft {
   scheduledOn: string | null
   notes: string
   crewNote: string
+  notesEs?: string
+  crewNoteEs?: string
   acceptedAt: string | null
   publicToken: string
   clientStatus: ClientStatus
@@ -588,6 +600,8 @@ export interface CrewLead {
 export interface WorkOrder {
   estimateId: string
   prepNotes: string
+  /** Spanish saved beside the prep note when the estimator translated it. */
+  prepNotesEs?: string
   hourDisplay: "all" | "hide-item" | "hide-all"
   checklist: ChecklistItem[]
   photos: SitePhoto[]

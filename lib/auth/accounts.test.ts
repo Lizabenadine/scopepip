@@ -112,7 +112,9 @@ describe("accounts", () => {
     const previousVercel = process.env.VERCEL
     const previousSecret = process.env.SUPABASE_SECRET_KEY
     const previousRole = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const previousKeys = process.env.SEND_KEYS_PATH
     process.env.VERCEL = "1"
+    process.env.SEND_KEYS_PATH = "/tmp/scopepipe-missing-send-keys.json"
     delete process.env.SUPABASE_SECRET_KEY
     delete process.env.SUPABASE_SERVICE_ROLE_KEY
     try {
@@ -153,6 +155,8 @@ describe("accounts", () => {
       else process.env.SUPABASE_SECRET_KEY = previousSecret
       if (previousRole === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY
       else process.env.SUPABASE_SERVICE_ROLE_KEY = previousRole
+      if (previousKeys === undefined) delete process.env.SEND_KEYS_PATH
+      else process.env.SEND_KEYS_PATH = previousKeys
     }
   })
 })

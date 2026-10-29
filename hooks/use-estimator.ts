@@ -9,7 +9,7 @@ import { captureEstimateTemplate, type SavedEstimateTemplate } from "@/lib/estim
 import { useScope } from "@/lib/data/store"
 import { PAYMENT_METHODS } from "@/lib/defaults"
 import { adjacentStage } from "@/lib/stages"
-import type { Estimate, EstimateActivity, EstimateDraft, EstimateVersion, PipelineStage, ProductionRate } from "@/lib/types"
+import type { Estimate, EstimateActivity, EstimateDraft, EstimateVersion, LineItemInput, PipelineStage, ProductionRate } from "@/lib/types"
 
 function withSubstrateRates(draft: EstimateDraft, companyRates: ProductionRate[]): EstimateDraft {
   const rates = ensureSubstrateRates(draft.rates, companyRates)
@@ -53,6 +53,8 @@ function fromEstimate(estimate: Estimate, clientName: string): EstimateDraft {
     scheduledOn: estimate.scheduledOn,
     notes: estimate.notes,
     crewNote: estimate.crewNote,
+    notesEs: estimate.notesEs,
+    crewNoteEs: estimate.crewNoteEs,
     acceptedAt: estimate.acceptedAt,
     publicToken: estimate.publicToken,
     clientStatus: estimate.clientStatus,
@@ -165,6 +167,17 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     setDraft((current) => (current ? { ...current, ...partial } : current))
   }
 
+  const writeLine = (id: string, partial: Partial<LineItemInput>) => {
+    setStatus(null)
+    setDraft((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        lineItems: current.lineItems.map((item) => (item.id === id ? { ...item, ...partial } : item)),
+      }
+    })
+  }
+
   const persist = () => {
     if (!draft) return null
     const rates = quoteRates(draft.rates, scope.productionRates, draft.areas)
@@ -211,6 +224,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     status,
     clients: scope.clients,
     patch,
+    writeLine,
     persist,
     versions,
     activity,

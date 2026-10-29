@@ -10,6 +10,8 @@ import { appointmentLabel } from "@/lib/appointments/visit"
 import { describeFollowUp, visitDayOf } from "@/lib/follow-ups/schedule"
 import { latestInbound } from "@/lib/messages/thread"
 import { latestProposalOpen } from "@/lib/proposals/opens"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { fieldJobHeading } from "@/lib/field/copy"
 import { money } from "@/lib/format"
 import { DEAL_LABELS, invoiceStatus, jobStageOf, LEAD_SOURCE_LABELS, salesStageOf } from "@/lib/pipeline/board"
 import { leadScore } from "@/lib/pipeline/score"
@@ -30,6 +32,8 @@ export function DealCard({
   mode: "sales" | "jobs"
 }) {
   const scope = useScope()
+  const { language } = useFieldLanguage()
+  const jobLanguage = mode === "jobs" ? language : "en"
   const limited = scope.session?.role === "project_manager"
   const { setEstimateTags } = scope
   const [labelsOpen, setLabelsOpen] = useState(false)
@@ -130,14 +134,14 @@ export function DealCard({
         </div>
         <div className="flex flex-col items-end gap-1">
           {estimate.areas.length === 0 && estimate.lineItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Not priced</p>
+            <p className="text-sm text-muted-foreground">{fieldJobHeading("Not priced", jobLanguage)}</p>
           ) : (
             <p className="font-display text-2xl leading-none text-price tabular-nums">{money(total)}</p>
           )}
           <DealMenu estimate={estimate} clientName={clientName} mode={mode} />
         </div>
       </div>
-      <p className="text-sm">{estimate.jobAddress || "No address yet"}</p>
+      <p className="text-sm">{estimate.jobAddress || fieldJobHeading("No address yet", jobLanguage)}</p>
       {mode === "sales" && !limited ? (
         <Link href={`/book/${estimate.publicToken}`} className="text-xs font-medium text-primary" data-testid={`book-link-${estimate.id}`}>
           Booking page

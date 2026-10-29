@@ -5,6 +5,7 @@ import { useState } from "react"
 import { CalendarDays, GripVertical } from "lucide-react"
 import { PhotoGallery } from "@/components/photos/photo-gallery"
 import { useDispatchBoard } from "@/hooks/use-dispatch"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import {
   fieldsForCrew,
   fieldsForDate,
@@ -12,35 +13,16 @@ import {
 } from "@/lib/dispatch/assign"
 import type { DispatchJob } from "@/lib/dispatch/board"
 import { isoDate } from "@/lib/dispatch/calendar"
-import { hoursLabel, jobDate } from "@/lib/format"
+import type { FieldCopy } from "@/lib/field/copy"
+import type { FieldLanguage } from "@/lib/field/language"
 import type { CrewLead, DispatchStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-const COLUMNS: { status: DispatchStatus; label: string; empty: string }[] = [
-  {
-    status: "unscheduled",
-    label: "Unscheduled",
-    empty: "Accepted jobs land here until a crew and a day are set.",
-  },
-  {
-    status: "scheduled",
-    label: "Scheduled",
-    empty: "Drop a job to put it on the calendar.",
-  },
-  {
-    status: "in_progress",
-    label: "In Progress",
-    empty: "Drop a job when the crew is on site.",
-  },
-  {
-    status: "complete",
-    label: "Complete",
-    empty: "Finished jobs stay here.",
-  },
-]
+const COLUMN_STATUS: DispatchStatus[] = ["unscheduled", "scheduled", "in_progress", "complete"]
 
 export function DispatchBoard() {
   const { ready, crews, jobs, assign } = useDispatchBoard()
+  const { copy, language } = useFieldLanguage()
   const [over, setOver] = useState<string | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
 
@@ -74,21 +56,19 @@ export function DispatchBoard() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dispatch</h1>
-          <p className="text-sm text-muted-foreground">
-            {jobs.length} accepted {jobs.length === 1 ? "job" : "jobs"}. Drag a card or pick a crew lead.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{copy.dispatch}</h1>
+          <p className="text-sm text-muted-foreground">{copy.dispatchSummary(jobs.length)}</p>
         </div>
         <Link
           href="/calendar"
           className="inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary hover:bg-muted"
         >
           <CalendarDays className="size-4" />
-          Calendar
+          {copy.calendarLink}
         </Link>
       </div>
 
-      <ul className="flex gap-2 overflow-x-auto pb-1" aria-label="Crew leads">
+      <ul className="flex gap-2 overflow-x-auto pb-1" aria-label={copy.crewLeads}>
         {crews.map((crew) => (
           <li key={crew.id}>
             <div
@@ -126,8 +106,9 @@ export function DispatchBoard() {
       </ul>
 
       <div className="grid items-start gap-4 lg:grid-cols-4">
-        {COLUMNS.map((column) => {
-          const cards = jobs.filter((job) => job.status === column.status)
+        {COLUMN_STATUS.map((status) => {
+          const column = { status, label: copy.status[status], empty: copy.columnEmpty[status] }
+          const cards = jobs.filter((job) => job.status === status)
           return (
             <section
               key={column.status}
@@ -135,17 +116,17 @@ export function DispatchBoard() {
               aria-label={column.label}
               onDragOver={(event) => {
                 event.preventDefault()
-                setOver(column.status)
+                setOver(status)
               }}
-              onDragLeave={() => setOver((current) => (current === column.status ? null : current))}
+              onDragLeave={() => setOver((current) => (current === status ? null : current))}
               onDrop={(event) => {
                 event.preventDefault()
                 setOver(null)
-                dropOn(event.dataTransfer.getData("text/plain") || dragging || "", column.status)
+                dropOn(event.dataTransfer.getData("text/plain") || dragging || "", status)
               }}
               className={cn(
                 "flex min-w-0 flex-col gap-3 rounded-2xl p-2",
-                over === column.status && "bg-muted",
+                over === status && "bg-muted",
               )}
             >
               <header className="flex items-center justify-between px-1">
@@ -162,6 +143,8 @@ export function DispatchBoard() {
                     key={job.estimateId}
                     job={job}
                     crews={crews}
+                    copy={copy}
+                    language={language}
                     onDragId={setDragging}
                     onStatus={(status) => moveTo(job, status)}
                     onCrew={(crewId) => {
@@ -193,6 +176,8 @@ export function DispatchBoard() {
 function JobCard({
   job,
   crews,
+  copy,
+  language,
   onStatus,
   onCrew,
   onDate,
@@ -200,6 +185,8 @@ function JobCard({
 }: {
   job: DispatchJob
   crews: CrewLead[]
+  copy: FieldCopy
+  language: FieldLanguage
   onStatus: (status: DispatchStatus) => void
   onDragId: (id: string | null) => void
   onCrew: (crewId: string | null) => void
@@ -228,7 +215,7 @@ function JobCard({
           </Link>
           <p className="truncate text-sm text-muted-foreground">{job.title}</p>
           <p className="truncate text-sm">{job.address}</p>
-          <p className="mt-1 text-sm font-medium tabular-nums">{hoursLabel(job.hours)}</p>
+          <p className="mt-1 text-sm font-medium tabular-nums">{copy.hours(job.hours)}</p>
         </div>
       </div>
       {job.crewName && job.scheduledStartDate ? (
@@ -237,33 +224,33 @@ function JobCard({
           style={{ backgroundColor: job.crewColor ?? "#efe9dc" }}
         >
           {job.crewName}
-          {job.notifiedAt ? " notified" : ""} · {jobDate(job.scheduledStartDate)}
+          {job.notifiedAt ? ` ${copy.notified}` : ""} · {copy.jobDate(job.scheduledStartDate)}
         </p>
       ) : null}
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Status
+        {copy.statusLabel}
         <select
-          aria-label={`Status for ${job.clientName}`}
+          aria-label={copy.statusFor(job.clientName)}
           value={job.status}
           onChange={(event) => onStatus(event.target.value as DispatchStatus)}
           className="h-10 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"
         >
-          {COLUMNS.map((column) => (
-            <option key={column.status} value={column.status}>
-              {column.label}
+          {COLUMN_STATUS.map((status) => (
+            <option key={status} value={status}>
+              {copy.status[status]}
             </option>
           ))}
         </select>
       </label>
       <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-        Crew lead
+        {copy.crewLead}
         <select
-          aria-label={`Crew for ${job.clientName}`}
+          aria-label={copy.crewFor(job.clientName)}
           value={job.crewId ?? ""}
           onChange={(event) => onCrew(event.target.value || null)}
           className="h-10 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"
         >
-          <option value="">Unassigned</option>
+          <option value="">{copy.unassigned}</option>
           {crews.map((crew) => (
             <option key={crew.id} value={crew.id}>
               {crew.name}
@@ -271,13 +258,13 @@ function JobCard({
           ))}
         </select>
       </label>
-      <PhotoGallery estimateId={job.estimateId} compact />
+      <PhotoGallery estimateId={job.estimateId} compact language={language} />
       {job.status !== "unscheduled" ? (
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          Start date
+          {copy.startDate}
           <input
             type="date"
-            aria-label={`Start date for ${job.clientName}`}
+            aria-label={copy.startDateFor(job.clientName)}
             value={job.scheduledStartDate ?? ""}
             onChange={(event) => onDate(event.target.value || null)}
             className="h-10 rounded-lg border border-input bg-transparent px-2 text-sm text-foreground"

@@ -1,6 +1,8 @@
 "use client"
 
 import { Check } from "lucide-react"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { translatePainting } from "@/lib/field/terms"
 import { cn } from "@/lib/utils"
 import type { ChecklistItem } from "@/lib/types"
 
@@ -11,16 +13,17 @@ export function CompletionChecklist({
   items: ChecklistItem[]
   onToggle: (id: string) => void
 }) {
+  const { copy, language } = useFieldLanguage()
   const done = items.filter((item) => item.done).length
 
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-          Checklist
+          {copy.checklist}
         </h2>
         <p className="text-xs text-muted-foreground tabular-nums">
-          {done} of {items.length}
+          {copy.checklistProgress(done, items.length)}
         </p>
       </div>
       <ul className="flex flex-col gap-2">
@@ -44,7 +47,9 @@ export function CompletionChecklist({
               >
                 {item.done ? <Check className="size-4" /> : null}
               </span>
-              <span className={cn("text-sm", item.done && "line-through")}>{item.label}</span>
+              <span className={cn("text-sm", item.done && "line-through")}>
+                {translatePainting(copy.checklistLabel(item.label), language)}
+              </span>
             </button>
           </li>
         ))}

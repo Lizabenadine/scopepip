@@ -51,12 +51,12 @@ export function shiftWeek(anchor: Date, delta: number): Date {
   return next
 }
 
-export function monthLabel(anchor: Date): string {
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(anchor)
+export function monthLabel(anchor: Date, locale = "en-US"): string {
+  return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(anchor)
 }
 
-export function weekdayLabel(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(parseIsoDate(iso))
+export function weekdayLabel(iso: string, locale = "en-US"): string {
+  return new Intl.DateTimeFormat(locale, { weekday: "short" }).format(parseIsoDate(iso))
 }
 
 export function dayNumber(iso: string): string {

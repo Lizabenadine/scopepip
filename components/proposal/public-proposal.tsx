@@ -30,6 +30,9 @@ import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { proposalFigures } from "@/lib/proposals/figures"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { translatePainting, paintingText } from "@/lib/field/terms"
+import { FieldLanguageSwitch } from "@/components/field/language-switch"
 
 interface ProposalPayload {
   estimate: Estimate
@@ -203,6 +206,8 @@ function ProposalDocument({
   onDecline: () => Promise<{ ok: true } | { ok: false; reason: string }>
   onSendMessage: (body: string) => Promise<{ ok: true } | { ok: false; reason: string }>
 }) {
+  const { language } = useFieldLanguage()
+  const say = (text: string) => translatePainting(text, language)
   const accepted = estimate.clientStatus === "accepted" && estimate.signature
   const optionalLines = estimate.lineItems.filter((item) => item.optional && item.pending !== true)
   const chosen =
@@ -254,6 +259,9 @@ function ProposalDocument({
 
   return (
     <article className="flex flex-col gap-8">
+      <div className="flex justify-end">
+        <FieldLanguageSwitch />
+      </div>
       <ProposalEngagement proposalId={estimate.publicToken} />
       <ProposalPager pages={pages} />
       <ProposalCover
@@ -270,7 +278,7 @@ function ProposalDocument({
         pageCount={pages.length}
       />
 
-      {estimate.notes ? <p className="text-sm leading-6">{estimate.notes}</p> : null}
+      {estimate.notes ? <p className="text-sm leading-6">{paintingText(estimate.notes, estimate.notesEs, language)}</p> : null}
 
       <section id="proposal-page-scope" data-testid="proposal-page-scope" data-proposal-section="Project scope" className="flex flex-col gap-3">
         <div>
@@ -287,7 +295,7 @@ function ProposalDocument({
           <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
             {section.groupName ? (
               <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="proposal-group">
-                {section.groupName}
+                {say(section.groupName)}
               </p>
             ) : null}
             {section.items.map((area) => {
@@ -295,23 +303,23 @@ function ProposalDocument({
               return (
                 <div key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-lg font-semibold">{area.name}</h3>
+                    <h3 className="text-lg font-semibold">{say(area.name)}</h3>
                     <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {area.areaType === "room"
                       ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
                       : `${area.lengthFt} × ${area.heightFt} ft`}
-                    {area.wallSqFt > 0 ? ` · ${area.wallSqFt} sq ft walls` : ""}
+                    {area.wallSqFt > 0 ? ` · ${say(`${area.wallSqFt} sq ft walls`)}` : ""}
                   </p>
                   <ul className="mt-3 flex flex-col gap-2">
                     {visible.map((surface) => (
                       <li key={surface.id} className="flex items-baseline justify-between gap-3 text-sm">
                         <span>
-                          <span className="font-medium">{surface.clientLabel}</span>
-                          {surface.showCoats && surface.coatCount > 0 ? ` · ${surface.coatCount} coats` : ""}
+                          <span className="font-medium">{say(surface.clientLabel)}</span>
+                          {surface.showCoats && surface.coatCount > 0 ? ` · ${say(`${surface.coatCount} coats`)}` : ""}
                           {surface.clientDescription ? (
-                            <span className="block text-muted-foreground">{surface.clientDescription}</span>
+                            <span className="block text-muted-foreground">{say(surface.clientDescription)}</span>
                           ) : null}
                         </span>
                         {surface.showPrice ? <span className="tabular-nums">{money(surface.price)}</span> : null}
@@ -328,18 +336,18 @@ function ProposalDocument({
       {quote.lineItems.filter((line) => !optionalLines.some((item) => item.id === line.id)).length > 0 ? (
         <section data-proposal-section="Included items" className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Included items
+            {say("Included items")}
           </h2>
           {quote.lineItems
             .filter((line) => !optionalLines.some((item) => item.id === line.id))
             .map((line) => (
               <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
                 <div className="min-w-0">
-                  <ProposalLinePhoto src={line.photo} alt={line.label} />
-                  <ProposalLineVideo src={line.video} label={line.label} />
-                  <p className="font-medium">{line.label}</p>
+                  <ProposalLinePhoto src={line.photo} alt={paintingText(line.label, line.labelEs, language)} />
+                  <ProposalLineVideo src={line.video} label={paintingText(line.label, line.labelEs, language)} />
+                  <p className="font-medium">{paintingText(line.label, line.labelEs, language)}</p>
                   {line.clientNote ? (
-                    <p className="text-sm whitespace-pre-line text-muted-foreground">{line.clientNote}</p>
+                    <p className="text-sm whitespace-pre-line text-muted-foreground">{paintingText(line.clientNote, line.clientNoteEs, language)}</p>
                   ) : null}
                 </div>
                 <p className="tabular-nums">{money(line.price)}</p>
@@ -351,7 +359,7 @@ function ProposalDocument({
       {optionalLines.length > 0 ? (
         <section data-proposal-section="Optional add-ons" className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Optional add-ons
+            {say("Optional add-ons")}
           </h2>
           {optionalLines.map((line) => {
             const price = catalog.lineItems.find((item) => item.id === line.id)?.price ?? 0
@@ -367,16 +375,16 @@ function ProposalDocument({
                     className="mt-1 size-4"
                     checked={on}
                     disabled={Boolean(accepted)}
-                    aria-label={line.label}
+                    aria-label={paintingText(line.label, line.labelEs, language)}
                     onChange={() => toggle(line.id)}
                   />
                   <span className="min-w-0">
-                    <ProposalLinePhoto src={line.photo} alt={line.label} />
-                    <ProposalLineVideo src={line.video} label={line.label} />
-                    <span className="block font-medium">{line.label}</span>
+                    <ProposalLinePhoto src={line.photo} alt={paintingText(line.label, line.labelEs, language)} />
+                    <ProposalLineVideo src={line.video} label={paintingText(line.label, line.labelEs, language)} />
+                    <span className="block font-medium">{paintingText(line.label, line.labelEs, language)}</span>
                     {line.clientNote ? (
                       <span className="mt-1 block text-sm whitespace-pre-line text-muted-foreground">
-                        {line.clientNote}
+                        {paintingText(line.clientNote, line.clientNoteEs, language)}
                       </span>
                     ) : null}
                   </span>
@@ -399,7 +407,7 @@ function ProposalDocument({
           </p>
         </div>
         <div className="mt-2 flex items-baseline justify-between">
-          <p className="text-sm text-muted-foreground">Deposit required ({figures.depositPercent}%)</p>
+          <p className="text-sm text-muted-foreground">{say("Deposit required")} ({figures.depositPercent}%)</p>
           <p data-testid="proposal-deposit" className="text-lg font-semibold tabular-nums">
             {money(figures.deposit)}
           </p>
@@ -470,16 +478,16 @@ function ProposalDocument({
             declineWording={pagesDocument.declineWording}
           />
           <p className="text-sm text-muted-foreground">
-            Signed {signedLabel(estimate.signature.signedAt)}. The crew work order is with your painter.
+            Signed {signedLabel(estimate.signature.signedAt)}. {say("The crew work order is with your painter.")}
           </p>
           {estimate.paymentStatus === "deposit_paid" ? (
-            <p className="text-sm font-medium">Deposit Paid / Scheduled</p>
+            <p className="text-sm font-medium">{say("Deposit Paid / Scheduled")}</p>
           ) : (
             <Link
               href={`/estimates/${estimate.id}/pay`}
               className="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
             >
-              Pay deposit
+              {say("Pay deposit")}
             </Link>
           )}
           <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">

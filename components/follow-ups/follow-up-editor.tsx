@@ -259,11 +259,11 @@ function hoursFrom(value: string): number {
 function emailStatus(connected: boolean): string {
   return connected
     ? "Email sends through Resend."
-    : "Email logs on the deal until RESEND_API_KEY and FOLLOW_UP_FROM_EMAIL are set."
+    : "Email logs on the deal until Resend is saved on Integrations."
 }
 
 function textStatus(connected: boolean): string {
   return connected
     ? "Texts send through Twilio."
-    : "Texts log on the deal until TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER are set."
+    : "Texts log on the deal until Twilio is saved on Integrations."
 }

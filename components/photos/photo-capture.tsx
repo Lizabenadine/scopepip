@@ -5,11 +5,13 @@ import { Camera, ImagePlus } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useSitePhotos } from "@/hooks/use-site-photos"
-import { describeLink, linkChoices, linkKey, PHOTO_TAG_LABELS } from "@/lib/photos/link"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { describeLink, linkChoices, linkKey } from "@/lib/photos/link"
 import { PHOTO_TAGS, type PhotoTag } from "@/lib/types"
 
 export function PhotoCapture({ estimateId }: { estimateId: string }) {
   const { photos, photoScope, uploading, uploadError, upload } = useSitePhotos(estimateId)
+  const { copy } = useFieldLanguage()
   const [tag, setTag] = useState<PhotoTag>("before")
   const [caption, setCaption] = useState("")
   const [linkOverride, setLinkOverride] = useState<string | null>(null)
@@ -31,11 +33,11 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-        Site photos
+        {copy.sitePhotos}
       </h2>
       {photos.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-          No site photos yet. Take one before you start, and another when the room is done.
+          {copy.noSitePhotos}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -44,16 +46,16 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
             return (
               <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.url} alt={photo.caption || PHOTO_TAG_LABELS[photo.tag] || "Site photo"} className="aspect-[4/3] max-h-56 w-full object-cover" />
+                <img src={photo.url} alt={photo.caption || copy.photoTag(photo.tag)} className="aspect-[4/3] max-h-56 w-full object-cover" />
                 <div className="flex flex-col gap-1 px-4 py-3">
                   <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                    {PHOTO_TAG_LABELS[photo.tag] ?? "In progress"}
+                    {copy.photoTag(photo.tag)}
                   </p>
-                  <p className="text-sm">{photo.caption || "Site update"}</p>
+                  <p className="text-sm">{photo.caption || copy.siteUpdate}</p>
                   {detail ? (
                     <p className="text-sm text-muted-foreground">
-                      {detail.label}
-                      {detail.detail ? ` · ${detail.detail}` : ""}
+                      {copy.photoLink(detail.label)}
+                      {detail.detail ? ` · ${copy.photoDetail(detail.detail)}` : ""}
                     </p>
                   ) : null}
                 </div>
@@ -63,10 +65,10 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
         </ul>
       )}
       <label className="grid gap-1 text-sm">
-        <span className="font-medium">Tag</span>
+        <span className="font-medium">{copy.tag}</span>
         <select
           data-testid="photo-tag"
-          aria-label="Photo tag"
+          aria-label={copy.photoTagAria}
           value={tag}
           onChange={(event) => {
             setTag(event.target.value as PhotoTag)
@@ -76,24 +78,24 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
         >
           {PHOTO_TAGS.map((item) => (
             <option key={item} value={item}>
-              {PHOTO_TAG_LABELS[item]}
+              {copy.photoTag(item)}
             </option>
           ))}
         </select>
       </label>
       {choices.length > 0 ? (
         <label className="grid gap-1 text-sm">
-          <span className="font-medium">Links to</span>
+          <span className="font-medium">{copy.linksTo}</span>
           <select
             data-testid="photo-link"
-            aria-label="Photo link"
+            aria-label={copy.photoLinkAria}
             value={selected ? linkKey(selected) : ""}
             onChange={(event) => setLinkOverride(event.target.value)}
             className="h-11 rounded-lg border border-input bg-transparent px-2"
           >
             {choices.map((choice) => (
               <option key={linkKey(choice)} value={linkKey(choice)}>
-                {choice.label}
+                {copy.photoLink(choice.label)}
               </option>
             ))}
           </select>
@@ -101,16 +103,16 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
       ) : null}
       {linked?.detail ? (
         <p data-testid="photo-link-detail" className="rounded-lg bg-amber-50 px-3 py-2 text-sm">
-          {linked.detail}
+          {copy.photoDetail(linked.detail)}
         </p>
       ) : null}
       <div className="grid gap-2">
-        <Label htmlFor="photo-caption">Caption</Label>
+        <Label htmlFor="photo-caption">{copy.caption}</Label>
         <Input
           id="photo-caption"
           data-testid="photo-caption"
           value={caption}
-          placeholder="North wall, first coat"
+          placeholder={copy.captionPlaceholder}
           className="h-11"
           onValueChange={setCaption}
         />
@@ -121,14 +123,14 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
           capture
           disabled={uploading}
           icon={<Camera className="size-4" />}
-          label={uploading ? "Uploading…" : "Take photo"}
+          label={uploading ? copy.uploading : copy.takePhoto}
           onFile={send}
         />
         <FileButton
           testId="photo-library"
           disabled={uploading}
           icon={<ImagePlus className="size-4" />}
-          label="Photo library"
+          label={copy.photoLibrary}
           onFile={send}
         />
       </div>

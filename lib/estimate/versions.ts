@@ -14,6 +14,8 @@ type VersionSource = Pick<
   | "settings"
   | "notes"
   | "crewNote"
+  | "notesEs"
+  | "crewNoteEs"
 >
 
 export function scopeSnapshot(source: VersionSource): VersionSource {
@@ -28,6 +30,8 @@ export function scopeSnapshot(source: VersionSource): VersionSource {
     settings: source.settings,
     notes: source.notes.trim(),
     crewNote: source.crewNote.trim(),
+    ...(source.notesEs?.trim() ? { notesEs: source.notesEs.trim() } : {}),
+    ...(source.crewNoteEs?.trim() ? { crewNoteEs: source.crewNoteEs.trim() } : {}),
   }
 }
 

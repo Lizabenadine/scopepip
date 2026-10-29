@@ -35,6 +35,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
+import { queueSpanish } from "@/lib/field/request-spanish"
 import { copyLineItem, insertAfter } from "@/lib/estimate/copy"
 import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
@@ -83,6 +84,7 @@ export function Estimator({
     status,
     clients,
     patch,
+    writeLine,
     persist,
     versions,
     activity,
@@ -278,8 +280,16 @@ export function Estimator({
                       id={`${line.id}-name`}
                       value={line.label}
                       className="h-11"
-                      onValueChange={(label) => updateLine(draft.lineItems, line.id, { label }, patch)}
+                      onValueChange={(label) => {
+                        writeLine(line.id, { label })
+                        queueSpanish(`${line.id}:label`, label, (labelEs) => writeLine(line.id, { labelEs }))
+                      }}
                     />
+                    {line.labelEs ? (
+                      <p className="text-xs text-muted-foreground" data-testid={`line-label-es-${line.id}`}>
+                        Español: {line.labelEs}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="mt-6 flex shrink-0 gap-3">
                     <button
@@ -306,11 +316,18 @@ export function Estimator({
                   <textarea
                     id={`${line.id}-description`}
                     value={line.clientNote}
-                    onChange={(event) =>
-                      updateLine(draft.lineItems, line.id, { clientNote: event.target.value }, patch)
-                    }
+                    onChange={(event) => {
+                      const clientNote = event.target.value
+                      writeLine(line.id, { clientNote })
+                      queueSpanish(`${line.id}:note`, clientNote, (clientNoteEs) => writeLine(line.id, { clientNoteEs }))
+                    }}
                     className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none"
                   />
+                  {line.clientNoteEs ? (
+                    <p className="text-xs text-muted-foreground" data-testid={`line-note-es-${line.id}`}>
+                      Español: {line.clientNoteEs}
+                    </p>
+                  ) : null}
                 </div>
                 <LinePhotoField
                   lineId={line.id}
@@ -653,19 +670,37 @@ export function Estimator({
             <textarea
               id="client-note"
               value={draft.notes}
-              onChange={(event) => patch({ notes: event.target.value })}
+              onChange={(event) => {
+                const notes = event.target.value
+                patch({ notes })
+                queueSpanish("client-note", notes, (notesEs) => patch({ notesEs }))
+              }}
               className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none"
             />
+            {draft.notesEs ? (
+              <p className="text-xs text-muted-foreground" data-testid="client-note-es">
+                Español: {draft.notesEs}
+              </p>
+            ) : null}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="crew-note">Crew note</Label>
             <textarea
               id="crew-note"
               value={draft.crewNote}
-              onChange={(event) => patch({ crewNote: event.target.value })}
+              onChange={(event) => {
+                const crewNote = event.target.value
+                patch({ crewNote })
+                queueSpanish("crew-note", crewNote, (crewNoteEs) => patch({ crewNoteEs }))
+              }}
               placeholder="Hidden from the customer proposal"
               className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none"
             />
+            {draft.crewNoteEs ? (
+              <p className="text-xs text-muted-foreground" data-testid="crew-note-es">
+                Español: {draft.crewNoteEs}
+              </p>
+            ) : null}
           </div>
           {previous && draft.id ? (
             <button

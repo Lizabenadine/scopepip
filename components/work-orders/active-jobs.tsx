@@ -1,19 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { moneyExact } from "@/lib/format"
 import { listActiveJobs } from "@/lib/work-orders/active"
 
-const STATUS_LABEL = {
-  unscheduled: "Unscheduled",
-  scheduled: "Scheduled",
-  in_progress: "In progress",
-  complete: "Complete",
-} as const
-
 export function ActiveJobs() {
   const { ready, estimates, workOrders, stages, clients, quoteEstimate } = useScope()
+  const { copy } = useFieldLanguage()
   const jobs = listActiveJobs(estimates, workOrders, stages, clients)
 
   if (!ready) {
@@ -23,14 +18,14 @@ export function ActiveJobs() {
   return (
     <section className="flex flex-col gap-4" data-testid="active-jobs">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Work Orders</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{copy.workOrdersTitle}</h1>
         <p className="text-sm text-muted-foreground">
-          {jobs.length === 0 ? "Accepted work shows up here." : `${jobs.length} accepted jobs`}
+          {jobs.length === 0 ? copy.acceptedEmpty : copy.acceptedCount(jobs.length)}
         </p>
       </div>
       {jobs.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No active jobs yet.
+          {copy.noActiveJobs}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -51,7 +46,7 @@ export function ActiveJobs() {
                     </span>
                   </span>
                   <span className="flex items-center justify-between gap-4 sm:justify-end">
-                    <span className="text-sm text-muted-foreground">{STATUS_LABEL[job.status]}</span>
+                    <span className="text-sm text-muted-foreground">{copy.status[job.status]}</span>
                     <span className="font-medium tabular-nums">{moneyExact(total)}</span>
                   </span>
                 </Link>

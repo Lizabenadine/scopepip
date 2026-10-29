@@ -69,6 +69,9 @@ export interface PricedLine {
   label: string
   clientNote: string
   crewNote: string
+  labelEs?: string
+  clientNoteEs?: string
+  crewNoteEs?: string
   mode: LineItemInput["mode"]
   allocatedHours: number
   materialCost: number
@@ -522,6 +525,9 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
     label: item.label.trim() || "Line item",
     clientNote: item.clientNote ?? "",
     crewNote: item.crewNote ?? "",
+    ...(item.labelEs?.trim() ? { labelEs: item.labelEs.trim() } : {}),
+    ...(item.clientNoteEs?.trim() ? { clientNoteEs: item.clientNoteEs.trim() } : {}),
+    ...(item.crewNoteEs?.trim() ? { crewNoteEs: item.crewNoteEs.trim() } : {}),
     mode: item.mode,
     allocatedHours,
     materialCost,

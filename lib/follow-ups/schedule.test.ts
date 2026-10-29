@@ -222,12 +222,14 @@ describe("follow-up sequences", () => {
       sid: process.env.TWILIO_ACCOUNT_SID,
       token: process.env.TWILIO_AUTH_TOKEN,
       twilioFrom: process.env.TWILIO_FROM_NUMBER,
+      keysPath: process.env.SEND_KEYS_PATH,
     }
     delete process.env.RESEND_API_KEY
     delete process.env.FOLLOW_UP_FROM_EMAIL
     delete process.env.TWILIO_ACCOUNT_SID
     delete process.env.TWILIO_AUTH_TOKEN
     delete process.env.TWILIO_FROM_NUMBER
+    process.env.SEND_KEYS_PATH = "/tmp/scopepipe-missing-send-keys.json"
     const email = await deliverFollowUp({
       channel: "email",
       to: "maya@example.com",
@@ -254,5 +256,7 @@ describe("follow-up sequences", () => {
     else process.env.TWILIO_AUTH_TOKEN = previous.token
     if (previous.twilioFrom === undefined) delete process.env.TWILIO_FROM_NUMBER
     else process.env.TWILIO_FROM_NUMBER = previous.twilioFrom
+    if (previous.keysPath === undefined) delete process.env.SEND_KEYS_PATH
+    else process.env.SEND_KEYS_PATH = previous.keysPath
   })
 })

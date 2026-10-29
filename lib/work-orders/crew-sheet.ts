@@ -33,6 +33,8 @@ export interface CrewLine {
   id: string
   label: string
   crewNote: string
+  labelEs?: string
+  crewNoteEs?: string
   allocatedHours: number
 }
 
@@ -48,6 +50,8 @@ export interface CrewPendingWork {
   id: string
   label: string
   crewNote: string
+  labelEs?: string
+  crewNoteEs?: string
   allocatedHours: number
 }
 
@@ -61,6 +65,7 @@ export interface CrewSheet {
   address: string
   scheduledOn: string | null
   crewNote: string
+  crewNoteEs?: string
   areas: CrewArea[]
   lineItems: CrewLine[]
   pendingWork: CrewPendingWork[]
@@ -124,8 +129,18 @@ function lineRow(line: PricedLine): CrewLine {
     id: line.id,
     label: line.label,
     crewNote: line.crewNote,
+    ...(line.labelEs ? { labelEs: line.labelEs } : {}),
+    ...(line.crewNoteEs ? { crewNoteEs: line.crewNoteEs } : {}),
     allocatedHours: line.allocatedHours,
   }
+}
+
+function prepSpanish(estimate: Estimate, workOrder: WorkOrder): string | undefined {
+  if (workOrder.prepNotesEs?.trim()) return workOrder.prepNotesEs.trim()
+  const source = estimate.crewNote.trim() || estimate.notes.trim()
+  if (!source || workOrder.prepNotes.trim() !== source) return undefined
+  const spanish = estimate.crewNote.trim() ? estimate.crewNoteEs : estimate.notesEs
+  return spanish?.trim() || undefined
 }
 
 export function toCrewSheet(
@@ -152,6 +167,7 @@ export function toCrewSheet(
     address: estimate.jobAddress || client?.address || "",
     scheduledOn: estimate.scheduledOn,
     crewNote: workOrder.prepNotes,
+    crewNoteEs: prepSpanish(estimate, workOrder),
     areas: sectionByGroup(quote.areas, estimate.areaGroups, (area) => {
       return estimate.areas.find((item) => item.id === area.id)?.groupId
     }).flatMap((section) => section.items.map((area) => areaRow(area, section.groupName))),
@@ -164,6 +180,8 @@ export function toCrewSheet(
         id: line.id,
         label: line.label.trim() || "Additional work",
         crewNote: line.crewNote,
+        ...(line.labelEs?.trim() ? { labelEs: line.labelEs.trim() } : {}),
+        ...(line.crewNoteEs?.trim() ? { crewNoteEs: line.crewNoteEs.trim() } : {}),
         allocatedHours: line.mode === "hourly" ? Math.max(0, line.hours) : Math.max(0, line.workOrderHours),
       })),
     changeOrders: [

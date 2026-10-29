@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Plus, Receipt, Settings, X } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
+import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
 import { BrandLogo } from "@/components/brand/brand-logo"
 import { buttonVariants } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import type { UserRole } from "@/lib/auth/role"
 import { PLAN_PRICE } from "@/lib/defaults"
 import { useScope } from "@/lib/data/store"
 import { homeForRole } from "@/lib/auth/role"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { managerCanOpen, navigationSections, type OfficeSection } from "@/lib/shell/navigation"
 import { cn } from "@/lib/utils"
 
@@ -44,10 +46,20 @@ async function signOut() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { notice, dismissNotice, ready, session } = useScope()
+  const { copy } = useFieldLanguage()
   const sections = navigationSections(session?.role ?? "owner")
   const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
+  const fieldScreen =
+    pathname === "/work-orders" ||
+    pathname.startsWith("/work-orders/") ||
+    pathname === "/dispatch" ||
+    pathname.startsWith("/dispatch/") ||
+    pathname === "/calendar" ||
+    pathname.startsWith("/calendar/") ||
+    pathname === "/proposal" ||
+    pathname.startsWith("/proposal/")
   const marketingPage = pathname === "/innova" || pathname.startsWith("/innova/")
   const publicProposal =
     marketingPage ||
@@ -131,11 +143,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {roleLabel(session.role)}
             </p>
           </div>
+          {fieldScreen ? <FieldLanguageSwitch /> : null}
           <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-600 hover:text-slate-900" onClick={() => void signOut()}>
             Sign out
           </button>
           {crewCopy ? (
-            <p className="hidden text-xs text-slate-500 xl:block">Crew copy. Prices stay on the estimate.</p>
+            <p className="hidden text-xs text-slate-500 xl:block">{copy.crewCopy}</p>
           ) : (
             <p className="hidden text-sm text-slate-500 xl:block">${PLAN_PRICE}/mo</p>
           )}

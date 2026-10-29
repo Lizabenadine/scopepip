@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { useScope } from "@/lib/data/store"
 import { leadWebhookToken } from "@/lib/webhooks/token"
 import { OutboundHooks } from "@/components/settings/outbound-hooks"
+import { SendingKeys } from "@/components/settings/sending-keys"
 import { zapierTarget } from "@/lib/zapier/events"
 
 export function Connections() {
@@ -155,6 +156,7 @@ export function Connections() {
         {zapierDetail ? <p className="mt-2 text-sm" data-testid="zapier-status">{zapierDetail}</p> : null}
       </div>
       <OutboundHooks />
+      <SendingKeys />
       <div>
         <h2 className="text-lg font-semibold">CompanyCam</h2>
         <p className="mt-1 text-sm text-muted-foreground">

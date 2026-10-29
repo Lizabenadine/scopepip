@@ -136,7 +136,7 @@ function EmailFields() {
   return (
     <DefaultsForm
       title="Email"
-      intro="Proposal mail uses this address. Follow-up email sends through Resend when RESEND_API_KEY and FOLLOW_UP_FROM_EMAIL are set. Until then those messages are logged."
+      intro="Proposal mail uses this address. Follow-up email sends through Resend once that key is saved on Integrations. Until then those messages are logged."
     >
       <TextField id="companyEmail" name="companyEmail" label="Proposal email" type="email" placeholder="office@example.com" wide />
     </DefaultsForm>

@@ -1,4 +1,5 @@
 import type { FollowUpChannel } from "./types.ts"
+import { readSendKeys } from "../messaging/keys.ts"
 
 export interface DeliveryInput {
   channel: FollowUpChannel
@@ -15,9 +16,10 @@ export type DeliveryResult =
   | { delivery: "failed"; detail: string }
 
 export function followUpTransport(): { email: boolean; text: boolean } {
+  const keys = readSendKeys()
   return {
-    email: Boolean(process.env.RESEND_API_KEY && process.env.FOLLOW_UP_FROM_EMAIL),
-    text: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER),
+    email: Boolean(keys.resendKey && keys.resendFrom.includes("@")),
+    text: Boolean(keys.twilioSid && keys.twilioToken && keys.twilioFrom),
   }
 }
 
@@ -30,19 +32,18 @@ export async function deliverFollowUp(input: DeliveryInput): Promise<DeliveryRes
 
 async function deliverEmail(to: string, subject: string, body: string): Promise<DeliveryResult> {
   if (!to.includes("@")) return { delivery: "skipped", detail: "The client has no email." }
-  const key = process.env.RESEND_API_KEY
-  const from = process.env.FOLLOW_UP_FROM_EMAIL
-  if (!key || !from) {
-    return { delivery: "logged", detail: "Logged in the office. Add RESEND_API_KEY and FOLLOW_UP_FROM_EMAIL to send email." }
+  const keys = readSendKeys()
+  if (!keys.resendKey || !keys.resendFrom.includes("@")) {
+    return { delivery: "logged", detail: "Logged on the deal. Save Resend on Integrations to send email." }
   }
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        authorization: `Bearer ${key}`,
+        authorization: `Bearer ${keys.resendKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ from, to, subject, text: body }),
+      body: JSON.stringify({ from: keys.resendFrom, to, subject, text: body }),
     })
     if (!response.ok) {
       const detail = await response.text()
@@ -55,22 +56,20 @@ async function deliverEmail(to: string, subject: string, body: string): Promise<
 }
 
 async function deliverText(to: string, body: string): Promise<DeliveryResult> {
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_FROM_NUMBER
-  if (!sid || !token || !from) {
-    return { delivery: "logged", detail: "Logged in the office. Add Twilio keys to send texts." }
+  const keys = readSendKeys()
+  if (!keys.twilioSid || !keys.twilioToken || !keys.twilioFrom) {
+    return { delivery: "logged", detail: "Logged on the deal. Save Twilio on Integrations to send texts." }
   }
   const destination = e164(to)
   if (!destination) return { delivery: "skipped", detail: "The phone number needs 10 digits." }
   try {
-    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${keys.twilioSid}/Messages.json`, {
       method: "POST",
       headers: {
-        authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+        authorization: `Basic ${Buffer.from(`${keys.twilioSid}:${keys.twilioToken}`).toString("base64")}`,
         "content-type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ To: destination, From: from, Body: body }),
+      body: new URLSearchParams({ To: destination, From: keys.twilioFrom, Body: body }),
     })
     if (!response.ok) {
       const detail = await response.text()

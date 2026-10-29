@@ -11,6 +11,8 @@ import {
   pageNumber,
 } from "@/components/proposal/proposal-pages"
 import { displayCompanyName } from "@/lib/brand/company"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { translatePainting, paintingText } from "@/lib/field/terms"
 import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, jobDate, money } from "@/lib/format"
@@ -21,6 +23,8 @@ import { OfficeProposalChat } from "@/components/proposal/proposal-chat"
 
 export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => translatePainting(text, language)
   if (!scope.ready) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
   }
@@ -73,7 +77,7 @@ export function ProposalView({ id }: { id: string }) {
         page={pageNumber(pages, "proposal-page-cover")}
         pageCount={pages.length}
       />
-      {estimate.notes ? <p className="text-sm">{estimate.notes}</p> : null}
+      {estimate.notes ? <p className="text-sm">{paintingText(estimate.notes, estimate.notesEs, language)}</p> : null}
       <div id="proposal-page-scope" data-testid="proposal-page-scope" className="flex flex-col gap-3">
       {sectionByGroup(
         quote.areas.filter((area) => area.surfaces.length > 0),
@@ -83,7 +87,7 @@ export function ProposalView({ id }: { id: string }) {
         <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
           {section.groupName ? (
             <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="proposal-group">
-              {section.groupName}
+              {say(section.groupName)}
             </h2>
           ) : null}
           {section.items.map((area) => {
@@ -91,7 +95,7 @@ export function ProposalView({ id }: { id: string }) {
             return (
               <section key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-lg font-semibold">{area.name}</h2>
+                  <h2 className="text-lg font-semibold">{say(area.name)}</h2>
                   <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -103,14 +107,14 @@ export function ProposalView({ id }: { id: string }) {
                   {visible.map((surface) => (
                     <li key={surface.id}>
                       <div className="flex items-baseline justify-between gap-3">
-                        <p className="font-medium">{surface.clientLabel}</p>
+                        <p className="font-medium">{say(surface.clientLabel)}</p>
                         {surface.showPrice ? (
                           <p className="tabular-nums">{money(surface.price)}</p>
                         ) : null}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {surface.clientDescription}
-                        {surface.showCoats ? ` · ${surface.coatCount} coats` : ""}
+                        {say(surface.clientDescription)}
+                        {surface.showCoats ? ` · ${say(`${surface.coatCount} coats`)}` : ""}
                       </p>
                     </li>
                   ))}
@@ -123,16 +127,16 @@ export function ProposalView({ id }: { id: string }) {
       {quote.lineItems.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Additional items
+            {say("Additional items")}
           </h2>
           {quote.lineItems.map((line) => (
             <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
               <div className="min-w-0">
-                <ProposalLinePhoto src={line.photo} alt={line.label} />
-                <ProposalLineVideo src={line.video} label={line.label} />
-                <p className="font-medium">{line.label}</p>
+                <ProposalLinePhoto src={line.photo} alt={paintingText(line.label, line.labelEs, language)} />
+                <ProposalLineVideo src={line.video} label={paintingText(line.label, line.labelEs, language)} />
+                <p className="font-medium">{paintingText(line.label, line.labelEs, language)}</p>
                 {line.clientNote ? (
-                  <p className="text-sm whitespace-pre-line text-muted-foreground">{line.clientNote}</p>
+                  <p className="text-sm whitespace-pre-line text-muted-foreground">{paintingText(line.clientNote, line.clientNoteEs, language)}</p>
                 ) : null}
               </div>
               <p className="tabular-nums">{money(line.price)}</p>

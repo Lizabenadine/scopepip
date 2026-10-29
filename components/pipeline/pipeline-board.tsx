@@ -3,6 +3,8 @@
 import Link from "next/link"
 import { useMemo, useState, type ReactNode } from "react"
 import { DispatchBoard } from "@/components/dispatch/dispatch-board"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
 import { DealCard } from "@/components/pipeline/deal-card"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,7 +32,9 @@ function todayIso(): string {
 
 export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   const scope = useScope()
+  const { language } = useFieldLanguage()
   const progressOnly = kind === "jobs" && scope.session?.role === "project_manager"
+  const jobLanguage = kind === "jobs" ? language : "en"
   const [filters, setFilters] = useState<BoardFilters>(OPEN_FILTERS)
   const [crew, setCrew] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -73,7 +77,10 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
     )
   }
 
-  const title = progressOnly ? "Progress jobs" : kind === "sales" ? "Sales Pipeline" : "Jobs Pipeline"
+  const title = fieldJobHeading(
+    progressOnly ? "Progress jobs" : kind === "sales" ? "Sales Pipeline" : "Jobs Pipeline",
+    jobLanguage,
+  )
   const footerLabel = kind === "sales" ? "Total Value" : "Total Revenue"
   const visibleColumns = progressOnly
     ? columns.filter((column) => column.id === "project_in_progress")
@@ -81,7 +88,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
 
   return (
     <div className="flex flex-col gap-4" data-testid={kind === "sales" ? "sales-pipeline" : "jobs-pipeline"}>
-      {progressOnly ? null : <PipelineTabs kind={kind} crew={crew} onCrew={setCrew} />}
+      {progressOnly ? null : <PipelineTabs kind={kind} crew={crew} onCrew={setCrew} language={jobLanguage} />}
       {crew && kind === "jobs" && !progressOnly ? (
         <DispatchBoard />
       ) : (
@@ -192,7 +199,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                     </form>
                   ) : (
                     <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid={`column-label-${column.id}`}>
-                      {column.label}
+                      {fieldJobHeading(column.label, jobLanguage)}
                     </h2>
                   )}
                   <span className="text-xs tabular-nums text-muted-foreground">{column.cards.length}</span>
@@ -225,7 +232,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                 <div className="flex flex-1 flex-col gap-3">
                   {column.cards.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-                      {column.empty}
+                      {fieldJobEmpty(column.label, column.empty, jobLanguage)}
                     </p>
                   ) : (
                     column.cards.map((card) => {
@@ -316,10 +323,12 @@ function PipelineTabs({
   kind,
   crew,
   onCrew,
+  language,
 }: {
   kind: "sales" | "jobs"
   crew: boolean
   onCrew: (crew: boolean) => void
+  language: "en" | "es"
 }) {
   const salesActive = kind === "sales"
   const jobsActive = kind === "jobs" && !crew
@@ -336,7 +345,7 @@ function PipelineTabs({
       </Link>
       {kind === "jobs" ? (
         <button type="button" role="tab" aria-selected={jobsActive} data-testid="tab-jobs" className={tabClass(jobsActive)} onClick={() => onCrew(false)}>
-          Jobs Pipeline
+          {fieldJobHeading("Jobs Pipeline", language)}
         </button>
       ) : (
         <Link href="/dispatch" role="tab" aria-selected={false} data-testid="tab-jobs" className={tabClass(false)}>
@@ -345,7 +354,7 @@ function PipelineTabs({
       )}
       {kind === "jobs" ? (
         <button type="button" role="tab" aria-selected={crew} data-testid="tab-crew" className={tabClass(crew)} onClick={() => onCrew(true)}>
-          Crew board
+          {fieldJobHeading("Crew board", language)}
         </button>
       ) : null}
     </div>

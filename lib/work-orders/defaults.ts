@@ -23,6 +23,7 @@ export function createWorkOrder(estimate: Estimate): WorkOrder {
   return {
     estimateId: estimate.id,
     prepNotes: estimate.crewNote || estimate.notes,
+    prepNotesEs: estimate.crewNote.trim() ? estimate.crewNoteEs : estimate.notesEs,
     hourDisplay: "all",
     checklist: defaultChecklist(estimate),
     photos: [],

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useDispatchBoard } from "@/hooks/use-dispatch"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { jobsOnDate, type DispatchJob } from "@/lib/dispatch/board"
 import {
   dayNumber,
@@ -16,13 +17,16 @@ import {
   weekDays,
   weekdayLabel,
 } from "@/lib/dispatch/calendar"
-import { jobDate } from "@/lib/format"
+import { fieldLocale } from "@/lib/field/language"
+import type { FieldCopy } from "@/lib/field/copy"
 import { cn } from "@/lib/utils"
 
 type CalendarMode = "month" | "week"
 
 export function CrewCalendar() {
   const { ready, jobs, crews } = useDispatchBoard()
+  const { copy, language } = useFieldLanguage()
+  const locale = fieldLocale(language)
   const [mode, setMode] = useState<CalendarMode>("month")
   const [anchor, setAnchor] = useState<Date | null>(null)
 
@@ -56,23 +60,23 @@ export function CrewCalendar() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-          <p className="text-sm text-muted-foreground">{monthLabel(anchor)}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{copy.calendarTitle}</h1>
+          <p className="text-sm text-muted-foreground">{monthLabel(anchor, locale)}</p>
         </div>
         <Link href="/dispatch" className="text-sm font-medium text-primary">
-          Dispatch board
+          {copy.dispatchBoard}
         </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg bg-muted p-1" role="tablist" aria-label="Calendar range">
-          <ModeButton active={mode === "week"} label="Week" onClick={() => setMode("week")} />
-          <ModeButton active={mode === "month"} label="Month" onClick={() => setMode("month")} />
+        <div className="flex rounded-lg bg-muted p-1" role="tablist" aria-label={copy.rangeLabel}>
+          <ModeButton active={mode === "week"} label={copy.week} onClick={() => setMode("week")} />
+          <ModeButton active={mode === "month"} label={copy.month} onClick={() => setMode("month")} />
         </div>
         <button
           type="button"
           className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-muted"
-          aria-label="Previous"
+          aria-label={copy.previous}
           onClick={() => setAnchor(mode === "month" ? shiftMonth(anchor, -1) : shiftWeek(anchor, -1))}
         >
           <ChevronLeft className="size-5" />
@@ -82,19 +86,19 @@ export function CrewCalendar() {
           className="h-11 rounded-lg px-3 text-sm font-medium hover:bg-muted"
           onClick={() => setAnchor(new Date())}
         >
-          Today
+          {copy.today}
         </button>
         <button
           type="button"
           className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-muted"
-          aria-label="Next"
+          aria-label={copy.next}
           onClick={() => setAnchor(mode === "month" ? shiftMonth(anchor, 1) : shiftWeek(anchor, 1))}
         >
           <ChevronRight className="size-5" />
         </button>
       </div>
 
-      <ul className="flex flex-wrap gap-2" aria-label="Crew colors">
+      <ul className="flex flex-wrap gap-2" aria-label={copy.crewColors}>
         {crews.map((crew) => (
           <li
             key={crew.id}
@@ -112,15 +116,15 @@ export function CrewCalendar() {
           className="rounded-xl bg-card px-3 py-2 text-left text-sm ring-1 ring-foreground/10"
           onClick={() => setAnchor(parseIsoDate(nextJob.scheduledStartDate!))}
         >
-          Next: {nextJob.clientName} · {jobDate(nextJob.scheduledStartDate)}
+          {copy.nextJob}: {nextJob.clientName} · {copy.jobDate(nextJob.scheduledStartDate)}
           {nextJob.crewName ? ` · ${nextJob.crewName}` : ""}
         </button>
       ) : null}
 
       {mode === "week" ? (
-        <WeekGrid days={weekDays(anchor)} jobs={jobs} today={today} />
+        <WeekGrid days={weekDays(anchor)} jobs={jobs} today={today} locale={locale} />
       ) : (
-        <MonthGrid anchor={anchor} jobs={jobs} today={today} />
+        <MonthGrid anchor={anchor} jobs={jobs} today={today} copy={copy} locale={locale} />
       )}
     </div>
   )
@@ -151,7 +155,17 @@ function ModeButton({
   )
 }
 
-function WeekGrid({ days, jobs, today }: { days: string[]; jobs: DispatchJob[]; today: string }) {
+function WeekGrid({
+  days,
+  jobs,
+  today,
+  locale,
+}: {
+  days: string[]
+  jobs: DispatchJob[]
+  today: string
+  locale: string
+}) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
       {days.map((iso) => (
@@ -164,7 +178,7 @@ function WeekGrid({ days, jobs, today }: { days: string[]; jobs: DispatchJob[]; 
           )}
         >
           <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            {weekdayLabel(iso)} {dayNumber(iso)}
+            {weekdayLabel(iso, locale)} {dayNumber(iso)}
           </h2>
           <div className="mt-2 flex flex-col gap-2">
             {jobsOnDate(jobs, iso).map((job) => (
@@ -177,14 +191,26 @@ function WeekGrid({ days, jobs, today }: { days: string[]; jobs: DispatchJob[]; 
   )
 }
 
-function MonthGrid({ anchor, jobs, today }: { anchor: Date; jobs: DispatchJob[]; today: string }) {
+function MonthGrid({
+  anchor,
+  jobs,
+  today,
+  copy,
+  locale,
+}: {
+  anchor: Date
+  jobs: DispatchJob[]
+  today: string
+  copy: FieldCopy
+  locale: string
+}) {
   const cells = monthGrid(anchor)
   return (
     <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10">
       <div className="hidden grid-cols-7 bg-muted sm:grid">
         {weekDays(anchor).map((iso) => (
           <div key={iso} className="px-2 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            {weekdayLabel(iso)}
+            {weekdayLabel(iso, locale)}
           </div>
         ))}
       </div>
@@ -202,7 +228,7 @@ function MonthGrid({ anchor, jobs, today }: { anchor: Date; jobs: DispatchJob[];
               )}
             >
               <h2 className="text-xs font-semibold">
-                <span className="sm:hidden">{weekdayLabel(cell.iso)} </span>
+                <span className="sm:hidden">{weekdayLabel(cell.iso, locale)} </span>
                 {dayNumber(cell.iso)}
               </h2>
               <div className="mt-1 flex flex-col gap-1">
@@ -210,7 +236,7 @@ function MonthGrid({ anchor, jobs, today }: { anchor: Date; jobs: DispatchJob[];
                   <JobBlock key={job.estimateId} job={job} />
                 ))}
                 {dayJobs.length > 3 ? (
-                  <p className="text-xs text-muted-foreground">+{dayJobs.length - 3} more</p>
+                  <p className="text-xs text-muted-foreground">{copy.more(dayJobs.length - 3)}</p>
                 ) : null}
               </div>
             </section>

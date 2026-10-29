@@ -10,15 +10,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useSitePhotos } from "@/hooks/use-site-photos"
-import { describeLink, PHOTO_TAG_LABELS } from "@/lib/photos/link"
+import { fieldCopy } from "@/lib/field/copy"
+import type { FieldLanguage } from "@/lib/field/language"
+import { describeLink } from "@/lib/photos/link"
 
 export function PhotoGallery({
   estimateId,
   compact = false,
+  language = "en",
 }: {
   estimateId: string
   compact?: boolean
+  language?: FieldLanguage
 }) {
+  const copy = fieldCopy(language)
   const { photos, photoScope } = useSitePhotos(estimateId)
   const [open, setOpen] = useState(false)
   const count = photos.length
@@ -38,19 +43,19 @@ export function PhotoGallery({
         }
       >
         {compact ? <Camera className="size-4" /> : null}
-        Site photos{count > 0 ? ` (${count})` : ""}
+        {copy.photosButton(count)}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Site photos</DialogTitle>
+            <DialogTitle>{copy.sitePhotos}</DialogTitle>
             <DialogDescription>
-              {count === 0 ? "Nothing from the job site yet." : `${count} from this work order.`}
+              {count === 0 ? copy.photosEmptyTitle : copy.photosCount(count)}
             </DialogDescription>
           </DialogHeader>
           {count === 0 ? (
             <p className="px-4 pb-6 text-sm text-muted-foreground">
-              Photos the crew takes on the work order show up here, tagged to the room, the prep note, or a line item.
+              {copy.photosEmptyBody}
             </p>
           ) : (
             <ul className="grid gap-3 px-4 pb-6 sm:grid-cols-2">
@@ -61,18 +66,18 @@ export function PhotoGallery({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={photo.url}
-                      alt={photo.caption || PHOTO_TAG_LABELS[photo.tag] || "Site photo"}
+                      alt={photo.caption || copy.photoTag(photo.tag)}
                       className="aspect-[4/3] max-h-56 w-full object-cover"
                     />
                     <div className="flex flex-col gap-1 px-3 py-2">
                       <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                        {PHOTO_TAG_LABELS[photo.tag] ?? "In progress"}
+                        {copy.photoTag(photo.tag)}
                       </p>
                       {photo.caption ? <p className="text-sm">{photo.caption}</p> : null}
                       {detail ? (
                         <p className="text-sm text-muted-foreground">
-                          {detail.label}
-                          {detail.detail ? ` · ${detail.detail}` : ""}
+                          {copy.photoLink(detail.label)}
+                          {detail.detail ? ` · ${copy.photoDetail(detail.detail)}` : ""}
                         </p>
                       ) : null}
                     </div>

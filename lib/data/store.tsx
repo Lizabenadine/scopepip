@@ -431,6 +431,8 @@ function scopeActivity(
     settings: draft.settings,
     notes: draft.notes,
     crewNote: draft.crewNote,
+    notesEs: draft.notesEs,
+    crewNoteEs: draft.crewNoteEs,
   }
   const described = describeScopeChange(previous, incoming, pricedTotal(state, previous), pricedTotal(state, incoming))
   if (!described) return previous.activity ? [...previous.activity] : undefined
@@ -527,6 +529,8 @@ function buildApi(snapshot: Snapshot): ScopeApi {
               settings: draft.settings,
               notes: draft.notes,
               crewNote: draft.crewNote,
+              notesEs: draft.notesEs,
+              crewNoteEs: draft.crewNoteEs,
             },
             now,
           )
@@ -545,8 +549,10 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         rates: draft.rates,
         settings: draft.settings,
         scheduledOn: draft.scheduledOn,
-        notes: draft.notes.trim(),
-        crewNote: draft.crewNote.trim(),
+    notes: draft.notes.trim(),
+    crewNote: draft.crewNote.trim(),
+    ...(draft.notesEs?.trim() ? { notesEs: draft.notesEs.trim() } : { notesEs: undefined }),
+    ...(draft.crewNoteEs?.trim() ? { crewNoteEs: draft.crewNoteEs.trim() } : { crewNoteEs: undefined }),
         acceptedAt: draft.acceptedAt,
         declinedAt: previous?.declinedAt ?? null,
         publicToken: draft.publicToken || existingToken(latest, id),
@@ -1117,7 +1123,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       commit({
         ...latest,
         workOrders: latest.workOrders.map((order) =>
-          order.estimateId === estimateId ? { ...order, prepNotes } : order,
+          order.estimateId === estimateId ? { ...order, prepNotes, prepNotesEs: undefined } : order,
         ),
       })
     },
