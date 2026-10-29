@@ -12,6 +12,7 @@ async function client() {
 export interface CompanyProfile {
   companyName: string
   companyEmail: string
+  logoUrl: string
 }
 
 /** Signed-in org profile. Null when Supabase or a session is not available. */
@@ -24,13 +25,14 @@ export async function readCompanyProfile(): Promise<CompanyProfile | null> {
     if (!userId) return null
     const { data, error } = await supabase
       .from("profiles")
-      .select("company_name, company_email")
+      .select("company_name, company_email, logo_url")
       .eq("user_id", userId)
       .maybeSingle()
     if (error || !data) return null
     return {
       companyName: typeof data.company_name === "string" ? data.company_name : "",
       companyEmail: typeof data.company_email === "string" ? data.company_email : "",
+      logoUrl: typeof data.logo_url === "string" ? data.logo_url : "",
     }
   } catch {
     return null
@@ -48,6 +50,7 @@ export async function saveCompanyProfile(settings: EstimateSettings): Promise<vo
       user_id: userId,
       company_name: settings.companyName?.trim() ?? "",
       company_email: settings.companyEmail?.trim() ?? "",
+      logo_url: settings.logoUrl?.trim() ?? "",
       updated_at: new Date().toISOString(),
     })
   } catch {

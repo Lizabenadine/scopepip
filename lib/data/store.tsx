@@ -1263,6 +1263,7 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
           ...latest.estimateSettings,
           companyName: profile.companyName.trim(),
           companyEmail: profile.companyEmail.trim() || latest.estimateSettings.companyEmail,
+          logoUrl: profile.logoUrl.trim() || latest.estimateSettings.logoUrl,
         },
       })
     })

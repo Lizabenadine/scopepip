@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
-import { CompanyName } from "@/components/brand/company-name"
+import { CompanyMark } from "@/components/brand/company-mark"
+import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { CompletionChecklist } from "@/components/work-orders/completion-checklist"
 import { OnSiteChangeOrder } from "@/components/work-orders/on-site-change-order"
 import { PendingSign } from "@/components/work-orders/pending-sign"
@@ -36,7 +37,7 @@ export function WorkOrderView({ id }: { id: string }) {
   if (crew.unscheduled) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center">
-        <CompanyName name={brand} className="text-sm font-semibold tracking-tight" />
+        <CompanyMark name={brand} logoUrl={estimateSettings.logoUrl} className="text-sm font-semibold tracking-tight" testId="crew-brand" />
         <h1 className="mt-2 text-xl font-semibold">{copy.crewSheetWaits}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{copy.crewSheetWaitsDetail}</p>
         <Link href={limited ? "/work-orders" : `/estimates/${id}`} className="mt-4 inline-block text-sm font-medium text-primary">
@@ -63,13 +64,22 @@ export function WorkOrderView({ id }: { id: string }) {
 
   return (
     <article data-testid="crew-sheet" className="mx-auto flex max-w-2xl flex-col gap-6 pb-8 md:max-w-5xl">
-      <Link href={limited ? "/work-orders" : "/"} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-        <ChevronLeft className="size-4" />
-        {limited ? copy.workOrders : copy.jobs}
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href={limited ? "/work-orders" : "/"} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+          <ChevronLeft className="size-4" />
+          {limited ? copy.workOrders : copy.jobs}
+        </Link>
+        <div className="flex items-center gap-3">
+          <FieldLanguageSwitch />
+          <button type="button" className="text-sm font-medium text-primary" onClick={() => window.print()}>
+            Print
+          </button>
+        </div>
+      </div>
       {crew.packet ? (
         <SubcontractorWorkOrder
           order={crew.packet}
+          logoUrl={estimateSettings.logoUrl}
           description={sheet.crewNote}
           spanishDescription={sheet.crewNoteEs}
           setDescription={crew.setPrepNotes}
@@ -77,7 +87,8 @@ export function WorkOrderView({ id }: { id: string }) {
         />
       ) : null}
       <header className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-        <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{copy.crewProduction}</p>
+        <CompanyMark name={brand} logoUrl={estimateSettings.logoUrl} className="font-display text-2xl text-primary" imageClassName="h-14" testId="crew-brand" />
+        <p className="mt-3 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{copy.crewProduction}</p>
         {sheet.scheduledOn ? (
           <p className="mt-2 text-sm font-medium">
             {crew.onSite ? copy.onSiteNow : copy.onSite} {copy.jobDate(sheet.scheduledOn)}

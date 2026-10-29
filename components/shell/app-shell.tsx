@@ -29,7 +29,7 @@ const SECTION_ICONS = {
 } as const
 
 function navIsActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/"
+  if (href === "/dashboard") return pathname === "/dashboard" || pathname === "/"
   if (href === "/estimate") return pathname === "/estimate" || pathname.startsWith("/estimate/") || pathname.startsWith("/estimates")
   if (href === "/proposal") return pathname === "/proposal" || pathname.startsWith("/proposal/")
   return pathname === href || pathname.startsWith(`${href}/`)

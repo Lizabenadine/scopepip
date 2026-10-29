@@ -31,7 +31,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
     ]
   }
   return [
-    { name: "Dashboard", short: "Dashboard", href: "/", links: [] },
+    { name: "Dashboard", short: "Dashboard", href: "/dashboard", links: [] },
     {
       name: "Sales",
       short: "Sales",

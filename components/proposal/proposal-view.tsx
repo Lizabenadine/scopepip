@@ -69,6 +69,9 @@ export function ProposalView({ id }: { id: string }) {
         <Link href={`/p/${estimate.publicToken}`} className="font-medium text-primary">
           Client link
         </Link>
+        <button type="button" className="font-medium text-primary" onClick={() => window.print()}>
+          Print
+        </button>
         <button
           type="button"
           data-testid="copy-spanish-proposal"
@@ -90,6 +93,7 @@ export function ProposalView({ id }: { id: string }) {
       <ProposalPager pages={pages} />
       <ProposalCover
         companyName={companyName}
+        logoUrl={scope.estimateSettings.logoUrl}
         clientName={client?.name || "Client"}
         title={estimate.title || "Estimate"}
         jobAddress={estimate.jobAddress}

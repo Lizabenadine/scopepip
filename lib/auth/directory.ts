@@ -209,6 +209,26 @@ export async function sessionById(userId: string): Promise<OfficeSession | null>
   return toSession(user, company)
 }
 
+export async function sessionByEmail(email: string): Promise<OfficeSession | null> {
+  const accounts = await readAccounts()
+  const user = accounts.users.find((item) => item.email === normalizeEmail(email))
+  if (!user) return null
+  const company = accounts.companies.find((item) => item.id === user.companyId)
+  if (!company) return null
+  return toSession(user, company)
+}
+
+export function signupInputError(input: { name: string; email: string; password: string; companyName: string }): string | null {
+  const name = input.name.trim()
+  const companyName = input.companyName.trim()
+  const email = normalizeEmail(input.email)
+  if (!name) return "Enter your name."
+  if (!companyName) return "Name the company."
+  if (!email.includes("@") || email.startsWith("@") || email.endsWith("@")) return "Enter a real email."
+  if (input.password.length < 8) return "Use at least 8 characters."
+  return null
+}
+
 export async function signup(input: {
   name: string
   email: string
@@ -218,15 +238,11 @@ export async function signup(input: {
   | { ok: true; user: OfficeSession; hosted?: boolean; passwordHash?: string; revision?: number; book?: ReturnType<typeof createCompanyBook> }
   | { ok: false; reason: string }
 > {
+  const invalid = signupInputError(input)
+  if (invalid) return { ok: false, reason: invalid }
   const name = input.name.trim()
   const companyName = input.companyName.trim()
   const email = normalizeEmail(input.email)
-  if (!name) return { ok: false, reason: "Enter your name." }
-  if (!companyName) return { ok: false, reason: "Name the company." }
-  if (!email.includes("@") || email.startsWith("@") || email.endsWith("@")) {
-    return { ok: false, reason: "Enter a real email." }
-  }
-  if (input.password.length < 8) return { ok: false, reason: "Use at least 8 characters." }
   const accounts = await readAccounts()
   if (accounts.users.some((user) => user.email === email)) {
     return { ok: false, reason: "That email already has an account." }

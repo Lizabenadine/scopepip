@@ -1,6 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { CompanyMark } from "@/components/brand/company-mark"
+import { Button } from "@/components/ui/button"
+import { displayCompanyName } from "@/lib/brand/company"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { officeLabel } from "@/lib/office/dashboard-copy"
@@ -8,7 +11,7 @@ import { moneyExact } from "@/lib/format"
 import { listPaymentRows, type PaymentRow } from "@/lib/payments/ledger"
 
 export function PaymentsList() {
-  const { ready, estimates, clients, quoteEstimate, session } = useScope()
+  const { ready, estimates, clients, quoteEstimate, session, estimateSettings } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const limited = session?.role === "project_manager"
@@ -20,8 +23,16 @@ export function PaymentsList() {
 
   return (
     <section className="flex flex-col gap-4" data-testid="payments-list">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{say("Invoices & Payments")}</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+        <CompanyMark
+          name={displayCompanyName(estimateSettings.companyName)}
+          logoUrl={estimateSettings.logoUrl}
+          className="font-display text-3xl text-primary"
+          imageClassName="h-14"
+          testId="invoice-brand"
+        />
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">{say("Invoices & Payments")}</h1>
         <p className="text-sm text-muted-foreground">
           {rows.length === 0
             ? language === "es"
@@ -31,6 +42,10 @@ export function PaymentsList() {
               ? `${rows.length} facturas`
               : `${rows.length} invoices`}
         </p>
+        </div>
+        <Button type="button" variant="outline" className="h-11" onClick={() => window.print()}>
+          Print
+        </Button>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">

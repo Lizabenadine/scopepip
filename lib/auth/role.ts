@@ -18,7 +18,7 @@ export function isUserRole(value: string): value is UserRole {
 }
 
 export function homeForRole(role: UserRole): string {
-  return role === "project_manager" ? "/dispatch" : "/"
+  return role === "project_manager" ? "/dispatch" : "/dashboard"
 }
 
 export function roleSignInReason(role: UserRole): string {

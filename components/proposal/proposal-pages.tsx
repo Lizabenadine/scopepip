@@ -1,4 +1,4 @@
-import { CompanyName } from "@/components/brand/company-name"
+import { CompanyMark } from "@/components/brand/company-mark"
 import { money } from "@/lib/format"
 import type { ProposalPageRef } from "@/lib/proposals/document"
 import type { ProposalPhoto, ProposalTestimonial } from "@/lib/types"
@@ -25,6 +25,7 @@ export function ProposalPager({ pages }: { pages: ProposalPageRef[] }) {
 
 export function ProposalCover({
   companyName,
+  logoUrl,
   clientName,
   title,
   jobAddress,
@@ -37,6 +38,7 @@ export function ProposalCover({
   pageCount,
 }: {
   companyName: string
+  logoUrl?: string | null
   clientName: string
   title: string
   jobAddress: string
@@ -56,10 +58,12 @@ export function ProposalCover({
       className="flex min-h-[70vh] flex-col justify-between rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm sm:p-10 print:break-after-page"
     >
       <div>
-        <CompanyName
+        <CompanyMark
           name={companyName}
+          logoUrl={logoUrl}
           testId="proposal-brand"
           className="font-display text-3xl leading-none tracking-tight text-primary"
+          imageClassName="h-16"
         />
         <p className="mt-6 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Proposal</p>
         <h1 className="mt-2 font-display text-4xl leading-none tracking-tight sm:text-5xl">{title || "Painting proposal"}</h1>

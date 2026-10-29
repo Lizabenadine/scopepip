@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; banner?: string | null }) {
   const signup = mode === "signup"
   const [name, setName] = useState("")
   const [companyName, setCompanyName] = useState("")
@@ -20,6 +20,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [role, setRole] = useState<UserRole>("owner")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -43,6 +44,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         revision?: number
         book?: unknown
         user?: OfficeSession
+        confirmEmail?: boolean
+      }
+      if (signup && result.confirmEmail) {
+        setAwaitingConfirm(true)
+        return
       }
       if (!response.ok || !result.ok || !result.user) {
         setError(result.reason || (signup ? "That account could not be created." : "That sign-in did not work."))
@@ -52,7 +58,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (typeof result.revision === "number" && isScopeState(result.book)) {
         saveBrowserBook(result.user.companyId, result.revision, result.book)
       }
-      window.location.assign(signup ? "/" : homeForRole(result.user.role))
+      window.location.assign(signup ? "/dashboard" : homeForRole(result.user.role))
     } catch {
       setError(signup ? "That account could not be created." : "That sign-in did not work.")
     } finally {
@@ -72,72 +78,82 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               : "Sign in as the role on this account. An owner opens the office. A project manager opens progress jobs, work orders, and invoices."}
           </p>
         </div>
-        {signup ? (
+        {banner ? <p className="text-sm text-foreground">{banner}</p> : null}
+        {awaitingConfirm ? (
+          <p className="text-sm text-foreground" data-testid="signup-confirm">
+            Check {email.trim()} for a confirmation link. Open that link in this browser and you are signed in. You do not need to enter the password again.
+          </p>
+        ) : null}
+        {awaitingConfirm ? null : (
           <>
+            {signup ? (
+              <>
+                <div className="grid gap-1">
+                  <Label htmlFor="signup-name">Your name</Label>
+                  <Input id="signup-name" data-testid="signup-name" value={name} onValueChange={setName} autoComplete="name" className="h-11" />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="signup-company">Company name</Label>
+                  <Input id="signup-company" data-testid="signup-company" value={companyName} onValueChange={setCompanyName} autoComplete="organization" className="h-11" />
+                </div>
+              </>
+            ) : (
+              <fieldset className="grid gap-2">
+                <legend className="text-sm font-medium">Role</legend>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="owner"
+                    data-testid="login-role-owner"
+                    checked={role === "owner"}
+                    onChange={() => setRole("owner")}
+                  />
+                  Owner
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="project_manager"
+                    data-testid="login-role-project-manager"
+                    checked={role === "project_manager"}
+                    onChange={() => setRole("project_manager")}
+                  />
+                  Project manager
+                </label>
+              </fieldset>
+            )}
             <div className="grid gap-1">
-              <Label htmlFor="signup-name">Your name</Label>
-              <Input id="signup-name" data-testid="signup-name" value={name} onValueChange={setName} autoComplete="name" className="h-11" />
+              <Label htmlFor="auth-email">Email</Label>
+              <Input
+                id="auth-email"
+                data-testid={signup ? "signup-email" : "login-email"}
+                type="email"
+                value={email}
+                onValueChange={setEmail}
+                autoComplete="email"
+                className="h-11"
+              />
             </div>
             <div className="grid gap-1">
-              <Label htmlFor="signup-company">Company name</Label>
-              <Input id="signup-company" data-testid="signup-company" value={companyName} onValueChange={setCompanyName} autoComplete="organization" className="h-11" />
+              <Label htmlFor="auth-password">Password</Label>
+              <Input
+                id="auth-password"
+                data-testid={signup ? "signup-password" : "login-password"}
+                type="password"
+                value={password}
+                onValueChange={setPassword}
+                autoComplete={signup ? "new-password" : "current-password"}
+                className="h-11"
+              />
             </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <Button type="submit" data-testid={signup ? "signup-submit" : "login-submit"} className="h-11" disabled={pending}>
+              {pending ? "Saving" : signup ? "Create account" : "Sign in"}
+            </Button>
           </>
-        ) : (
-          <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium">Role</legend>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="role"
-                value="owner"
-                data-testid="login-role-owner"
-                checked={role === "owner"}
-                onChange={() => setRole("owner")}
-              />
-              Owner
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="role"
-                value="project_manager"
-                data-testid="login-role-project-manager"
-                checked={role === "project_manager"}
-                onChange={() => setRole("project_manager")}
-              />
-              Project manager
-            </label>
-          </fieldset>
         )}
-        <div className="grid gap-1">
-          <Label htmlFor="auth-email">Email</Label>
-          <Input
-            id="auth-email"
-            data-testid={signup ? "signup-email" : "login-email"}
-            type="email"
-            value={email}
-            onValueChange={setEmail}
-            autoComplete="email"
-            className="h-11"
-          />
-        </div>
-        <div className="grid gap-1">
-          <Label htmlFor="auth-password">Password</Label>
-          <Input
-            id="auth-password"
-            data-testid={signup ? "signup-password" : "login-password"}
-            type="password"
-            value={password}
-            onValueChange={setPassword}
-            autoComplete={signup ? "new-password" : "current-password"}
-            className="h-11"
-          />
-        </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" data-testid={signup ? "signup-submit" : "login-submit"} className="h-11" disabled={pending}>
-          {pending ? "Saving" : signup ? "Create account" : "Sign in"}
-        </Button>
         <p className="text-sm text-muted-foreground">
           {signup ? (
             <>

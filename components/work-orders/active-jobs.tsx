@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { moneyExact } from "@/lib/format"
@@ -17,11 +18,14 @@ export function ActiveJobs() {
 
   return (
     <section className="flex flex-col gap-4" data-testid="active-jobs">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
         <h1 className="text-2xl font-semibold tracking-tight">{copy.workOrdersTitle}</h1>
         <p className="text-sm text-muted-foreground">
           {jobs.length === 0 ? copy.acceptedEmpty : copy.acceptedCount(jobs.length)}
         </p>
+        </div>
+        <FieldLanguageSwitch />
       </div>
       {jobs.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">

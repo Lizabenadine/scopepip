@@ -117,6 +117,8 @@ export interface EstimateSettings {
   /** Blank uses the ScopePipe fallback. */
   companyName?: string
   companyEmail?: string
+  /** Public logo. Blank shows the company name. */
+  logoUrl?: string
   /** Number customers text. Blank until the office saves one. */
   businessPhone?: string
   /** Missing means the proposal shows a payment estimate. */

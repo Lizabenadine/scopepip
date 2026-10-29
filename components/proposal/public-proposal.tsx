@@ -288,13 +288,17 @@ function ProposalDocument({
 
   return (
     <article className="flex flex-col gap-8">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <button type="button" className="text-sm font-medium text-primary" onClick={() => window.print()}>
+          Print
+        </button>
         <FieldLanguageSwitch onChange={onLanguage} />
       </div>
       <ProposalEngagement proposalId={estimate.publicToken} />
       <ProposalPager pages={pages} />
       <ProposalCover
         companyName={companyName}
+        logoUrl={estimateSettings.logoUrl}
         clientName={clientName}
         title={estimate.title}
         jobAddress={estimate.jobAddress}

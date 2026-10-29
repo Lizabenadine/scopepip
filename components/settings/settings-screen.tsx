@@ -13,6 +13,7 @@ import { TimeRates } from "@/components/settings/time-rates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CompanyLogoField } from "@/components/settings/company-logo"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
@@ -206,11 +207,9 @@ function BrandPanel() {
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <h2 className="text-lg font-semibold">Brand</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Proposals, work orders, and follow-ups use {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
+        Proposals, crew sheets, and invoices show this logo. Without a logo they show {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
       </p>
-      <p className="mt-4 font-display text-3xl" data-testid="brand-preview">
-        {name}
-      </p>
+      <CompanyLogoField />
     </section>
   )
 }

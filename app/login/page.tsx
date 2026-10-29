@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: "Sign in",
 }
 
-export default function LoginPage() {
-  return <AuthForm mode="login" />
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ confirmed?: string }> }) {
+  const params = await searchParams
+  const banner = params.confirmed === "1" ? "Your email is confirmed. Sign in with the same password to open the office." : null
+  return <AuthForm mode="login" banner={banner} />
 }

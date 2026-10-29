@@ -1,18 +1,21 @@
 "use client"
 
 import { useState, type FormEvent } from "react"
+import { CompanyMark } from "@/components/brand/company-mark"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { translatePainting } from "@/lib/field/terms"
 import type { WorkOrderData } from "@/lib/work-orders/subcontractor"
 
 export function SubcontractorWorkOrder({
   order,
+  logoUrl,
   description,
   spanishDescription,
   setDescription,
   onSign,
 }: {
   order: WorkOrderData
+  logoUrl?: string | null
   description: string
   spanishDescription?: string
   setDescription: (description: string) => void
@@ -58,7 +61,7 @@ export function SubcontractorWorkOrder({
           ) : null}
         </div>
         <div className="min-w-[220px] space-y-1 rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600 md:text-right">
-          <p className="font-bold text-slate-900">{order.companyName}</p>
+          <CompanyMark name={order.companyName} logoUrl={logoUrl} className="text-base font-bold text-slate-900" imageClassName="ml-auto h-12" testId="work-order-brand" />
           {order.companyAddress ? <p>{order.companyAddress}</p> : null}
           {order.companyPhone ? <p>{copy.phone}: {order.companyPhone}</p> : null}
           {order.salespersonName ? (
