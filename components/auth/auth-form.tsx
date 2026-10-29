@@ -20,7 +20,6 @@ export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; ba
   const [role, setRole] = useState<UserRole>("owner")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [awaitingConfirm, setAwaitingConfirm] = useState(false)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -47,7 +46,8 @@ export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; ba
         confirmEmail?: boolean
       }
       if (signup && result.confirmEmail) {
-        setAwaitingConfirm(true)
+        const address = email.trim()
+        window.location.assign(`/verify-email?email=${encodeURIComponent(address)}`)
         return
       }
       if (!response.ok || !result.ok || !result.user) {
@@ -79,14 +79,7 @@ export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; ba
           </p>
         </div>
         {banner ? <p className="text-sm text-foreground">{banner}</p> : null}
-        {awaitingConfirm ? (
-          <p className="text-sm text-foreground" data-testid="signup-confirm">
-            Check {email.trim()} for a confirmation link. Open that link in this browser and you are signed in. You do not need to enter the password again.
-          </p>
-        ) : null}
-        {awaitingConfirm ? null : (
-          <>
-            {signup ? (
+        {signup ? (
               <>
                 <div className="grid gap-1">
                   <Label htmlFor="signup-name">Your name</Label>
@@ -152,8 +145,6 @@ export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; ba
             <Button type="submit" data-testid={signup ? "signup-submit" : "login-submit"} className="h-11" disabled={pending}>
               {pending ? "Saving" : signup ? "Create account" : "Sign in"}
             </Button>
-          </>
-        )}
         <p className="text-sm text-muted-foreground">
           {signup ? (
             <>

@@ -16,7 +16,7 @@ describe("subscription access", () => {
     assert.equal(subscriptionAllows({ status: "active", trialEndsAt: new Date(NOW - 1000).toISOString() }, NOW), true)
     assert.equal(subscriptionAllows({ status: "canceled", trialEndsAt: ends }, NOW), false)
     assert.equal(guardedPath("/dashboard"), true)
-    assert.equal(guardedPath("/"), true)
+    assert.equal(guardedPath("/"), false)
     assert.equal(guardedPath("/estimate/new"), true)
     assert.equal(guardedPath("/estimates/est-lena"), true)
     assert.equal(guardedPath("/billing"), false)

@@ -25,9 +25,9 @@ export function subscriptionAllows(access: SubscriptionAccess, nowMs: number): b
   return Number.isFinite(ends) && ends > nowMs
 }
 
-/** Dashboard and estimator routes. Billing, proposals, and crew sheets stay reachable. */
+/** Dashboard and estimator routes. The public home page, billing, proposals, and crew sheets stay reachable. */
 export function guardedPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "/dashboard") return true
+  if (pathname === "/dashboard") return true
   if (pathname === "/estimate" || pathname.startsWith("/estimate/")) return true
   return pathname === "/estimates" || pathname.startsWith("/estimates/")
 }

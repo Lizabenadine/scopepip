@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
-import { PipelineView } from "@/components/pipeline/pipeline-view"
+import { LandingPage } from "@/components/marketing/landing-page"
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Painting jobs moving from lead to paid.",
+  title: { absolute: "Scopepipe" },
+  description:
+    "Fast estimating, interactive proposals with line-item video, and bilingual crew sheets for painting contractors.",
 }
 
 export default function HomePage() {
-  return <PipelineView />
+  return <LandingPage />
 }

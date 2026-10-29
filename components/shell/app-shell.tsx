@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
-  const marketingPage = pathname === "/innova" || pathname.startsWith("/innova/")
+  const marketingPage = pathname === "/" || pathname === "/innova" || pathname.startsWith("/innova/")
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
@@ -62,7 +62,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/request/") ||
     pathname.startsWith("/book/") ||
     pathname === "/login" ||
-    pathname === "/signup"
+    pathname === "/signup" ||
+    pathname === "/verify-email"
 
   useEffect(() => {
     setOpenSection(null)
