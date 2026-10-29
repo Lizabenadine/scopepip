@@ -58,7 +58,7 @@ export function CompanyCamSync({ estimateId }: { estimateId: string }) {
   }
 
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="companycam-sync">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="companycam-sync">
       <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{copy.companyCam}</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         {order?.companyCamUrl ? copy.companyCamLinked : copy.companyCamUnlinked}

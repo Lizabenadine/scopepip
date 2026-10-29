@@ -63,7 +63,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   return (
     <div className="mx-auto grid w-full max-w-md gap-6">
       <BrandLogo />
-      <form onSubmit={submit} className="grid gap-4 rounded-2xl bg-card p-5 ring-1 ring-foreground/10" data-testid={signup ? "signup-form" : "login-form"}>
+      <form onSubmit={submit} className="grid gap-4 rounded-2xl bg-card p-5 border border-slate-200 bg-white shadow-sm" data-testid={signup ? "signup-form" : "login-form"}>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{signup ? "Create the company login" : "Sign in"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">

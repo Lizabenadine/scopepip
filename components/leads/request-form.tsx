@@ -72,7 +72,7 @@ export function RequestEstimateForm({ slug }: { slug: string }) {
 
   if (missing) {
     return (
-      <div className="mx-auto grid max-w-lg gap-3 rounded-2xl bg-card p-6 ring-1 ring-foreground/10">
+      <div className="mx-auto grid max-w-lg gap-3 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight">This request link is not valid</h1>
         <p className="text-sm text-muted-foreground">Ask your painter for a new link.</p>
       </div>
@@ -81,7 +81,7 @@ export function RequestEstimateForm({ slug }: { slug: string }) {
 
   if (sent) {
     return (
-      <div className="mx-auto grid max-w-lg gap-3 rounded-2xl bg-card p-6 ring-1 ring-foreground/10" data-testid="lead-success">
+      <div className="mx-auto grid max-w-lg gap-3 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm" data-testid="lead-success">
         <h1 className="text-2xl font-semibold tracking-tight">Request received</h1>
         <p className="text-sm text-muted-foreground">
           {company} has the request and will follow up by text.
@@ -93,7 +93,7 @@ export function RequestEstimateForm({ slug }: { slug: string }) {
   return (
     <form
       onSubmit={(event) => void submit(event)}
-      className="mx-auto grid max-w-lg gap-4 rounded-2xl bg-card p-6 ring-1 ring-foreground/10"
+      className="mx-auto grid max-w-lg gap-4 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm"
       data-testid="lead-form"
     >
       <div>

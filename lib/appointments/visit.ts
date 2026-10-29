@@ -64,10 +64,15 @@ export function appointmentLabel(visitDay: string, estimateVisitAt: string | nul
   return time ? `${day} · ${time}` : day
 }
 
-export function visitReminderPhrase(visitDay: string | null, estimateVisitAt: string | null | undefined): string {
+export function visitReminderPhrase(
+  visitDay: string | null,
+  estimateVisitAt: string | null | undefined,
+  language: "en" | "es" = "en",
+): string {
+  const locale = language === "es" ? "es-US" : "en-US"
   const ms = instantMs(estimateVisitAt)
   if (ms !== null) {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(locale, {
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -77,7 +82,7 @@ export function visitReminderPhrase(visitDay: string | null, estimateVisitAt: st
   if (visitDay && DAY.test(visitDay)) {
     const [year, month, date] = visitDay.split("-").map(Number)
     const noon = Date.UTC(year, month - 1, date, 12)
-    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(noon)
+    return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }).format(noon)
   }
-  return "the scheduled day"
+  return language === "es" ? "el día programado" : "the scheduled day"
 }

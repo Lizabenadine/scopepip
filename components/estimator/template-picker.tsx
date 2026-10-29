@@ -74,7 +74,7 @@ export function TemplatePicker({
                     onAdd(applied.areas, applied.title, applied.lineItems, applied.areaGroups)
                     onOpenChange(false)
                   }}
-                  className="min-w-0 flex-1 rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-foreground/10"
+                  className="min-w-0 flex-1 rounded-2xl bg-card px-3 py-3 text-left border border-slate-200 bg-white shadow-sm"
                 >
                   <span className="block text-sm font-medium">{template.name}</span>
                   <span className="mt-1 block text-xs text-muted-foreground">{savedTemplateSummary(template)}</span>
@@ -99,7 +99,7 @@ export function TemplatePicker({
               type="button"
               data-testid={`template-${template.id}`}
               onClick={() => addJob(template.id)}
-              className="rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-foreground/10"
+              className="rounded-2xl bg-card px-3 py-3 text-left border border-slate-200 bg-white shadow-sm"
             >
               <span className="block text-sm font-medium">{template.name}</span>
               <span className="mt-1 block text-xs text-muted-foreground">{template.summary}</span>
@@ -115,7 +115,7 @@ export function TemplatePicker({
                 type="button"
                 data-testid={template.id === "bedroom" ? "add-bedroom" : `template-${template.id}`}
                 onClick={() => addArea(template.id)}
-                className="rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-foreground/10"
+                className="rounded-2xl bg-card px-3 py-3 text-left border border-slate-200 bg-white shadow-sm"
               >
                 <span className="block text-sm font-medium">{template.name}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">{template.summary}</span>

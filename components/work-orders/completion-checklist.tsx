@@ -35,7 +35,7 @@ export function CompletionChecklist({
               aria-checked={item.done}
               onClick={() => onToggle(item.id)}
               className={cn(
-                "flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ring-1 ring-foreground/10",
+                "flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left border border-slate-200 bg-white shadow-sm",
                 item.done ? "bg-muted text-muted-foreground" : "bg-card",
               )}
             >

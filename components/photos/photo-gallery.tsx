@@ -62,7 +62,7 @@ export function PhotoGallery({
               {photos.map((photo) => {
                 const detail = photoScope ? describeLink({ kind: photo.linkKind, id: photo.linkId }, photoScope) : null
                 return (
-                  <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+                  <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-xl bg-card border border-slate-200 bg-white shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={photo.url}

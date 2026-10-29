@@ -14,7 +14,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { displayCompanyName } from "@/lib/brand/company"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { DEFAULT_ESTIMATE_SETTINGS, MINIMUM_JOB_CHARGE, PAYMENT_METHODS, PLAN_NAME } from "@/lib/defaults"
 import { FOLLOW_UP_STAGE_COPY } from "@/lib/follow-ups/defaults"
 import { clampDepositPercent } from "@/lib/payments/deposit"
@@ -44,6 +46,8 @@ function tabFrom(value: string | null): SettingsTab {
 
 export function SettingsScreen() {
   const scope = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const router = useRouter()
   const params = useSearchParams()
   const active = tabFrom(params.get("tab"))
@@ -59,9 +63,11 @@ export function SettingsScreen() {
   return (
     <div className="flex flex-col gap-6" data-testid="settings-screen">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{say("Settings")}</h1>
         <p className="text-sm text-muted-foreground">
-          Company, estimating, messages, payments, and connections. A saved estimate keeps the rates it was priced with. A template you save picks up the current production rates when you add it again.
+          {language === "es"
+            ? "Empresa, estimados, mensajes, pagos y conexiones. Un estimado guardado conserva las tarifas con las que se cotizó. Una plantilla guardada toma las tarifas actuales cuando la vuelve a agregar."
+            : "Company, estimating, messages, payments, and connections. A saved estimate keeps the rates it was priced with. A template you save picks up the current production rates when you add it again."}
         </p>
       </div>
       <div role="tablist" aria-label="Settings" className="flex gap-1 overflow-x-auto border-b border-border">
@@ -80,7 +86,7 @@ export function SettingsScreen() {
               )}
               onClick={() => openTab(tab.id)}
             >
-              {tab.label}
+              {say(tab.label)}
             </button>
           )
         })}
@@ -181,7 +187,7 @@ function PaymentFields() {
           Show financing on proposals
         </label>
       </DefaultsForm>
-      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <h2 className="text-lg font-semibold">Ways to pay</h2>
         <ul className="mt-2 text-sm text-muted-foreground">
           {PAYMENT_METHODS.map((method) => (
@@ -197,7 +203,7 @@ function BrandPanel() {
   const { estimateSettings } = useScope()
   const name = displayCompanyName(estimateSettings.companyName)
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <h2 className="text-lg font-semibold">Brand</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Proposals, work orders, and follow-ups use {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
@@ -212,7 +218,7 @@ function BrandPanel() {
 function NotificationsPanel({ onEdit }: { onEdit: () => void }) {
   const { followUpSequences } = useScope()
   return (
-    <section className="flex flex-col gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+    <section className="flex flex-col gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <h2 className="text-lg font-semibold">Notifications</h2>
       <p className="text-sm text-muted-foreground">
         Each column texts or emails the customer on its own. A reply or a booked visit stops that sequence.
@@ -236,7 +242,7 @@ function PortalPanel() {
   const { session } = useScope()
   const requestHref = session ? `/request/${session.companySlug}` : "/signup"
   return (
-    <section className="flex flex-col gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+    <section className="flex flex-col gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <h2 className="text-lg font-semibold">Customer portal</h2>
       <p className="text-sm text-muted-foreground">
         Customers open a proposal, request a visit, or book a time without the office menu.
@@ -257,7 +263,7 @@ function PortalPanel() {
 function AddOnsPanel() {
   const { updateEstimateSettings, resetDemo } = useScope()
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{PLAN_NAME}</p>
       <p className="mt-2 text-sm text-muted-foreground">
         Financing on proposals is turned on from Payments. Calendar, QuickBooks, Zapier, and CompanyCam connect from their own tabs.
@@ -292,7 +298,7 @@ function DefaultsForm({
 
   return (
     <form
-      className="grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2"
+      className="grid gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault()
         const data = new FormData(event.currentTarget)

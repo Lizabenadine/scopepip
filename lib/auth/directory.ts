@@ -28,6 +28,7 @@ interface StoredUser {
   role: UserRole
   companyId: string
   createdAt: string
+  language?: "en" | "es"
 }
 
 interface StoredCompany {
@@ -50,6 +51,7 @@ export interface BookFile {
 export interface PublicProposalView {
   estimate: Estimate
   clientName: string
+  clientLanguage?: "en" | "es"
   companyName: string
   companyEmail: string
   paymentMethods: PaymentMethod[]
@@ -159,7 +161,21 @@ function toSession(user: StoredUser, company: StoredCompany): OfficeSession {
     companyId: company.id,
     companyName: company.name,
     companySlug: company.slug,
+    ...(user.language === "es" || user.language === "en" ? { language: user.language } : {}),
   }
+}
+
+export async function saveAccountLanguage(userId: string, language: "en" | "es"): Promise<OfficeSession | null> {
+  const accounts = await readAccounts()
+  const index = accounts.users.findIndex((item) => item.id === userId)
+  if (index < 0) return null
+  const user = { ...accounts.users[index], language }
+  const company = accounts.companies.find((item) => item.id === user.companyId)
+  if (!company) return null
+  const users = accounts.users.slice()
+  users[index] = user
+  await writeAccounts({ ...accounts, users })
+  return toSession(user, company)
 }
 
 function normalizeEmail(email: string): string {
@@ -387,6 +403,7 @@ function proposalViewFrom(state: ScopeState, estimate: Estimate): PublicProposal
   return {
     estimate: forCustomer(estimate),
     clientName: client?.name ?? "Client",
+    clientLanguage: client?.language === "es" ? "es" : "en",
     companyName: state.estimateSettings.companyName?.trim() || "ScopePipe",
     companyEmail: state.estimateSettings.companyEmail?.trim() || "",
     paymentMethods: state.paymentMethods,
@@ -401,6 +418,17 @@ function publicSettings(settings: EstimateSettings): EstimateSettings {
   delete copy.zapierSince
   delete copy.outboundHooks
   return copy
+}
+
+export async function rememberProposalLanguage(token: string, language: "en" | "es"): Promise<boolean> {
+  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  if (!found) return false
+  const updatedAt = new Date().toISOString()
+  const clients = found.book.state.clients.map((client) =>
+    client.id === found.estimate.clientId ? { ...client, language, updatedAt } : client,
+  )
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, { ...found.book.state, clients })
+  return saved.ok === true
 }
 
 export async function publicProposal(token: string): Promise<PublicProposalView | null> {

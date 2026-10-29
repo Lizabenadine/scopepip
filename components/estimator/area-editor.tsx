@@ -107,7 +107,7 @@ export function AreaEditor({
           </button>
         </div>
       </div>
-      <div className="rounded-2xl bg-card p-3 ring-1 ring-foreground/10">
+      <div className="rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="grid min-w-0 flex-1 gap-1">
             <Label htmlFor="new-group-name">New group</Label>
@@ -325,7 +325,7 @@ function AreaCard({
   }
 
   return (
-    <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+    <div className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="grid flex-1 gap-2">
           <Label htmlFor={`${area.id}-name`}>Area</Label>

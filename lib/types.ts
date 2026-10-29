@@ -446,6 +446,8 @@ export interface Client {
   notes: string
   createdAt: string
   updatedAt: string
+  /** The language this person should receive on follow-ups and the proposal link. */
+  language?: "en" | "es"
   messages?: TextMessage[]
 }
 

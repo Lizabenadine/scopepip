@@ -122,7 +122,7 @@ export function Connections() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="connections">
+    <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="connections">
       <div>
         <h2 className="text-lg font-semibold">Lead webhook</h2>
         <p className="mt-1 text-sm text-muted-foreground">

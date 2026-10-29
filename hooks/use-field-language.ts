@@ -27,6 +27,11 @@ export function useFieldLanguage(): {
     setLanguage: (next) => {
       writeFieldLanguage(next)
       setLanguageState(next)
+      void fetch("/api/account/language", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ language: next }),
+      }).catch(() => undefined)
     },
     copy: fieldCopy(language),
   }

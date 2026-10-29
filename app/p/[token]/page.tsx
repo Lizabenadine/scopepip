@@ -8,14 +8,18 @@ export const metadata: Metadata = {
 
 export default async function PublicProposalPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>
+  searchParams: Promise<{ lang?: string }>
 }) {
   const { token } = await params
+  const { lang } = await searchParams
+  const initialLanguage = lang === "es" ? "es" : lang === "en" ? "en" : null
   return (
     <>
       <ProposalTracker proposalId={token} />
-      <PublicProposal token={token} />
+      <PublicProposal token={token} initialLanguage={initialLanguage} />
     </>
   )
 }

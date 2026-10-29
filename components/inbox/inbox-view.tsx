@@ -4,13 +4,17 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import type { Client, TextMessage } from "@/lib/types"
 
 const PHOTO_LIMIT = 1_500_000
 
 export function InboxView() {
   const scope = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const params = useSearchParams()
   const requested = params.get("client")
   const [chosen, setChosen] = useState<string | null | "unset">("unset")
@@ -38,9 +42,11 @@ export function InboxView() {
     <div className="flex flex-col gap-4" data-testid="inbox">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Inbox</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{say("Inbox")}</h1>
           <p className="text-sm text-muted-foreground">
-            One thread per client. A reply lands on their deal and stops that follow-up.
+            {language === "es"
+              ? "Un hilo por cliente. Una respuesta llega a su trato y detiene ese seguimiento."
+              : "One thread per client. A reply lands on their deal and stops that follow-up."}
           </p>
         </div>
         <form
@@ -92,7 +98,7 @@ export function InboxView() {
                 className={
                   active
                     ? "rounded-2xl bg-card px-3 py-3 text-left ring-2 ring-primary"
-                    : "rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-foreground/10"
+                    : "rounded-2xl bg-card px-3 py-3 text-left border border-slate-200 bg-white shadow-sm"
                 }
               >
                 <span className="block font-medium">{item.name}</span>
@@ -193,7 +199,7 @@ function Thread({
   }
 
   return (
-    <div className="flex min-h-[32rem] flex-col rounded-2xl bg-card ring-1 ring-foreground/10" data-testid="inbox-thread">
+    <div className="flex min-h-[32rem] flex-col rounded-2xl bg-card border border-slate-200 bg-white shadow-sm" data-testid="inbox-thread">
       <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div>
           <button type="button" className="mb-1 text-xs font-medium text-primary md:hidden" onClick={onBack}>

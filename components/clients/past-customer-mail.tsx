@@ -61,7 +61,7 @@ export function PastCustomerMail() {
   }
 
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="email-past-customers">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="email-past-customers">
       <h2 className="text-lg font-semibold">Email past customers</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         One email to every client whose job is finished and who has an email address.

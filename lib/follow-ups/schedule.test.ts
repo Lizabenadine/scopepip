@@ -259,4 +259,22 @@ describe("follow-up sequences", () => {
     if (previous.keysPath === undefined) delete process.env.SEND_KEYS_PATH
     else process.env.SEND_KEYS_PATH = previous.keysPath
   })
+
+  it("sends the built-in note in Spanish and includes a Spanish proposal link", () => {
+    const state = reconcileFollowUps(createSeedState(), START)
+    const spanish = {
+      ...state,
+      clients: state.clients.map((client) =>
+        client.name === "Maya Chen" || client.name === "Ortiz Property Group" ? { ...client, language: "es" as const } : client,
+      ),
+    }
+    const cold = collectDueFollowUps(spanish, START_MS).find((item) => item.estimateId === "est-maya")
+    assert.match(cold?.body ?? "", /Hola Maya/)
+    assert.equal(cold?.body.includes("Hi Maya"), false)
+    const quote = collectDueFollowUps(spanish, START_MS + 24 * 60 * 60 * 1000, "https://paint.example").find(
+      (item) => item.estimateId === "est-ortiz",
+    )
+    assert.match(quote?.body ?? "", /https:\/\/paint\.example\/p\/k7m2p9qx4n\?lang=es/)
+    assert.match(quote?.subject ?? "", /propuesta/)
+  })
 })

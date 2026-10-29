@@ -113,7 +113,7 @@ export function CrewCalendar() {
       {nextJob?.scheduledStartDate ? (
         <button
           type="button"
-          className="rounded-xl bg-card px-3 py-2 text-left text-sm ring-1 ring-foreground/10"
+          className="rounded-xl bg-card px-3 py-2 text-left text-sm border border-slate-200 bg-white shadow-sm"
           onClick={() => setAnchor(parseIsoDate(nextJob.scheduledStartDate!))}
         >
           {copy.nextJob}: {nextJob.clientName} · {copy.jobDate(nextJob.scheduledStartDate)}
@@ -173,7 +173,7 @@ function WeekGrid({
           key={iso}
           data-date={iso}
           className={cn(
-            "min-w-0 rounded-2xl bg-card p-2 ring-1 ring-foreground/10",
+            "min-w-0 rounded-2xl bg-card p-2 border border-slate-200 bg-white shadow-sm",
             iso === today && "ring-primary",
           )}
         >
@@ -206,7 +206,7 @@ function MonthGrid({
 }) {
   const cells = monthGrid(anchor)
   return (
-    <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="hidden grid-cols-7 bg-muted sm:grid">
         {weekDays(anchor).map((iso) => (
           <div key={iso} className="px-2 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">

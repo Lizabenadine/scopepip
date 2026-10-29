@@ -1,10 +1,15 @@
 "use client"
 
 import { useFieldLanguage } from "@/hooks/use-field-language"
+import type { FieldLanguage } from "@/lib/field/language"
 import { cn } from "@/lib/utils"
 
-export function FieldLanguageSwitch() {
+export function FieldLanguageSwitch({ onChange }: { onChange?: (language: FieldLanguage) => void }) {
   const { language, setLanguage } = useFieldLanguage()
+  const choose = (next: FieldLanguage) => {
+    setLanguage(next)
+    onChange?.(next)
+  }
 
   return (
     <div
@@ -13,8 +18,8 @@ export function FieldLanguageSwitch() {
       data-testid="field-language"
       className="inline-flex rounded-full bg-slate-100 p-0.5"
     >
-      <LanguageButton active={language === "en"} label="English" testId="field-language-en" onClick={() => setLanguage("en")} />
-      <LanguageButton active={language === "es"} label="Español" testId="field-language-es" onClick={() => setLanguage("es")} />
+      <LanguageButton active={language === "en"} label="English" testId="field-language-en" onClick={() => choose("en")} />
+      <LanguageButton active={language === "es"} label="Español" testId="field-language-es" onClick={() => choose("es")} />
     </div>
   )
 }

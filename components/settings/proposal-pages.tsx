@@ -47,7 +47,7 @@ export function ProposalPagesEditor() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="proposal-pages-editor">
+    <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="proposal-pages-editor">
       <div>
         <h2 className="text-lg font-semibold">Proposal pages</h2>
         <p className="mt-1 text-sm text-muted-foreground">

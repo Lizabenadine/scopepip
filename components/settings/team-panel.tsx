@@ -67,7 +67,7 @@ export function TeamPanel() {
   }
 
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="team-panel">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="team-panel">
       <h2 className="text-lg font-semibold">People</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         A project manager shares this company&apos;s jobs and signs in with their own password. They do not see Clients. The role is not a switch on this browser.

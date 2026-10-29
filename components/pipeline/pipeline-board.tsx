@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react"
 import { DispatchBoard } from "@/components/dispatch/dispatch-board"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
+import { officeCount, officeLabel, officeSalesNote } from "@/lib/office/dashboard-copy"
 import { DealCard } from "@/components/pipeline/deal-card"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,7 +35,8 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   const scope = useScope()
   const { language } = useFieldLanguage()
   const progressOnly = kind === "jobs" && scope.session?.role === "project_manager"
-  const jobLanguage = kind === "jobs" ? language : "en"
+  const jobLanguage = language
+  const say = (text: string) => officeLabel(text, language)
   const [filters, setFilters] = useState<BoardFilters>(OPEN_FILTERS)
   const [crew, setCrew] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -97,21 +99,19 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
               <p className="text-sm text-muted-foreground">
-                {visibleColumns.reduce((sum, column) => sum + column.cards.length, 0)} in view
-                {kind === "sales"
-                  ? ". The website form, Thumbtack, Angi, Google Local Services, and Facebook open a Cold Leads card and start that sequence."
-                  : ""}
+                {officeCount(visibleColumns.reduce((sum, column) => sum + column.cards.length, 0), jobLanguage)}
+                {kind === "sales" ? officeSalesNote(jobLanguage) : ""}
               </p>
             </div>
             {progressOnly ? null : (
             <div className="flex gap-4">
               {kind === "sales" ? (
                 <Link href={scope.session ? `/request/${scope.session.companySlug}` : "/signup"} data-testid="website-form" className="text-sm font-medium text-primary hover:underline">
-                  Website form
+                  {say("Website form")}
                 </Link>
               ) : null}
               <Link href="/follow-ups" className="text-sm font-medium text-primary hover:underline">
-                Follow-ups
+                {say("Follow-ups")}
               </Link>
             </div>
             )}
@@ -119,23 +119,23 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
           {progressOnly ? null : (
           <div className="flex flex-wrap items-center gap-2">
             <Link href="/estimates/new" data-testid="new-lead" className={cn(buttonVariants(), "h-9")}>
-              + New Lead
+              {say("+ New Lead")}
             </Link>
             <Link
               href="/estimates/new"
               data-testid="new-proposal"
               className={cn(buttonVariants({ variant: "outline" }), "h-9")}
             >
-              + New Proposal
+              {say("+ New Proposal")}
             </Link>
             <FilterSelect
-              label="Lead Source"
+              label={say("Lead Source")}
               value={filters.leadSource}
               onChange={(leadSource) =>
                 setFilters((current) => ({ ...current, leadSource: leadSource as BoardFilters["leadSource"] }))
               }
             >
-              <option value="all">All sources</option>
+              <option value="all">{say("All sources")}</option>
               {LEAD_SOURCES.map((source) => (
                 <option key={source} value={source}>
                   {LEAD_SOURCE_LABELS[source]}
@@ -143,7 +143,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
               ))}
             </FilterSelect>
             <FilterSelect
-              label="Date Range"
+              label={say("Date Range")}
               value={filters.dateRange}
               onChange={(dateRange) =>
                 setFilters((current) => ({ ...current, dateRange: dateRange as BoardFilters["dateRange"] }))
@@ -151,16 +151,16 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             >
               {DATE_RANGES.map((range) => (
                 <option key={range.id} value={range.id}>
-                  {range.label}
+                  {say(range.label)}
                 </option>
               ))}
             </FilterSelect>
             <FilterSelect
-              label="Salesperson"
+              label={say("Salesperson")}
               value={filters.salesperson}
               onChange={(salesperson) => setFilters((current) => ({ ...current, salesperson }))}
             >
-              <option value="all">Everyone</option>
+              <option value="all">{say("Everyone")}</option>
               {salespeople.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -215,7 +215,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                         setRenameValue(column.label)
                       }}
                     >
-                      Rename
+                      {say("Rename")}
                     </button>
                     {column.custom ? (
                       <button
@@ -224,7 +224,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                         data-testid={`remove-column-${column.id}`}
                         onClick={() => scope.removeCustomColumn(column.id)}
                       >
-                        Remove
+                        {say("Remove")}
                       </button>
                     ) : null}
                   </div>
@@ -252,7 +252,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                 </div>
                 <footer
                   data-testid={`column-footer-${column.id}`}
-                  className="mt-auto rounded-xl bg-card px-3 py-2 ring-1 ring-foreground/10"
+                  className="mt-auto rounded-xl bg-card px-3 py-2 border border-slate-200 bg-white shadow-sm"
                 >
                   <p className="text-[11px] font-medium tracking-wide text-muted-foreground">
                     {footerLabel}
@@ -341,7 +341,7 @@ function PipelineTabs({
         data-testid="tab-sales"
         className={tabClass(salesActive)}
       >
-        Sales Pipeline
+        {fieldJobHeading("Sales Pipeline", language)}
       </Link>
       {kind === "jobs" ? (
         <button type="button" role="tab" aria-selected={jobsActive} data-testid="tab-jobs" className={tabClass(jobsActive)} onClick={() => onCrew(false)}>
@@ -349,7 +349,7 @@ function PipelineTabs({
         </button>
       ) : (
         <Link href="/dispatch" role="tab" aria-selected={false} data-testid="tab-jobs" className={tabClass(false)}>
-          Jobs Pipeline
+          {fieldJobHeading("Jobs Pipeline", language)}
         </Link>
       )}
       {kind === "jobs" ? (

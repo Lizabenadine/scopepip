@@ -5,6 +5,7 @@ import { jobStageOf, salesStageOf } from "../pipeline/board.ts"
 import type { Client, Estimate } from "../types.ts"
 import { displayCompanyName } from "../brand/company.ts"
 import { defaultSequences } from "./defaults.ts"
+import { SPANISH_FOLLOW_UPS } from "./spanish.ts"
 import type {
   DueFollowUp,
   FollowUpAnchor,
@@ -94,7 +95,16 @@ export function reconcileFollowUps(state: ScopeState, nowIso: string): ScopeStat
 }
 
 export function renderFollowUp(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(client|company|address|visit|job|salesperson|book|proposal)\}/g, (_, key: string) => vars[key] ?? "")
+  return template.replace(
+    /\{(client|company|address|visit|job|salesperson|book|proposal|proposalEs)\}/g,
+    (_, key: string) => vars[key] ?? "",
+  )
+}
+
+export function publicProposalLinks(token: string, origin?: string): { english: string; spanish: string } {
+  const english = proposalLink(token, origin)
+  const spanish = english.includes("?") ? `${english}&lang=es` : `${english}?lang=es`
+  return { english, spanish }
 }
 
 export function clientFirstName(name: string): string {
@@ -116,14 +126,16 @@ export function collectDueFollowUps(state: ScopeState, nowMs: number, origin?: s
   for (const estimate of state.estimates) {
     const picked = inspectFollowUp(state, estimate, sequences, nowMs, origin)
     if (picked.kind !== "due") continue
+    const client = state.clients.find((item) => item.id === estimate.clientId)
+    const spoken = spokenCopy(picked.step, client?.language === "es" ? "es" : "en")
     due.push({
       estimateId: estimate.id,
       stepId: picked.step.id,
       stage: picked.stage,
       channel: picked.step.channel,
       to: picked.to,
-      subject: renderFollowUp(picked.step.subject, picked.vars),
-      body: renderFollowUp(picked.step.body, picked.vars),
+      subject: renderFollowUp(spoken.subject, picked.vars),
+      body: renderFollowUp(spoken.body, picked.vars),
     })
   }
   return due
@@ -181,7 +193,8 @@ function inspectFollowUp(
   const visitDay = visitDayOf(estimate)
   const jobDay = state.workOrders.find((order) => order.estimateId === estimate.id)?.scheduledStartDate ?? null
   const anchors: FollowUpAnchorInstants = { visitStartInstant: estimate.estimateVisitAt }
-  const vars = messageVars(state, estimate, client, visitDay, jobDay, origin)
+  const language = client?.language === "es" ? "es" : "en"
+  const vars = messageVars(state, estimate, client, visitDay, jobDay, origin, language)
   const unsent = sequence.steps.filter((step) => step.body.trim() && !enrollment.sentStepIds.includes(step.id))
   const timed = unsent
     .map((step) => ({ step, at: dueAt(step, enrollment.startedAt, visitDay, jobDay, anchors) }))
@@ -240,18 +253,41 @@ function messageVars(
   client: Client | undefined,
   visitDay: string | null,
   jobDay: string | null,
-  origin?: string,
+  origin: string | undefined,
+  language: "en" | "es",
 ): Record<string, string> {
+  const links = publicProposalLinks(estimate.publicToken, origin)
   return {
     client: clientFirstName(client?.name ?? ""),
     company: displayCompanyName(state.estimateSettings.companyName),
-    address: estimate.jobAddress.trim() || "your place",
-    visit: visitReminderPhrase(visitDay, estimate.estimateVisitAt),
-    job: jobDay && isoDay(jobDay) ? dayLabel(jobDay) : "the start day",
+    address: estimate.jobAddress.trim() || (language === "es" ? "su casa" : "your place"),
+    visit: visitReminderPhrase(visitDay, estimate.estimateVisitAt, language),
+    job: jobDay && isoDay(jobDay) ? dayLabel(jobDay, language) : language === "es" ? "el día de inicio" : "the start day",
     salesperson: estimate.salesperson?.trim() || displayCompanyName(state.estimateSettings.companyName),
     book: bookingLink(estimate.publicToken),
-    proposal: proposalLink(estimate.publicToken, origin),
+    proposal: links.english,
+    proposalEs: links.spanish,
   }
+}
+
+function spokenCopy(step: FollowUpStep, language: "en" | "es"): { subject: string; body: string } {
+  const spanish = language === "es" ? SPANISH_FOLLOW_UPS[step.id] : undefined
+  if (spanish && matchesDefaultStep(step)) return spanish
+  return { subject: step.subject, body: attachSpanishLink(step.body, step.id) }
+}
+
+function matchesDefaultStep(step: FollowUpStep): boolean {
+  const original = defaultSequences()
+    .flatMap((sequence) => sequence.steps)
+    .find((item) => item.id === step.id)
+  if (!original) return false
+  return original.subject.trim() === step.subject.trim() && original.body.trim() === step.body.trim()
+}
+
+function attachSpanishLink(body: string, id: string): string {
+  if (!id.startsWith("proposal-") || body.includes("{proposalEs}")) return body
+  const trimmed = body.trim()
+  return trimmed ? `${trimmed}\n\nEn español: {proposalEs}` : body
 }
 
 function proposalLink(token: string, origin?: string): string {
@@ -281,10 +317,11 @@ function relative(nowMs: number, at: number): string {
   return days === 1 ? "in 1 day" : `in ${days} days`
 }
 
-function dayLabel(day: string): string {
+function dayLabel(day: string, language: "en" | "es" = "en"): string {
   const noon = noonUtc(day)
   if (noon === null) return day
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(noon)
+  const locale = language === "es" ? "es-US" : "en-US"
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }).format(noon)
 }
 
 function noonUtc(day: string): number | null {

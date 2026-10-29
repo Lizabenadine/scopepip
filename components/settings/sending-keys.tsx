@@ -12,6 +12,7 @@ interface SendStatus {
   textFrom: string
   supabase: boolean
   cron: boolean
+  stripe: boolean
 }
 
 export function SendingKeys() {
@@ -23,6 +24,10 @@ export function SendingKeys() {
   const [twilioToken, setTwilioToken] = useState("")
   const [twilioFrom, setTwilioFrom] = useState("")
   const [supabaseSecret, setSupabaseSecret] = useState("")
+  const [stripeSecret, setStripeSecret] = useState("")
+  const [stripePublishable, setStripePublishable] = useState("")
+  const [stripeWebhookSecret, setStripeWebhookSecret] = useState("")
+  const [cronSecret, setCronSecret] = useState("")
 
   useEffect(() => {
     void refresh(setStatus)
@@ -45,17 +50,21 @@ export function SendingKeys() {
     setTwilioSid("")
     setTwilioToken("")
     setSupabaseSecret("")
+    setStripeSecret("")
+    setStripePublishable("")
+    setStripeWebhookSecret("")
+    setCronSecret("")
   }
 
   return (
     <div data-testid="sending-keys">
       <h2 className="text-lg font-semibold">Sending</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Resend sends the email. Twilio sends the text. Until both are saved, the note is only logged on the deal. Hooks you turn on here post without Supabase. A service key is for hook addresses stored in Supabase.
+        Resend sends the email. Twilio sends the text. Stripe charges the deposit card. Until those keys are saved, the note is only logged on the deal and checkout uses the test card. A Supabase service key lets a hook look up addresses. CRON_SECRET lets the daily follow-up check run when the office is closed. On the host, set that same secret as a project environment variable.
       </p>
       <p className="mt-2 text-sm" data-testid="sending-status">
         {status
-          ? `${status.email ? `Email sends from ${status.emailFrom}.` : "Email is logged."} ${status.text ? `Texts send from ${status.textFrom}.` : "Texts are logged."} ${status.supabase ? "Supabase can look up hook addresses." : "Supabase hook lookup is off."} ${status.cron ? "The daily follow-up check is ready." : "Set CRON_SECRET on the host so the daily follow-up check can run."}`
+          ? `${status.email ? `Email sends from ${status.emailFrom}.` : "Email is logged."} ${status.text ? `Texts send from ${status.textFrom}.` : "Texts are logged."} ${status.stripe ? "Card deposits charge through Stripe." : "Card checkout uses the test card."} ${status.supabase ? "Supabase can look up hook addresses." : "Supabase hook lookup is off."} ${status.cron ? "The daily follow-up check is ready." : "The daily follow-up check is off until CRON_SECRET is saved."}`
           : "Checking sending keys."}
       </p>
       <div className="mt-3 grid gap-2">
@@ -135,6 +144,60 @@ export function SendingKeys() {
         </Button>
         <Button type="button" variant="outline" className="h-11" onClick={() => void save({ clear: "supabase" })}>
           Clear Supabase key
+        </Button>
+      </div>
+      <div className="mt-4 grid gap-2">
+        <Label htmlFor="stripeSecret">Stripe secret key</Label>
+        <SecretField id="stripeSecret" value={stripeSecret} onChange={setStripeSecret} testId="stripe-secret" />
+        <Label htmlFor="stripePublishable">Stripe publishable key</Label>
+        <SecretField id="stripePublishable" value={stripePublishable} onChange={setStripePublishable} testId="stripe-publishable" />
+        <Label htmlFor="stripeWebhookSecret">Stripe webhook secret</Label>
+        <SecretField id="stripeWebhookSecret" value={stripeWebhookSecret} onChange={setStripeWebhookSecret} testId="stripe-webhook" />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          className="h-11"
+          data-testid="stripe-save"
+          onClick={() => {
+            if (!stripeSecret.trim() && !stripePublishable.trim() && !stripeWebhookSecret.trim()) {
+              setDetail("Add the Stripe secret key and publishable key.")
+              return
+            }
+            void save({
+              ...(stripeSecret.trim() ? { stripeSecret } : {}),
+              ...(stripePublishable.trim() ? { stripePublishable } : {}),
+              ...(stripeWebhookSecret.trim() ? { stripeWebhookSecret } : {}),
+            })
+          }}
+        >
+          Save Stripe
+        </Button>
+        <Button type="button" variant="outline" className="h-11" onClick={() => void save({ clear: "stripe" })}>
+          Clear Stripe
+        </Button>
+      </div>
+      <div className="mt-4 grid gap-2">
+        <Label htmlFor="cronSecret">CRON_SECRET</Label>
+        <SecretField id="cronSecret" value={cronSecret} onChange={setCronSecret} testId="cron-secret" />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          className="h-11"
+          data-testid="cron-save"
+          onClick={() => {
+            if (!cronSecret.trim()) {
+              setDetail("Add CRON_SECRET.")
+              return
+            }
+            void save({ cronSecret })
+          }}
+        >
+          Save daily check secret
+        </Button>
+        <Button type="button" variant="outline" className="h-11" onClick={() => void save({ clear: "cron" })}>
+          Clear daily check secret
         </Button>
       </div>
       {detail ? <p className="mt-2 text-sm" data-testid="sending-detail">{detail}</p> : null}

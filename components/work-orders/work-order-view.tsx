@@ -76,7 +76,7 @@ export function WorkOrderView({ id }: { id: string }) {
           onSign={crew.signSubcontractor}
         />
       ) : null}
-      <header className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <header className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{copy.crewProduction}</p>
         {sheet.scheduledOn ? (
           <p className="mt-2 text-sm font-medium">
@@ -122,7 +122,7 @@ export function WorkOrderView({ id }: { id: string }) {
                   {say(area.groupName ?? "")}
                 </h2>
               ) : null}
-              <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+              <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold">{say(area.name)}</h2>
               {showItems ? (
@@ -169,7 +169,7 @@ export function WorkOrderView({ id }: { id: string }) {
             {copy.lineItems}
           </h2>
           {sheet.lineItems.map((line) => (
-            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
               <div className="flex justify-between gap-3">
                 <p className="font-medium">{paintingText(line.label, line.labelEs, language)}</p>
                 {showItems ? <p className="tabular-nums">{copy.hours(line.allocatedHours)}</p> : null}
@@ -187,7 +187,7 @@ export function WorkOrderView({ id }: { id: string }) {
             {copy.pendingWork}
           </h2>
           {sheet.pendingWork.map((line) => (
-            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
               <div className="flex justify-between gap-3">
                 <p className="font-medium">{paintingText(line.label, line.labelEs, language)}</p>
                 {showItems ? <p className="tabular-nums">{copy.hours(line.allocatedHours)}</p> : null}
@@ -203,7 +203,7 @@ export function WorkOrderView({ id }: { id: string }) {
             {copy.approvedChanges}
           </h2>
           {sheet.changeOrders.map((order) => (
-            <div key={order.id} className="rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+            <div key={order.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
               <p className="font-medium">{say(order.description)}</p>
               <p className="text-sm text-muted-foreground">{copy.signed} {copy.signedWhen(order.signedAt)}</p>
             </div>

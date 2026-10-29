@@ -31,19 +31,27 @@ import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { proposalFigures } from "@/lib/proposals/figures"
 import { useFieldLanguage } from "@/hooks/use-field-language"
+import { writeFieldLanguage, type FieldLanguage } from "@/lib/field/language"
 import { translatePainting, paintingText } from "@/lib/field/terms"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 
 interface ProposalPayload {
   estimate: Estimate
   clientName: string
+  clientLanguage?: "en" | "es"
   companyName: string
   companyEmail: string
   paymentMethods: PaymentMethod[]
   estimateSettings: EstimateSettings
 }
 
-export function PublicProposal({ token }: { token: string }) {
+export function PublicProposal({
+  token,
+  initialLanguage = null,
+}: {
+  token: string
+  initialLanguage?: FieldLanguage | null
+}) {
   const scope = useScope()
   const [view, setView] = useState<ProposalPayload | null>(null)
   const [missing, setMissing] = useState(false)
@@ -52,6 +60,18 @@ export function PublicProposal({ token }: { token: string }) {
   const [signaturePayload, setSignaturePayload] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [profileName, setProfileName] = useState<string | null>(null)
+
+  useEffect(() => {
+    const chosen = initialLanguage ?? (view?.clientLanguage === "es" ? "es" : null)
+    if (!chosen) return
+    writeFieldLanguage(chosen)
+    if (!initialLanguage) return
+    void fetch(`/api/public/proposals/${encodeURIComponent(token)}/language`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ language: chosen }),
+    }).catch(() => undefined)
+  }, [initialLanguage, token, view?.clientLanguage])
 
   useEffect(() => {
     let cancelled = false
@@ -121,6 +141,13 @@ export function PublicProposal({ token }: { token: string }) {
       onSignedName={setSignedName}
       onSignature={setSignaturePayload}
       onError={setError}
+      onLanguage={(language) => {
+        void fetch(`/api/public/proposals/${encodeURIComponent(token)}/language`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ language }),
+        }).catch(() => undefined)
+      }}
       onSendMessage={async (body) => {
         const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/messages`, {
           method: "POST",
@@ -181,6 +208,7 @@ function ProposalDocument({
   onSignedName,
   onSignature,
   onError,
+  onLanguage,
   onAccept,
   onDecline,
   onSendMessage,
@@ -200,6 +228,7 @@ function ProposalDocument({
   onSignedName: (name: string) => void
   onSignature: (payload: string) => void
   onError: (message: string | null) => void
+  onLanguage: (language: FieldLanguage) => void
   onAccept: (input: { signedName: string; signaturePayload: string; selectedLineIds: string[] }) => Promise<
     { ok: true } | { ok: false; reason: string }
   >
@@ -260,7 +289,7 @@ function ProposalDocument({
   return (
     <article className="flex flex-col gap-8">
       <div className="flex justify-end">
-        <FieldLanguageSwitch />
+        <FieldLanguageSwitch onChange={onLanguage} />
       </div>
       <ProposalEngagement proposalId={estimate.publicToken} />
       <ProposalPager pages={pages} />
@@ -301,7 +330,7 @@ function ProposalDocument({
             {section.items.map((area) => {
               const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
               return (
-                <div key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+                <div key={area.id} className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="text-lg font-semibold">{say(area.name)}</h3>
                     <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
@@ -341,7 +370,7 @@ function ProposalDocument({
           {quote.lineItems
             .filter((line) => !optionalLines.some((item) => item.id === line.id))
             .map((line) => (
-              <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+              <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
                 <div className="min-w-0">
                   <ProposalLinePhoto src={line.photo} alt={paintingText(line.label, line.labelEs, language)} />
                   <ProposalLineVideo src={line.video} label={paintingText(line.label, line.labelEs, language)} />
@@ -367,7 +396,7 @@ function ProposalDocument({
             return (
               <label
                 key={line.id}
-                className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10"
+                className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm"
               >
                 <span className="flex min-w-0 items-start gap-3">
                   <input
@@ -396,7 +425,7 @@ function ProposalDocument({
         </section>
       ) : null}
 
-      <section data-proposal-section="Price" className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section data-proposal-section="Price" className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <TotalRow label="Subtotal" value={money(quote.subtotal)} />
         {quote.discount > 0 ? <TotalRow label="Discount" value={money(quote.discount)} /> : null}
         {quote.tax > 0 ? <TotalRow label="Tax" value={money(quote.tax)} /> : null}
@@ -462,7 +491,7 @@ function ProposalDocument({
       />
 
       {accepted && estimate.signature ? (
-        <section id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Accepted" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-8">
+        <section id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Accepted" className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:p-8">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Accepted</p>
           <p className="font-display text-3xl">{estimate.signature.signedName}</p>
           {estimate.signature.signaturePayload.startsWith("data:") ? (
@@ -495,7 +524,7 @@ function ProposalDocument({
           </p>
         </section>
       ) : declined ? (
-        <section id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Declined" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-8">
+        <section id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Declined" className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:p-8">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Declined</p>
           <ProposalSignatureCopy
             acceptWording={pagesDocument.acceptWording}
@@ -506,7 +535,7 @@ function ProposalDocument({
           </p>
         </section>
       ) : (
-        <form id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Accept and sign" onSubmit={submit} className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-8">
+        <form id="proposal-page-sign" data-testid="proposal-page-sign" data-proposal-section="Accept and sign" onSubmit={submit} className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:p-8">
           <div>
             <h2 className="text-lg font-semibold">Accept and sign</h2>
             <p className="text-sm text-muted-foreground">Type your name, then sign in the box. The wording under the signature is the choice you are making.</p>

@@ -8,12 +8,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { contactHistory } from "@/lib/clients/history"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { money, scopeSummary } from "@/lib/format"
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter()
   const scope = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const client = scope.clientById(id)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,6 +53,20 @@ export function ClientDetail({ id }: { id: string }) {
           Contact details stay with every estimate for this name.
         </p>
       </div>
+      <label className="grid max-w-xs gap-2 text-sm font-medium">
+        {say("Messages in")}
+        <select
+          data-testid="client-language"
+          className="h-11 rounded-lg border border-input bg-background px-3"
+          value={client.language === "es" ? "es" : "en"}
+          onChange={(event) => {
+            scope.updateClient(client.id, { language: event.target.value === "es" ? "es" : "en" })
+          }}
+        >
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+      </label>
       <form
         className="grid gap-3"
         onSubmit={(event) => {
@@ -103,7 +121,7 @@ export function ClientDetail({ id }: { id: string }) {
                 <li key={estimate.id}>
                   <Link
                     href={`/estimates/${estimate.id}`}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10"
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm"
                   >
                     <span>
                       <span className="block font-medium">{estimate.title}</span>
@@ -160,7 +178,7 @@ function History({ clientId }: { clientId: string }) {
       ) : (
         <ol className="flex flex-col gap-2">
           {entries.map((entry) => (
-            <li key={entry.id} className="rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10" data-testid={`history-${entry.kind}`}>
+            <li key={entry.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm" data-testid={`history-${entry.kind}`}>
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-sm font-medium">{entry.label}</p>
                 <time className="shrink-0 text-xs text-muted-foreground" dateTime={entry.at}>

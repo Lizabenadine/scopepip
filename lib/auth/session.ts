@@ -1,3 +1,4 @@
+import type { FieldLanguage } from "../field/language.ts"
 import type { UserRole } from "./role.ts"
 
 export interface OfficeSession {
@@ -8,6 +9,8 @@ export interface OfficeSession {
   companyId: string
   companyName: string
   companySlug: string
+  /** Saved on the account after this person chooses English or Español. */
+  language?: FieldLanguage
 }
 
 export const SESSION_COOKIE = "scopepipe_session"

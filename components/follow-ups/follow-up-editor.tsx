@@ -4,7 +4,9 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { FOLLOW_UP_STAGE_COPY, defaultSequences } from "@/lib/follow-ups/defaults"
 import type { FollowUpAnchor, FollowUpChannel, FollowUpSequence, FollowUpStage } from "@/lib/follow-ups/types"
 
@@ -15,6 +17,8 @@ interface Transport {
 
 export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
   const { ready, followUpSequences, saveFollowUpSequences } = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const [draft, setDraft] = useState<FollowUpSequence[] | null>(null)
   const [transport, setTransport] = useState<Transport | null>(null)
   const [savedNote, setSavedNote] = useState("")
@@ -101,7 +105,7 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
     <div className="flex flex-col gap-6" data-testid="follow-up-editor">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="max-w-2xl">
-          {heading ? <h1 className="text-2xl font-semibold tracking-tight">Follow-ups</h1> : null}
+          {heading ? <h1 className="text-2xl font-semibold tracking-tight">{say("Follow-ups")}</h1> : null}
           <p className={heading ? "mt-1 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
             Every column follows up on its own. A sent quote gets a note the next day, again at three days, and
             again at a week, each with the proposal link. Cold and warm leads use their own cadence, and a finished
@@ -110,7 +114,7 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Tokens: {"{client}"} {"{company}"} {"{address}"} {"{visit}"} {"{job}"} {"{salesperson}"} {"{book}"}{" "}
-            {"{proposal}"}
+            {"{proposal}"} {"{proposalEs}"}. A client set to Español receives the built-in note in Spanish. {"{proposalEs}"} opens the quote in Spanish.
           </p>
         </div>
         <div className="flex gap-2">
@@ -146,7 +150,7 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
       {draft.map((sequence) => {
         const copy = FOLLOW_UP_STAGE_COPY[sequence.stage]
         return (
-          <section key={sequence.stage} className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+          <section key={sequence.stage} className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">{copy.label}</h2>

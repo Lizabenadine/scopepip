@@ -29,7 +29,7 @@ export function TimeRates() {
           A time-based rate is how far an experienced painter gets in an hour at a comfortable speed, for that coat count. 425 sq ft of walls painted with two coats in 5 hours is 85 sq ft/hr. Choose three through six coats to save a speed past the two already on the rate. When painters work at different speeds, keep this average and pay the faster ones more.
         </p>
       </div>
-      <div className="grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:grid-cols-2">
         <div className="grid gap-1">
           <Label htmlFor="time-rate-quantity">Size or count</Label>
           <Input
@@ -117,7 +117,7 @@ export function TimeRates() {
       </div>
       <div className="flex flex-col gap-2">
         {scope.productionRates.map((rate) => (
-          <div key={rate.id} className="rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+          <div key={rate.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
             <p className="font-medium">{rate.internalLabel}</p>
             <p className="text-sm text-muted-foreground">
               {rate.category} · {basisLabel(rate)}

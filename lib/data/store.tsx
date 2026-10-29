@@ -6,6 +6,7 @@ import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { DEFAULT_AREA_NAMES, type AreaName } from "@/lib/estimate/area-names"
 import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
+import { writeFieldLanguage } from "@/lib/field/language"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
 import { isScopeState, type ScopeState } from "@/lib/data/seed"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
@@ -269,6 +270,9 @@ async function bootstrap() {
       return
     }
     officeSession = payload.user
+    if (payload.user.language === "es" || payload.user.language === "en") {
+      writeFieldLanguage(payload.user.language)
+    }
     await loadOfficeBook()
   } catch {
     officeSession = null

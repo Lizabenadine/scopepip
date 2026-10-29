@@ -1,12 +1,16 @@
 "use client"
 
 import Link from "next/link"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { moneyExact } from "@/lib/format"
 import { listPaymentRows, type PaymentRow } from "@/lib/payments/ledger"
 
 export function PaymentsList() {
   const { ready, estimates, clients, quoteEstimate, session } = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const limited = session?.role === "project_manager"
   const rows = listPaymentRows(estimates, clients, (estimate) => quoteEstimate(estimate).total)
 
@@ -17,14 +21,20 @@ export function PaymentsList() {
   return (
     <section className="flex flex-col gap-4" data-testid="payments-list">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Invoices & Payments</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{say("Invoices & Payments")}</h1>
         <p className="text-sm text-muted-foreground">
-          {rows.length === 0 ? "Accepted jobs become invoices." : `${rows.length} invoices`}
+          {rows.length === 0
+            ? language === "es"
+              ? "Los trabajos aceptados se vuelven facturas."
+              : "Accepted jobs become invoices."
+            : language === "es"
+              ? `${rows.length} facturas`
+              : `${rows.length} invoices`}
         </p>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No invoices yet.
+          {language === "es" ? "Todavía no hay facturas." : "No invoices yet."}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -44,7 +54,7 @@ export function PaymentsList() {
 
 function InvoiceRow({ row, href }: { row: PaymentRow; href?: string }) {
   const className =
-    "grid gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.7fr))] sm:items-center"
+    "grid gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.7fr))] sm:items-center"
   const body = (
     <>
       <span>

@@ -44,7 +44,7 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
           {photos.map((photo) => {
             const detail = photoScope ? describeLink({ kind: photo.linkKind, id: photo.linkId }, photoScope) : null
             return (
-              <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10">
+              <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-2xl bg-card border border-slate-200 bg-white shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photo.url} alt={photo.caption || copy.photoTag(photo.tag)} className="aspect-[4/3] max-h-56 w-full object-cover" />
                 <div className="flex flex-col gap-1 px-4 py-3">

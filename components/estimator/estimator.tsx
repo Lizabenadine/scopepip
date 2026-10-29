@@ -35,6 +35,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
 import { copyLineItem, insertAfter } from "@/lib/estimate/copy"
 import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
@@ -56,6 +58,8 @@ export function Estimator({
 }) {
   const router = useRouter()
   const estimator = useEstimator(mode, estimateId)
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const [explainOpen, setExplainOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
@@ -168,7 +172,7 @@ export function Estimator({
           ) : null}
           {draft.id && (stage?.slug === "scheduled" || stage?.slug === "completed") ? (
             <Link href={`/work-orders/${draft.id}`} className="font-medium text-primary">
-              Work order
+              {say("Work order")}
             </Link>
           ) : null}
           {stage ? <span className="font-medium">{stage.name}</span> : null}
@@ -178,10 +182,12 @@ export function Estimator({
         <div className="flex min-w-0 flex-col gap-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
-              {mode === "new" ? "New estimate" : draft.title || "Estimate"}
+              {mode === "new" ? say("New estimate") : draft.title || say("Estimate")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Pick Interior, Exterior, or Cabinets. Templates and surfaces follow that type, and each type can use its own hourly rate.
+              {language === "es"
+                ? "Elija Interior, Exterior o Gabinetes. Las plantillas y las superficies siguen ese tipo, y cada tipo puede usar su propia tarifa por hora."
+                : "Pick Interior, Exterior, or Cabinets. Templates and surfaces follow that type, and each type can use its own hourly rate."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2" data-testid="estimate-kind">
@@ -204,7 +210,7 @@ export function Estimator({
                       : "rounded-full bg-muted px-3 py-1.5 text-sm"
                   }
                 >
-                  {ESTIMATE_KIND_LABEL[kind]}
+                  {say(ESTIMATE_KIND_LABEL[kind])}
                 </button>
               )
             })}
@@ -272,7 +278,7 @@ export function Estimator({
             {draft.lineItems.map((line) => {
               const materials = line.materials ?? []
               return (
-              <div key={line.id} className="min-w-0 rounded-2xl bg-card p-3 ring-1 ring-foreground/10">
+              <div key={line.id} className="min-w-0 rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="grid flex-1 gap-1">
                     <Label htmlFor={`${line.id}-name`}>Name</Label>

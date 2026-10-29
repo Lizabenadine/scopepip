@@ -1,4 +1,5 @@
 import Stripe from "stripe"
+import { readSendKeys } from "@/lib/messaging/keys"
 import { clampDepositPercent, depositAmount, depositCents } from "@/lib/payments/deposit"
 import { signTestIntent } from "@/lib/payments/test-intents"
 
@@ -18,8 +19,9 @@ export async function POST(request: Request) {
   }
 
   const amount = depositCents(total, depositPercent)
-  const secret = process.env.STRIPE_SECRET_KEY
-  if (!secret) {
+  const keys = readSendKeys()
+  const secret = keys.stripeSecret
+  if (!secret || !keys.stripePublishable.startsWith("pk_")) {
     const paymentIntentId = `pi_test_${crypto.randomUUID().replace(/-/g, "")}`
     const issued = {
       id: paymentIntentId,
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
     mode: "stripe",
     paymentIntentId: intent.id,
     clientSecret: intent.client_secret,
-    publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null,
+    publishableKey: keys.stripePublishable,
     depositAmount: depositAmount(total, depositPercent),
     depositPercent,
     currency: "usd",

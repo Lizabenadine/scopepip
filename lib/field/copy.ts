@@ -549,6 +549,12 @@ const JOB_HEADINGS: Record<string, { label: string; empty: string }> = {
   "Crew board": { label: "Tablero de cuadrilla", empty: "" },
   "No address yet": { label: "Todavía no hay dirección", empty: "" },
   "Not priced": { label: "Sin precio", empty: "" },
+  "Sales Pipeline": { label: "Pipeline de ventas", empty: "" },
+  "Cold Leads": { label: "Prospectos fríos", empty: "No hay prospectos fríos en esta vista." },
+  "Warm Leads": { label: "Prospectos tibios", empty: "No hay prospectos tibios en esta vista." },
+  "Estimate Requested": { label: "Estimado solicitado", empty: "No hay solicitudes de estimado en esta vista." },
+  "Estimate Scheduled": { label: "Visita programada", empty: "No hay visitas agendadas." },
+  "Proposal Sent": { label: "Propuesta enviada", empty: "No hay propuestas afuera." },
 }
 
 export function fieldJobHeading(label: string, language: FieldLanguage): string {

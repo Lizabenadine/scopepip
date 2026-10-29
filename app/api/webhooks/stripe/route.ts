@@ -1,4 +1,5 @@
 import Stripe from "stripe"
+import { readSendKeys } from "@/lib/messaging/keys"
 import { receiptFromPaymentIntent, type PaymentIntentPayload } from "@/lib/payments/deposit"
 import { syncDeposit } from "@/lib/payments/sync-deposit"
 import { verifyTestIntent } from "@/lib/payments/test-intents"
@@ -12,8 +13,9 @@ interface StripeEvent {
 
 export async function POST(request: Request) {
   const raw = await request.text()
-  const secret = process.env.STRIPE_WEBHOOK_SECRET
-  const stripeKey = process.env.STRIPE_SECRET_KEY
+  const keys = readSendKeys()
+  const secret = keys.stripeWebhookSecret
+  const stripeKey = keys.stripeSecret
   let event: StripeEvent
 
   if (stripeKey && secret) {

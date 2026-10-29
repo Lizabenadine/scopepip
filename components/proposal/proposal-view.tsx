@@ -11,7 +11,9 @@ import {
   pageNumber,
 } from "@/components/proposal/proposal-pages"
 import { displayCompanyName } from "@/lib/brand/company"
+import { useEffect, useState } from "react"
 import { useFieldLanguage } from "@/hooks/use-field-language"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { translatePainting, paintingText } from "@/lib/field/terms"
 import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
@@ -25,6 +27,13 @@ export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => translatePainting(text, language)
+  const label = (text: string) => officeLabel(text, language)
+  const [spanishLink, setSpanishLink] = useState("")
+  const publicToken = scope.ready ? scope.estimates.find((item) => item.id === id)?.publicToken ?? "" : ""
+  useEffect(() => {
+    if (!publicToken) return
+    setSpanishLink(`${window.location.origin}/p/${publicToken}?lang=es`)
+  }, [publicToken])
   if (!scope.ready) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
   }
@@ -60,9 +69,24 @@ export function ProposalView({ id }: { id: string }) {
         <Link href={`/p/${estimate.publicToken}`} className="font-medium text-primary">
           Client link
         </Link>
+        <button
+          type="button"
+          data-testid="copy-spanish-proposal"
+          className="font-medium text-primary"
+          onClick={() => {
+            if (spanishLink) void navigator.clipboard.writeText(spanishLink)
+          }}
+        >
+          {label("Copy Spanish link")}
+        </button>
         {estimate.acceptedAt ? <span className="font-medium">Accepted</span> : null}
         {declined ? <span className="font-medium">Declined</span> : null}
       </div>
+      {spanishLink ? (
+        <p className="text-sm text-muted-foreground" data-testid="spanish-proposal-link">
+          {spanishLink}
+        </p>
+      ) : null}
       <ProposalPager pages={pages} />
       <ProposalCover
         companyName={companyName}
@@ -93,7 +117,7 @@ export function ProposalView({ id }: { id: string }) {
           {section.items.map((area) => {
             const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
             return (
-              <section key={area.id} className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+              <section key={area.id} className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-baseline justify-between gap-3">
                   <h2 className="text-lg font-semibold">{say(area.name)}</h2>
                   <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
@@ -130,7 +154,7 @@ export function ProposalView({ id }: { id: string }) {
             {say("Additional items")}
           </h2>
           {quote.lineItems.map((line) => (
-            <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+            <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
               <div className="min-w-0">
                 <ProposalLinePhoto src={line.photo} alt={paintingText(line.label, line.labelEs, language)} />
                 <ProposalLineVideo src={line.video} label={paintingText(line.label, line.labelEs, language)} />
@@ -144,7 +168,7 @@ export function ProposalView({ id }: { id: string }) {
           ))}
         </section>
       ) : null}
-      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <Row label="Subtotal" value={money(quote.subtotal)} />
         {quote.discount > 0 ? <Row label="Discount" value={money(quote.discount)} /> : null}
         {quote.tax > 0 ? <Row label="Tax" value={money(quote.tax)} /> : null}
@@ -188,7 +212,7 @@ export function ProposalView({ id }: { id: string }) {
         messages={estimate.proposalMessages ?? []}
         customerName={client?.name || "Client"}
       />
-      <section id="proposal-page-sign" data-testid="proposal-page-sign" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section id="proposal-page-sign" data-testid="proposal-page-sign" className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <h2 className="text-lg font-semibold">Signature</h2>
         <ProposalSignatureCopy
           acceptWording={pagesDocument.acceptWording}

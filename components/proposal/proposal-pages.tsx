@@ -53,7 +53,7 @@ export function ProposalCover({
       id="proposal-page-cover"
       data-testid="proposal-page-cover"
       data-proposal-section="Cover"
-      className="flex min-h-[70vh] flex-col justify-between rounded-2xl bg-card p-6 ring-1 ring-foreground/10 sm:p-10 print:break-after-page"
+      className="flex min-h-[70vh] flex-col justify-between rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm sm:p-10 print:break-after-page"
     >
       <div>
         <CompanyName
@@ -104,7 +104,7 @@ export function ProposalPhotoPage({
       id="proposal-page-photos"
       data-testid="proposal-page-photos"
       data-proposal-section="Photos"
-      className="flex flex-col gap-4 rounded-2xl bg-card p-6 ring-1 ring-foreground/10 sm:p-8 print:break-after-page"
+      className="flex flex-col gap-4 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm sm:p-8 print:break-after-page"
     >
       <div>
         <h2 className="text-xl font-semibold">Photos</h2>
@@ -138,7 +138,7 @@ export function ProposalTestimonialPage({
       id="proposal-page-testimonials"
       data-testid="proposal-page-testimonials"
       data-proposal-section="Testimonials"
-      className="flex flex-col gap-4 rounded-2xl bg-card p-6 ring-1 ring-foreground/10 sm:p-8 print:break-after-page"
+      className="flex flex-col gap-4 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm sm:p-8 print:break-after-page"
     >
       <h2 className="text-xl font-semibold">Testimonials</h2>
       <div className="flex flex-col gap-4">
@@ -171,7 +171,7 @@ export function ProposalTermsPage({
       id="proposal-page-terms"
       data-testid="proposal-page-terms"
       data-proposal-section="Terms"
-      className="flex flex-col gap-4 rounded-2xl bg-card p-6 ring-1 ring-foreground/10 sm:p-8 print:break-after-page"
+      className="flex flex-col gap-4 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm sm:p-8 print:break-after-page"
     >
       <div>
         <h2 className="text-xl font-semibold">Contract terms</h2>

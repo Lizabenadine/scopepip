@@ -52,7 +52,7 @@ export function ClientField({
             : "Pick someone in the book, or type a new name"}
       </p>
       {open && matches.length > 0 ? (
-        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl bg-popover p-1 shadow-lg ring-1 ring-foreground/10">
+        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl bg-popover p-1 shadow-lg border border-slate-200 bg-white shadow-sm">
           {matches.map((client) => (
             <li key={client.id}>
               <button

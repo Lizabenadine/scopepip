@@ -88,7 +88,7 @@ export function BookingPage({ token }: { token: string }) {
 
   if (booked) {
     return (
-      <div className="mx-auto grid max-w-lg gap-3 rounded-2xl bg-card p-6 ring-1 ring-foreground/10" data-testid="book-success">
+      <div className="mx-auto grid max-w-lg gap-3 rounded-2xl bg-card p-6 border border-slate-200 bg-white shadow-sm" data-testid="book-success">
         <h1 className="text-2xl font-semibold tracking-tight">You are booked</h1>
         <p className="text-sm text-muted-foreground">
           {company} will walk {jobAddress || "the job"} on{" "}

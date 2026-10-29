@@ -85,7 +85,7 @@ export function PriceSummary({
   }
 
   return (
-    <aside className="sticky top-6 hidden max-h-[calc(100dvh-3rem)] flex-col gap-4 overflow-y-auto rounded-2xl bg-card p-4 ring-1 ring-foreground/10 lg:flex">
+    <aside className="sticky top-6 hidden max-h-[calc(100dvh-3rem)] flex-col gap-4 overflow-y-auto rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm lg:flex">
       {body}
       {details}
     </aside>

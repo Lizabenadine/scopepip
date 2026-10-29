@@ -50,7 +50,7 @@ export function CalendarSync() {
   }
 
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="calendar-sync">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="calendar-sync">
       <h2 className="text-lg font-semibold">Google Calendar</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Visits and scheduled jobs publish to a feed Google Calendar can subscribe to. A saved link is not required.

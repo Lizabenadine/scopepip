@@ -78,7 +78,7 @@ export function OutboundHooks() {
       {hooks.length > 0 ? (
         <ul className="mt-4 flex flex-col gap-3">
           {hooks.map((hook) => (
-            <li key={hook.id} className="rounded-xl bg-background px-3 py-3 ring-1 ring-foreground/10" data-testid={`outbound-hook-${hook.id}`}>
+            <li key={hook.id} className="rounded-xl bg-background px-3 py-3 border border-slate-200 bg-white shadow-sm" data-testid={`outbound-hook-${hook.id}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">{HOOK_EVENT_LABELS[hook.event]}</p>
                 <label className="flex items-center gap-2 text-sm">

@@ -185,7 +185,7 @@ export function DepositCheckout({ id }: { id: string }) {
         <p className="mt-3 text-sm">{clientName}</p>
         <p className="text-sm text-muted-foreground">{estimate.jobAddress}</p>
       </div>
-      <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+      <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Job total</span>
           <span className="tabular-nums">{money(quote.total)}</span>
@@ -218,7 +218,7 @@ export function DepositCheckout({ id }: { id: string }) {
           </Link>
         </div>
       ) : paid && estimate.depositReceipt ? (
-        <section data-testid="deposit-status" className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
+        <section data-testid="deposit-status" className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Deposit Paid / Scheduled
           </p>

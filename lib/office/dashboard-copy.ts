@@ -51,6 +51,40 @@ const LABELS: Record<string, string> = {
   "On site": "En el sitio",
   "Pick the day you're on site. You can change it from the estimate.":
     "Elige el día en el sitio. Puedes cambiarlo desde el estimado.",
+  "+ New Lead": "+ Nuevo prospecto",
+  "+ New Proposal": "+ Nueva propuesta",
+  "Lead Source": "Origen",
+  "Date Range": "Fechas",
+  "All sources": "Todos los orígenes",
+  "Any date": "Cualquier fecha",
+  "Last 30 days": "Últimos 30 días",
+  "Last 90 days": "Últimos 90 días",
+  "This year": "Este año",
+  Salesperson: "Vendedor",
+  Everyone: "Todos",
+  "Website form": "Formulario del sitio",
+  Rename: "Renombrar",
+  Remove: "Quitar",
+  Interior: "Interior",
+  Exterior: "Exterior",
+  Cabinets: "Gabinetes",
+  Estimate: "Estimado",
+  "Work order": "Orden de trabajo",
+  Company: "Empresa",
+  Brand: "Marca",
+  Email: "Correo",
+  Proposal: "Propuesta",
+  App: "App",
+  Calendar: "Calendario",
+  Templates: "Plantillas",
+  Notifications: "Avisos",
+  Payments: "Pagos",
+  Integrations: "Integraciones",
+  Portal: "Portal",
+  "Add-ons": "Complementos",
+  Language: "Idioma",
+  "Copy Spanish link": "Copiar enlace en español",
+  "Messages in": "Mensajes en",
 }
 
 const STAGES: Record<StageSlug, string> = {
@@ -120,4 +154,15 @@ export function officeOnSite(isoDate: string, language: FieldLanguage): string {
 
 export function officeScheduleTitle(clientName: string, language: FieldLanguage): string {
   return language === "es" ? `Programar ${clientName}` : `Schedule ${clientName}`
+}
+
+export function officeSalesNote(language: FieldLanguage): string {
+  if (language === "en") {
+    return ". The website form, Thumbtack, Angi, Google Local Services, and Facebook open a Cold Leads card and start that sequence."
+  }
+  return ". El formulario del sitio, Thumbtack, Angi, Google Local Services y Facebook abren una tarjeta de prospectos fríos y empiezan esa secuencia."
+}
+
+export function officeCount(count: number, language: FieldLanguage): string {
+  return language === "es" ? `${count} a la vista` : `${count} in view`
 }

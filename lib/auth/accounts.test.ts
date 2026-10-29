@@ -11,7 +11,7 @@ process.env.ACCOUNTS_PATH = path.join(dir, "accounts.json")
 process.env.BOOKS_DIR = path.join(dir, "books")
 process.env.AUTH_SECRET = "test-secret"
 
-const { addProjectManager, login, publicProposal, readCompanyBook, signup, writeCompanyBook } = await import("./directory.ts")
+const { addProjectManager, login, publicProposal, readCompanyBook, saveAccountLanguage, signup, writeCompanyBook } = await import("./directory.ts")
 
 describe("accounts", () => {
   it("checks a password and a session token", () => {
@@ -158,5 +158,23 @@ describe("accounts", () => {
       if (previousKeys === undefined) delete process.env.SEND_KEYS_PATH
       else process.env.SEND_KEYS_PATH = previousKeys
     }
+  })
+
+  it("remembers Español on the account", async () => {
+    const created = await signup({
+      name: "Luz Vega",
+      email: "luz@vega.test",
+      password: "password1",
+      companyName: "Vega Painting",
+    })
+    assert.equal(created.ok, true)
+    if (!created.ok) return
+    assert.equal(created.user.language, undefined)
+    const saved = await saveAccountLanguage(created.user.id, "es")
+    assert.equal(saved?.language, "es")
+    const signedIn = await login({ email: "luz@vega.test", password: "password1" })
+    assert.equal(signedIn.ok, true)
+    if (!signedIn.ok) return
+    assert.equal(signedIn.user.language, "es")
   })
 })

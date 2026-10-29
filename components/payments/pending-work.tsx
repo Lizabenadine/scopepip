@@ -31,7 +31,7 @@ export function PendingWork({
   }
 
   return (
-    <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="pending-work">
+    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="pending-work">
       {lines.length > 0 ? (
         <>
           <h2 className="text-lg font-semibold">Pending additional work</h2>

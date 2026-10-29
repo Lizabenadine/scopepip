@@ -140,7 +140,7 @@ export function LaborSchedule() {
           return (
             <div
               key={surface.id}
-              className="grid gap-3 rounded-2xl bg-card p-3 ring-1 ring-foreground/10 md:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,0.7fr))_minmax(0,0.9fr)_auto] md:items-end"
+              className="grid gap-3 rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,0.7fr))_minmax(0,0.9fr)_auto] md:items-end"
             >
               <div className="grid gap-1">
                 <Label htmlFor={`${surface.id}-type`}>Surface</Label>
@@ -226,7 +226,7 @@ export function LaborSchedule() {
         Add surface
       </Button>
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Total calculated labor
@@ -259,7 +259,7 @@ export function LaborSchedule() {
       {milestones.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-3" data-testid="payment-milestones">
           {milestones.map((milestone) => (
-            <div key={milestone.id} className="rounded-2xl bg-card p-4 text-center ring-1 ring-foreground/10">
+            <div key={milestone.id} className="rounded-2xl bg-card p-4 text-center border border-slate-200 bg-white shadow-sm">
               <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
                 {milestone.percentage}%
               </p>

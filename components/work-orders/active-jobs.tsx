@@ -37,7 +37,7 @@ export function ActiveJobs() {
                 <Link
                   href={`/work-orders/${job.id}`}
                   data-testid={`active-job-${job.id}`}
-                  className="flex flex-col gap-2 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <span>
                     <span className="block font-medium">{job.clientName}</span>

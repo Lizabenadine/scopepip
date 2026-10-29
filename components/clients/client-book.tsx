@@ -1,11 +1,15 @@
 "use client"
 
 import Link from "next/link"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { money } from "@/lib/format"
 
 export function ClientBook() {
   const { ready, clients, estimates, quoteEstimate } = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
 
   if (!ready) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
@@ -16,14 +20,14 @@ export function ClientBook() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{say("Clients")}</h1>
         <p className="text-sm text-muted-foreground">
-          People and properties attached to a price.
+          {language === "es" ? "Personas y propiedades ligadas a un precio." : "People and properties attached to a price."}
         </p>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No clients yet. Save an estimate and the name lands here.
+          {language === "es" ? "Todavía no hay clientes. Guarde un estimado y el nombre llega aquí." : "No clients yet. Save an estimate and the name lands here."}
         </p>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
@@ -37,7 +41,7 @@ export function ClientBook() {
               <li key={client.id}>
                 <Link
                   href={`/clients/${client.id}`}
-                  className="block rounded-2xl bg-card p-4 ring-1 ring-foreground/10 hover:ring-foreground/20"
+                  className="block rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm hover:border-slate-300"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

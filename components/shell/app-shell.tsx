@@ -53,17 +53,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
-  const officeDashboard = pathname === "/"
-  const fieldScreen =
-    officeDashboard ||
-    pathname === "/work-orders" ||
-    pathname.startsWith("/work-orders/") ||
-    pathname === "/dispatch" ||
-    pathname.startsWith("/dispatch/") ||
-    pathname === "/calendar" ||
-    pathname.startsWith("/calendar/") ||
-    pathname === "/proposal" ||
-    pathname.startsWith("/proposal/")
   const marketingPage = pathname === "/innova" || pathname.startsWith("/innova/")
   const publicProposal =
     marketingPage ||
@@ -148,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {roleLabel(session.role, language)}
             </p>
           </div>
-          {fieldScreen ? <FieldLanguageSwitch /> : null}
+          <FieldLanguageSwitch />
           <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-600 hover:text-slate-900" onClick={() => void signOut()}>
             {say("Sign out")}
           </button>
