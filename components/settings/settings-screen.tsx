@@ -267,6 +267,9 @@ function AddOnsPanel() {
       <p className="mt-2 text-sm text-muted-foreground">
         Financing on proposals is turned on from Payments. Calendar, QuickBooks, Zapier, and CompanyCam connect from their own tabs.
       </p>
+      <Link href="/billing" className="mt-3 inline-block text-sm font-medium text-primary">
+        Billing
+      </Link>
       <Button
         type="button"
         variant="outline"

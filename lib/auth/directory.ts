@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { listJsonNames, readJsonFile, writeJsonFile } from "./account-store.ts"
-import { supabaseServerKey } from "../supabase/admin.ts"
+import { supabaseAdmin, supabaseServerKey } from "../supabase/admin.ts"
 import { hookMoments } from "../webhooks/moments.ts"
 import { sendWebhook } from "../webhooks/send.ts"
 import { leadWebhookToken } from "../webhooks/token.ts"
@@ -16,6 +16,7 @@ import { applyAcceptance, type AcceptanceInput } from "../proposals/accept.ts"
 import { postProposalMessage } from "../proposals/chat.ts"
 import { applyDecline } from "../proposals/decline.ts"
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
+import { isSubscriptionStatus, trialEndsAt, type SubscriptionStatus } from "../billing/access.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
 import { roleSignInReason, type UserRole } from "./role.ts"
@@ -29,6 +30,9 @@ interface StoredUser {
   companyId: string
   createdAt: string
   language?: "en" | "es"
+  subscriptionStatus?: SubscriptionStatus
+  trialEndsAt?: string
+  authUserId?: string
 }
 
 interface StoredCompany {
@@ -162,7 +166,90 @@ function toSession(user: StoredUser, company: StoredCompany): OfficeSession {
     companyName: company.name,
     companySlug: company.slug,
     ...(user.language === "es" || user.language === "en" ? { language: user.language } : {}),
+    ...(user.subscriptionStatus ? { subscriptionStatus: user.subscriptionStatus } : {}),
+    ...(user.trialEndsAt ? { trialEndsAt: user.trialEndsAt } : {}),
+    ...(user.authUserId ? { authUserId: user.authUserId } : {}),
   }
+}
+
+export async function billingAccessForUser(userId: string): Promise<{
+  status: SubscriptionStatus
+  trialEndsAt: string
+  userId: string
+  email: string
+  authUserId?: string
+} | null> {
+  const accounts = await readAccounts()
+  const user = accounts.users.find((item) => item.id === userId)
+  if (!user) return null
+  const owner =
+    user.role === "owner"
+      ? user
+      : accounts.users.find((item) => item.companyId === user.companyId && item.role === "owner") ?? user
+  const next = owner.subscriptionStatus && owner.trialEndsAt ? owner : openTrial(owner)
+  if (next !== owner) {
+    await writeAccounts({
+      ...accounts,
+      users: accounts.users.map((item) => (item.id === owner.id ? next : item)),
+    })
+  }
+  return {
+    status: next.subscriptionStatus ?? "trialing",
+    trialEndsAt: next.trialEndsAt ?? trialEndsAt(new Date()),
+    userId: next.id,
+    email: next.email,
+    ...(next.authUserId ? { authUserId: next.authUserId } : {}),
+  }
+}
+
+export async function saveBillingStatus(input: {
+  userId?: string
+  officeUserId?: string
+  email?: string
+  status: SubscriptionStatus
+  trialEndsAt?: string | null
+}): Promise<{ account: boolean; profile: boolean }> {
+  const accounts = await readAccounts()
+  const email = input.email?.trim().toLowerCase() ?? ""
+  let account = false
+  const users = accounts.users.map((user) => {
+    const match =
+      (input.officeUserId && user.id === input.officeUserId) ||
+      (input.userId && (user.id === input.userId || user.authUserId === input.userId)) ||
+      (email.includes("@") && user.email === email)
+    if (!match) return user
+    account = true
+    return {
+      ...user,
+      subscriptionStatus: input.status,
+      trialEndsAt: input.trialEndsAt || user.trialEndsAt || trialEndsAt(new Date()),
+    }
+  })
+  if (account) await writeAccounts({ ...accounts, users })
+  const profile = await saveProfileSubscription(input)
+  return { account, profile }
+}
+
+function openTrial(user: StoredUser): StoredUser {
+  return {
+    ...user,
+    subscriptionStatus: user.subscriptionStatus && isSubscriptionStatus(user.subscriptionStatus) ? user.subscriptionStatus : "trialing",
+    trialEndsAt: user.trialEndsAt || trialEndsAt(new Date()),
+  }
+}
+
+async function saveProfileSubscription(input: {
+  userId?: string
+  status: SubscriptionStatus
+  trialEndsAt?: string | null
+}): Promise<boolean> {
+  const admin = supabaseAdmin()
+  const userId = input.userId?.trim() ?? ""
+  if (!admin || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) return false
+  const patch: { subscription_status: SubscriptionStatus; trial_ends_at?: string } = { subscription_status: input.status }
+  if (input.trialEndsAt) patch.trial_ends_at = input.trialEndsAt
+  const result = await admin.from("profiles").update(patch).eq("user_id", userId)
+  return !result.error
 }
 
 export async function saveAccountLanguage(userId: string, language: "en" | "es"): Promise<OfficeSession | null> {
@@ -234,6 +321,7 @@ export async function signup(input: {
   email: string
   password: string
   companyName: string
+  authUserId?: string
 }): Promise<
   | { ok: true; user: OfficeSession; hosted?: boolean; passwordHash?: string; revision?: number; book?: ReturnType<typeof createCompanyBook> }
   | { ok: false; reason: string }
@@ -247,13 +335,14 @@ export async function signup(input: {
   if (accounts.users.some((user) => user.email === email)) {
     return { ok: false, reason: "That email already has an account." }
   }
-  const now = new Date().toISOString()
+  const now = new Date()
   const company: StoredCompany = {
     id: crypto.randomUUID(),
     name: companyName,
     slug: uniqueSlug(companyName, accounts.companies),
-    createdAt: now,
+    createdAt: now.toISOString(),
   }
+  const authUserId = input.authUserId?.trim()
   const user: StoredUser = {
     id: crypto.randomUUID(),
     email,
@@ -261,7 +350,10 @@ export async function signup(input: {
     passwordHash: hashPassword(input.password),
     role: "owner",
     companyId: company.id,
-    createdAt: now,
+    createdAt: now.toISOString(),
+    subscriptionStatus: "trialing",
+    trialEndsAt: trialEndsAt(now),
+    ...(authUserId ? { authUserId } : {}),
   }
   const session = toSession(user, company)
   if (process.env.VERCEL && !supabaseServerKey()) {

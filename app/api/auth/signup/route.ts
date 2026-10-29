@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
 
   let pendingCookies: ReturnType<typeof authClientFromRequest>["pending"] = []
   let cacheHeaders: Record<string, string> = {}
+  let authUserId = ""
   let outcome = interpretSignUp({
     configured: false,
     errorMessage: null,
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
         hasUser: Boolean(data.user),
         identityCount: data.user?.identities ? data.user.identities.length : null,
       })
+      authUserId = data.user?.id ?? ""
       pendingCookies = pending.pending
       cacheHeaders = pending.cacheHeaders
     } catch {
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await signup(input)
+    const result = await signup({ ...input, ...(authUserId ? { authUserId } : {}) })
     if (!result.ok) return NextResponse.json(result, { status: 400 })
     if (outcome.kind === "confirm") {
       return attachAuthCookies(NextResponse.json({ ok: true, confirmEmail: true }), pendingCookies, cacheHeaders)

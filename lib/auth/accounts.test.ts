@@ -41,6 +41,8 @@ describe("accounts", () => {
     assert.equal(other.ok, true)
     if (!hale.ok || !other.ok) return
     assert.equal(hale.user.role, "owner")
+    assert.equal(hale.user.subscriptionStatus, "trialing")
+    assert.ok(hale.user.trialEndsAt && Date.parse(hale.user.trialEndsAt) > Date.now() + 13 * 24 * 60 * 60 * 1000)
     assert.notEqual(hale.user.companyId, other.user.companyId)
 
     const haleBook = await readCompanyBook(hale.user.companyId)

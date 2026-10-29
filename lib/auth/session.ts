@@ -1,3 +1,4 @@
+import type { SubscriptionStatus } from "../billing/access.ts"
 import type { FieldLanguage } from "../field/language.ts"
 import type { UserRole } from "./role.ts"
 
@@ -11,6 +12,10 @@ export interface OfficeSession {
   companySlug: string
   /** Saved on the account after this person chooses English or Español. */
   language?: FieldLanguage
+  subscriptionStatus?: SubscriptionStatus
+  trialEndsAt?: string
+  /** Supabase auth user, when this account was created with email sign-up. */
+  authUserId?: string
 }
 
 export const SESSION_COOKIE = "scopepipe_session"
