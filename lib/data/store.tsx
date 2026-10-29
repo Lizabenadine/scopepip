@@ -8,6 +8,7 @@ import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
 import { isScopeState, type ScopeState } from "@/lib/data/seed"
+import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
 import { applyAssignment, workOrderForStage } from "@/lib/dispatch/assign"
 import { nextSalesStage, salesStageOf } from "@/lib/pipeline/board"
 import { subscribeDispatch, syncAssignment } from "@/lib/dispatch/sync"
@@ -16,6 +17,7 @@ import { applyDeposit } from "@/lib/payments/apply-deposit"
 import { readCompanyProfile, saveCompanyProfile } from "@/lib/brand/profile"
 import { applyChangeOrder } from "@/lib/change-orders/apply"
 import { signPendingWork } from "@/lib/estimate/pending"
+import { postProposalMessage } from "@/lib/proposals/chat"
 import { syncChangeOrder } from "@/lib/change-orders/sync"
 import { applyAcceptance, type AcceptanceInput } from "@/lib/proposals/accept"
 import { syncAcceptance } from "@/lib/proposals/sync"
@@ -162,6 +164,12 @@ async function pushEstimateChanges(previous: ScopeState, next: ScopeState) {
   await Promise.all(jobs)
 }
 
+function withBookSubstrates(state: ScopeState): ScopeState {
+  const productionRates = ensureSubstrateRates(state.productionRates)
+  if (productionRates === state.productionRates) return state
+  return { ...state, productionRates }
+}
+
 function persist(state: ScopeState) {
   if (!officeSession) return
   void state
@@ -217,7 +225,7 @@ async function loadOfficeBook() {
   const response = await fetch("/api/account/book")
   if (!response.ok) {
     const cached = readBrowserBook(officeSession.companyId)
-    const state = cached?.state ?? createCompanyBook(officeSession.companyName)
+    const state = withBookSubstrates(cached?.state ?? createCompanyBook(officeSession.companyName))
     bookRevision = cached?.revision ?? 1
     if (!cached) saveBrowserBook(officeSession.companyId, bookRevision, state)
     current = { state, notice: null, ready: true, session: officeSession }
@@ -236,7 +244,7 @@ async function loadOfficeBook() {
     return
   }
   bookRevision = payload.revision
-  let state = payload.state
+  let state = withBookSubstrates(payload.state)
   const cloud = await pullCloud().catch(() => null)
   if (cloud) {
     const merged = mergeCloud(state, cloud)
@@ -387,6 +395,7 @@ export interface ScopeApi {
     lineIds: string[],
     clientSignatureUrl: string,
   ) => { ok: true } | { ok: false; reason: string }
+  postProposalChat: (estimateId: string, body: string) => { ok: true } | { ok: false; reason: string }
   applyQuickBooksCredits: (rows: { estimateId: string; creditId: string; quickbooksCreditId: string }[]) => void
   addSitePhoto: (
     estimateId: string,
@@ -423,7 +432,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       calculateEstimate({
         areas: estimate.areas,
         lineItems: estimate.lineItems,
-        rates: estimate.rates,
+        rates: quoteRates(estimate.rates, state.productionRates, estimate.areas),
         settings: estimate.settings,
         paymentMethods: state.paymentMethods,
       }),
@@ -497,6 +506,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         stageChanges: previous?.stageChanges ? [...previous.stageChanges] : [],
         proposalOpens: previous?.proposalOpens ? [...previous.proposalOpens] : [],
         noteLog: previous?.noteLog ? [...previous.noteLog] : [],
+        proposalMessages: previous?.proposalMessages ? [...previous.proposalMessages] : undefined,
         createdAt: draft.createdAt ?? now,
         updatedAt: now,
       }
@@ -1134,6 +1144,18 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         estimates: latest.estimates.map((item) => (item.id === estimateId ? signed.estimate : item)),
       })
       if (signed.changeOrder) void syncChangeOrder(signed.changeOrder).catch(() => undefined)
+      return { ok: true }
+    },
+    postProposalChat: (estimateId, body) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return { ok: false, reason: "This proposal is not on file." }
+      const posted = postProposalMessage(estimate, { from: "office", body })
+      if (!posted.ok) return posted
+      commit({
+        ...latest,
+        estimates: latest.estimates.map((item) => (item.id === estimateId ? posted.estimate : item)),
+      })
       return { ok: true }
     },
     applyQuickBooksCredits: (rows) => {

@@ -6,6 +6,7 @@ import { useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
 import { AreaEditor } from "@/components/estimator/area-editor"
+import { LinePhotoField } from "@/components/estimator/line-photo"
 import { CalculationPanel } from "@/components/estimator/calculation-panel"
 import { ClientField } from "@/components/estimator/client-field"
 import { PriceSummary } from "@/components/estimator/price-summary"
@@ -302,6 +303,11 @@ export function Estimator({
                     className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none"
                   />
                 </div>
+                <LinePhotoField
+                  lineId={line.id}
+                  photo={line.photo}
+                  onPhoto={(photo) => updateLine(draft.lineItems, line.id, { photo }, patch)}
+                />
                 <label className="mt-3 flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"

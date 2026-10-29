@@ -1,3 +1,4 @@
+import { linePhoto } from "./line-photo.ts"
 import type {
   AreaInput,
   AreaScope,
@@ -74,6 +75,8 @@ export interface PricedLine {
   hiddenOnWorkOrder: boolean
   price: number
   detail: string
+  /** Picture shown beside this line on the proposal. */
+  photo?: string
 }
 
 export interface PricedArea {
@@ -509,6 +512,7 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
   const materials = priceMaterials(item.materials)
   // The price field and each material row are both charged. Row cost is quantity × unit price.
   const materialCost = cents(materials.reduce((sum, row) => sum + row.cost, 0))
+  const photo = linePhoto(item.photo)
   return {
     id: item.id,
     label: item.label.trim() || "Line item",
@@ -521,6 +525,7 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
     hiddenOnWorkOrder: Boolean(item.hiddenOnWorkOrder),
     price: roundMoney(rawPrice + materialCost, settings.priceRounding),
     detail,
+    ...(photo ? { photo } : {}),
   }
 }
 

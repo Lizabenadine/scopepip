@@ -15,6 +15,8 @@ import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, jobDate, money } from "@/lib/format"
 import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
+import { ProposalLinePhoto } from "@/components/proposal/line-photo"
+import { OfficeProposalChat } from "@/components/proposal/proposal-chat"
 
 export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
@@ -123,8 +125,9 @@ export function ProposalView({ id }: { id: string }) {
             Additional items
           </h2>
           {quote.lineItems.map((line) => (
-            <div key={line.id} className="flex items-baseline justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
-              <div>
+            <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+              <div className="min-w-0">
+                <ProposalLinePhoto src={line.photo} alt={line.label} />
                 <p className="font-medium">{line.label}</p>
                 {line.clientNote ? (
                   <p className="text-sm whitespace-pre-line text-muted-foreground">{line.clientNote}</p>
@@ -173,6 +176,11 @@ export function ProposalView({ id }: { id: string }) {
         terms={pagesDocument.contractTerms}
         page={pageNumber(pages, "proposal-page-terms")}
         pageCount={pages.length}
+      />
+      <OfficeProposalChat
+        estimateId={estimate.id}
+        messages={estimate.proposalMessages ?? []}
+        customerName={client?.name || "Client"}
       />
       <section id="proposal-page-sign" data-testid="proposal-page-sign" className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="text-lg font-semibold">Signature</h2>

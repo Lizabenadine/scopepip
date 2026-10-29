@@ -1,5 +1,6 @@
 import { PAYMENT_METHODS } from "../defaults.ts"
 import { calculateEstimate, type PricedArea, type PricedLine, type PricedSurface } from "../estimate/calculate.ts"
+import { ensureSubstrateRates } from "../estimate/substrate.ts"
 import { sectionByGroup } from "../estimate/groups.ts"
 import type { Client, Estimate, PrepLevel, SitePhoto, WorkOrder } from "../types.ts"
 
@@ -135,7 +136,7 @@ export function toCrewSheet(
   const quote = calculateEstimate({
     areas: estimate.areas,
     lineItems: estimate.lineItems,
-    rates: estimate.rates,
+    rates: ensureSubstrateRates(estimate.rates),
     settings: estimate.settings,
     paymentMethods: PAYMENT_METHODS,
   })

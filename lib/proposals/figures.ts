@@ -1,4 +1,5 @@
 import { calculateEstimate, type EstimateQuote } from "../estimate/calculate.ts"
+import { ensureSubstrateRates } from "../estimate/substrate.ts"
 import { depositAmount, clampDepositPercent } from "../payments/deposit.ts"
 import type { Estimate, LineItemInput, PaymentMethod } from "../types.ts"
 
@@ -15,7 +16,7 @@ export function proposalFigures(
   const quote = calculateEstimate({
     areas: estimate.areas,
     lineItems: linesWithSelection(estimate.lineItems, selectedIds),
-    rates: estimate.rates,
+    rates: ensureSubstrateRates(estimate.rates),
     settings: estimate.settings,
     paymentMethods,
   })

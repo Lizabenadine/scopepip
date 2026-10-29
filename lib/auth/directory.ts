@@ -10,6 +10,7 @@ import { reconcileFollowUps } from "../follow-ups/schedule.ts"
 import { signPendingWork } from "../estimate/pending.ts"
 import { applyDeposit } from "../payments/apply-deposit.ts"
 import { applyAcceptance, type AcceptanceInput } from "../proposals/accept.ts"
+import { postProposalMessage } from "../proposals/chat.ts"
 import { applyDecline } from "../proposals/decline.ts"
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
@@ -442,6 +443,24 @@ export async function recordPendingSignature(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "The signature could not be saved. Try again." }
+  return { ok: true, estimate }
+}
+
+export async function recordProposalMessage(
+  token: string,
+  body: string,
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  if (!found) return { ok: false, reason: "This proposal link is not valid." }
+  const posted = postProposalMessage(found.estimate, { from: "customer", body })
+  if (!posted.ok) return posted
+  const next = reconciled(found.book.state, {
+    ...found.book.state,
+    estimates: found.book.state.estimates.map((item) => (item.id === found.estimate.id ? posted.estimate : item)),
+  })
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === found.estimate.id)
+  if (!saved.ok || !estimate) return { ok: false, reason: "The message could not be saved. Try again." }
   return { ok: true, estimate }
 }
 

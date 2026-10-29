@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
 import { selectEstimateKind } from "@/lib/estimate/kinds"
 import { captureEstimateTemplate, type SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { useScope } from "@/lib/data/store"
 import { PAYMENT_METHODS } from "@/lib/defaults"
 import { adjacentStage } from "@/lib/stages"
-import type { Estimate, EstimateDraft, PipelineStage } from "@/lib/types"
+import type { Estimate, EstimateDraft, PipelineStage, ProductionRate } from "@/lib/types"
+
+function withSubstrateRates(draft: EstimateDraft, companyRates: ProductionRate[]): EstimateDraft {
+  const rates = ensureSubstrateRates(draft.rates, companyRates)
+  if (rates === draft.rates) return draft
+  return { ...draft, rates }
+}
 
 function draftKey(id: string | null) {
   return `scopepipe.draft.${id ?? "new"}`
@@ -66,39 +73,46 @@ function buildInitialDraft(
     const client = scope.clientById(estimate.clientId)
     return {
       missing: false,
-      draft: readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? ""),
+      draft: withSubstrateRates(
+        readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? ""),
+        scope.productionRates,
+      ),
     }
   }
 
   const lead = scope.stages.find((stage) => stage.slug === "lead")
-  return {
-    missing: false,
-    draft: readSession(null) ?? {
-      id: null,
-      clientId: null,
-      clientName: "",
-      stageId: lead?.id ?? scope.stages[0]?.id ?? "",
-      title: "",
-      jobAddress: "",
-      estimateKind: "interior",
-      areas: [],
-      lineItems: [],
-      rates: scope.productionRates.map((rate) => ({
+  const blank: EstimateDraft = {
+    id: null,
+    clientId: null,
+    clientName: "",
+    stageId: lead?.id ?? scope.stages[0]?.id ?? "",
+    title: "",
+    jobAddress: "",
+    estimateKind: "interior",
+    areas: [],
+    lineItems: [],
+    rates: ensureSubstrateRates(
+      scope.productionRates.map((rate) => ({
         ...rate,
         coatRates: rate.coatRates.map((entry) => ({ ...entry })),
       })),
-      settings: selectEstimateKind(scope.estimateSettings, "interior"),
-      scheduledOn: null,
-      notes: "",
-      crewNote: "",
-      acceptedAt: null,
-      publicToken: "",
-      clientStatus: "draft",
-      signature: null,
-      paymentStatus: "unpaid",
-      depositReceipt: null,
-      createdAt: null,
-    },
+      scope.productionRates,
+    ),
+    settings: selectEstimateKind(scope.estimateSettings, "interior"),
+    scheduledOn: null,
+    notes: "",
+    crewNote: "",
+    acceptedAt: null,
+    publicToken: "",
+    clientStatus: "draft",
+    signature: null,
+    paymentStatus: "unpaid",
+    depositReceipt: null,
+    createdAt: null,
+  }
+  return {
+    missing: false,
+    draft: withSubstrateRates(readSession(null) ?? blank, scope.productionRates),
   }
 }
 
@@ -127,7 +141,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     ? calculateEstimate({
         areas: draft.areas,
         lineItems: draft.lineItems,
-        rates: draft.rates,
+        rates: quoteRates(draft.rates, scope.productionRates, draft.areas),
         settings: draft.settings,
         paymentMethods: PAYMENT_METHODS,
       })
@@ -152,11 +166,13 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
 
   const persist = () => {
     if (!draft) return null
-    const saved = scope.saveEstimate(draft)
+    const rates = quoteRates(draft.rates, scope.productionRates, draft.areas)
+    const saved = scope.saveEstimate({ ...draft, rates })
     sessionStorage.removeItem(draftKey(draft.id))
     sessionStorage.removeItem(draftKey(null))
     setDraft({
       ...draft,
+      rates,
       id: saved.id,
       clientId: saved.clientId,
       createdAt: draft.createdAt ?? new Date().toISOString(),

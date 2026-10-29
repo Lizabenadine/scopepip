@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { ProposalEngagement } from "@/components/proposal/proposal-engagement"
+import { ProposalChat } from "@/components/proposal/proposal-chat"
 import {
   ProposalCover,
   ProposalPager,
@@ -20,11 +21,13 @@ import { displayCompanyName } from "@/lib/brand/company"
 import { readProposalCompanyName } from "@/lib/brand/profile"
 import { useScope } from "@/lib/data/store"
 import { calculateEstimate } from "@/lib/estimate/calculate"
+import { ensureSubstrateRates } from "@/lib/estimate/substrate"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import type { Estimate, EstimateSettings, PaymentMethod } from "@/lib/types"
 import { jobDate, money, moneyExact } from "@/lib/format"
 import { financingTerms, monthlyPayment } from "@/lib/financing/offer"
 import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
+import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { proposalFigures } from "@/lib/proposals/figures"
 
 interface ProposalPayload {
@@ -68,6 +71,22 @@ export function PublicProposal({ token }: { token: string }) {
     }
   }, [token])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void fetch(`/api/public/proposals/${encodeURIComponent(token)}/messages`)
+        .then(async (response) => {
+          if (!response.ok) return
+          const payload = (await response.json()) as { messages?: Estimate["proposalMessages"] }
+          if (!payload.messages) return
+          setView((current) =>
+            current ? { ...current, estimate: { ...current.estimate, proposalMessages: payload.messages } } : current,
+          )
+        })
+        .catch(() => undefined)
+    }, 8000)
+    return () => window.clearInterval(timer)
+  }, [token])
+
   if (!view && !missing) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
   }
@@ -98,6 +117,22 @@ export function PublicProposal({ token }: { token: string }) {
       onSignedName={setSignedName}
       onSignature={setSignaturePayload}
       onError={setError}
+      onSendMessage={async (body) => {
+        const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/messages`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ body }),
+        })
+        const result = (await response.json()) as { ok?: boolean; reason?: string; messages?: Estimate["proposalMessages"] }
+        if (!response.ok || !result.ok || !result.messages) {
+          return { ok: false as const, reason: result.reason || "The message could not be saved. Try again." }
+        }
+        setView((current) =>
+          current ? { ...current, estimate: { ...current.estimate, proposalMessages: result.messages } } : current,
+        )
+        if (scope.session) await scope.reloadBook()
+        return { ok: true as const }
+      }}
       onDecline={async () => {
         const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/decline`, { method: "POST" })
         const result = (await response.json()) as { ok?: boolean; reason?: string; estimate?: Estimate }
@@ -144,6 +179,7 @@ function ProposalDocument({
   onError,
   onAccept,
   onDecline,
+  onSendMessage,
 }: {
   estimate: Estimate
   clientName: string
@@ -164,6 +200,7 @@ function ProposalDocument({
     { ok: true } | { ok: false; reason: string }
   >
   onDecline: () => Promise<{ ok: true } | { ok: false; reason: string }>
+  onSendMessage: (body: string) => Promise<{ ok: true } | { ok: false; reason: string }>
 }) {
   const accepted = estimate.clientStatus === "accepted" && estimate.signature
   const optionalLines = estimate.lineItems.filter((item) => item.optional && item.pending !== true)
@@ -177,7 +214,7 @@ function ProposalDocument({
   const catalog = calculateEstimate({
     areas: estimate.areas,
     lineItems: estimate.lineItems.map((item) => ({ ...item, selected: true })),
-    rates: estimate.rates,
+    rates: ensureSubstrateRates(estimate.rates),
     settings: estimate.settings,
     paymentMethods,
   })
@@ -295,8 +332,9 @@ function ProposalDocument({
           {quote.lineItems
             .filter((line) => !optionalLines.some((item) => item.id === line.id))
             .map((line) => (
-              <div key={line.id} className="flex items-baseline justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
-                <div>
+              <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+                <div className="min-w-0">
+                  <ProposalLinePhoto src={line.photo} alt={line.label} />
                   <p className="font-medium">{line.label}</p>
                   {line.clientNote ? (
                     <p className="text-sm whitespace-pre-line text-muted-foreground">{line.clientNote}</p>
@@ -321,7 +359,7 @@ function ProposalDocument({
                 key={line.id}
                 className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10"
               >
-                <span className="flex items-start gap-3">
+                <span className="flex min-w-0 items-start gap-3">
                   <input
                     type="checkbox"
                     className="mt-1 size-4"
@@ -330,7 +368,8 @@ function ProposalDocument({
                     aria-label={line.label}
                     onChange={() => toggle(line.id)}
                   />
-                  <span>
+                  <span className="min-w-0">
+                    <ProposalLinePhoto src={line.photo} alt={line.label} />
                     <span className="block font-medium">{line.label}</span>
                     {line.clientNote ? (
                       <span className="mt-1 block text-sm whitespace-pre-line text-muted-foreground">
@@ -500,6 +539,12 @@ function ProposalDocument({
           </p>
         </form>
       )}
+      <ProposalChat
+        messages={estimate.proposalMessages ?? []}
+        customerName={clientName}
+        viewer="customer"
+        onSend={onSendMessage}
+      />
     </article>
   )
 }

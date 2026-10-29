@@ -50,6 +50,41 @@ export const PREP_HOURS_PER_SQFT: Record<PrepLevel, number> = {
   heavy: 0.01,
 }
 
+function wallSubstrate(
+  id: string,
+  material: string,
+  substrate: "wood" | "masonry" | "metal",
+  oneCoat: number,
+  twoCoat: number,
+  primer: number,
+): ProductionRate {
+  return {
+    id,
+    category: "Interior",
+    internalLabel: `Walls · ${material}`,
+    clientLabel: "Walls",
+    basis: "sqft_per_hour",
+    measure: "walls",
+    coatRates: [
+      { coats: 1, value: oneCoat },
+      { coats: 2, value: twoCoat },
+    ],
+    coveragePerCoat: SQFT_PER_GALLON,
+    primerRate: primer,
+    primerCoveragePerCoat: PRIMER_SQFT_PER_GALLON,
+    productName: "Wall paint",
+    productCostPerGallon: 0,
+    clientDescription: `${material} walls painted the full number of coats.`,
+    crewNote: "",
+    hideFromCustomer: false,
+    showCoats: true,
+    showPrice: false,
+    customHourlyRate: null,
+    substrate,
+    substrateGroup: "walls",
+  }
+}
+
 export const DEFAULT_PRODUCTION_RATES: ProductionRate[] = [
   {
     id: "walls",
@@ -73,7 +108,11 @@ export const DEFAULT_PRODUCTION_RATES: ProductionRate[] = [
     showCoats: true,
     showPrice: false,
     customHourlyRate: null,
+    substrate: "drywall",
   },
+  wallSubstrate("walls-wood", "Wood", "wood", 140, 60, 110),
+  wallSubstrate("walls-masonry", "Masonry", "masonry", 100, 45, 80),
+  wallSubstrate("walls-metal", "Metal", "metal", 160, 70, 130),
   {
     id: "ceiling",
     category: "Interior",
@@ -298,6 +337,10 @@ export function paintUpgradeLine(id: string): LineItemInput {
     clientNote: PAINT_UPGRADE_NOTE,
   }
 }
+
+export const WALL_SUBSTRATE_RATES = DEFAULT_PRODUCTION_RATES.filter(
+  (rate) => rate.substrateGroup === "walls",
+)
 
 function speedRate(
   id: string,

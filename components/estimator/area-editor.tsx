@@ -17,8 +17,16 @@ import {
 } from "@/lib/estimate/groups"
 import { ratesForKind } from "@/lib/estimate/kinds"
 import { attachOneOffRate, detachRateSurface } from "@/lib/estimate/one-off"
+import {
+  SUBSTRATE_LABEL,
+  applySubstrate,
+  sameSubstrateGroup,
+  substrateChoices,
+  substrateOf,
+  surfaceHeads,
+} from "@/lib/estimate/substrate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import type { AreaGroup, AreaInput, EstimateKind, LineItemInput, ProductionRate, SurfaceInput } from "@/lib/types"
+import type { AreaGroup, AreaInput, EstimateKind, LineItemInput, ProductionRate, Substrate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -297,9 +305,9 @@ function AreaCard({
       onToggleOneOff(rate)
       return
     }
-    const existing = area.surfaces.find((surface) => surface.rateId === rate.id)
+    const existing = area.surfaces.find((surface) => sameSubstrateGroup(rates, surface, rate))
     const surfaces = existing
-      ? area.surfaces.filter((surface) => surface.rateId !== rate.id)
+      ? area.surfaces.filter((surface) => !sameSubstrateGroup(rates, surface, rate))
       : [
           ...area.surfaces,
           {
@@ -310,6 +318,7 @@ function AreaCard({
             quantityOverride: null,
             hoursOverride: null,
             crewNote: "",
+            substrate: "drywall",
           } satisfies SurfaceInput,
         ]
     onChange({ ...area, surfaces })
@@ -461,13 +470,16 @@ function AreaCard({
         Surfaces
       </h3>
       <div className="mt-2 flex flex-col gap-3">
-        {rateGroups(rates).map((group) => (
+        {rateGroups(surfaceHeads(rates)).map((group) => (
           <div key={group.category} className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">{group.category}</p>
             {group.rates.map((rate) => {
-              const surface = area.surfaces.find((item) => item.rateId === rate.id)
-              const unit = quantityUnit(rate)
-              const roomQuantity = measuredQuantity(rate, area, surface?.itemCount ?? 0)
+              const surface = area.surfaces.find((item) => sameSubstrateGroup(rates, item, rate))
+              const active = (surface && rates.find((item) => item.id === surface.rateId)) || rate
+              const choices = substrateChoices(rates, rate)
+              const chosen = surface?.substrate ?? substrateOf(active)
+              const unit = quantityUnit(active)
+              const roomQuantity = measuredQuantity(active, area, surface?.itemCount ?? 0)
               return (
                 <div key={rate.id} className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -479,7 +491,33 @@ function AreaCard({
                     </button>
                     {surface ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        {rate.measure === "items" || rate.measure === "shutters" ? (
+                        {choices.length > 1 ? (
+                          <label className="text-xs text-muted-foreground">
+                            Substrate
+                            <select
+                              className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                              data-testid={`substrate-${rate.id}`}
+                              aria-label={`${rate.internalLabel} substrate`}
+                              value={chosen}
+                              onChange={(event) => {
+                                const substrate = event.target.value as Substrate
+                                onChange({
+                                  ...area,
+                                  surfaces: area.surfaces.map((item) =>
+                                    item.id === surface.id ? applySubstrate(item, rates, substrate) : item,
+                                  ),
+                                })
+                              }}
+                            >
+                              {choices.map((substrate) => (
+                                <option key={substrate} value={substrate}>
+                                  {SUBSTRATE_LABEL[substrate]}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
+                        {active.measure === "items" || active.measure === "shutters" ? (
                           <Input
                             aria-label={`${rate.internalLabel} count`}
                             value={String(surface.itemCount)}
@@ -519,7 +557,7 @@ function AreaCard({
                               })
                             }
                           >
-                            {finishCoatChoices(rate, surface.finishCoats ?? surface.coatCount).map((coats) => (
+                            {finishCoatChoices(active, surface.finishCoats ?? surface.coatCount).map((coats) => (
                               <option key={coats} value={coats}>
                                 {coats}
                               </option>
@@ -531,6 +569,12 @@ function AreaCard({
                   </div>
                   {surface ? (
                     <div className="flex flex-col gap-2">
+                    {chosen !== substrateOf(active) ? (
+                      <p className="text-xs text-muted-foreground">
+                        No {SUBSTRATE_LABEL[chosen].toLowerCase()} rate yet. This surface keeps the{" "}
+                        {SUBSTRATE_LABEL[substrateOf(active)].toLowerCase()} speed.
+                      </p>
+                    ) : null}
                     <div className={unit === "items" ? "grid max-w-xs gap-2" : "grid grid-cols-2 gap-2"}>
                       {unit === "items" ? null : (
                         <div className="grid gap-1">
@@ -591,14 +635,14 @@ function AreaCard({
                         type="checkbox"
                         className="mt-0.5"
                         data-testid={`hide-proposal-${rate.id}`}
-                        checked={Boolean(surface.hideFromCustomer ?? rate.hideFromCustomer)}
+                        checked={Boolean(surface.hideFromCustomer ?? active.hideFromCustomer)}
                         onChange={(event) =>
                           updateSurface(surface, { hideFromCustomer: event.target.checked })
                         }
                       />
                       <span>
                         Hide on the proposal
-                        {surface.hideFromCustomer ?? rate.hideFromCustomer ? (
+                        {surface.hideFromCustomer ?? active.hideFromCustomer ? (
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             Hours stay in the price. The work order still lists it.
                           </span>

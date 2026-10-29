@@ -53,6 +53,7 @@ describe("copyLineItem", () => {
       materials: [{ id: "roll", name: "Blue tape", quantity: 3, unitPrice: 8 }],
       optional: true,
       selected: false,
+      photo: "data:image/jpeg;base64,abc",
     }
     const copy = copyLineItem(line)
     assert.notEqual(copy.id, line.id)
@@ -65,6 +66,7 @@ describe("copyLineItem", () => {
     assert.equal(copy.hiddenOnWorkOrder, true)
     assert.equal(copy.optional, true)
     assert.equal(copy.selected, false)
+    assert.equal(copy.photo, "data:image/jpeg;base64,abc")
     assert.equal(copy.materials[0]?.name, "Blue tape")
     assert.notEqual(copy.materials[0]?.id, "roll")
     copy.materials[0].unitPrice = 1

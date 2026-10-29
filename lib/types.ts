@@ -37,6 +37,8 @@ export type PriceRounding = "none" | "nearest" | "up"
 export type LinePricingMode = "hourly" | "quantity" | "custom"
 export type LineItemType = "wall" | "ceiling" | "trim" | "cabinet_door" | "door" | "prep"
 export type PrepLevel = "none" | "light" | "medium" | "heavy"
+export const SUBSTRATES = ["drywall", "wood", "masonry", "metal"] as const
+export type Substrate = (typeof SUBSTRATES)[number]
 export type TaxBasis = "materials_only" | "total_job"
 
 /** Production rate or unit price for that many full coats. */
@@ -69,6 +71,10 @@ export interface ProductionRate {
   estimateKinds?: EstimateKind[]
   /** True prices this estimate only. The company rate book never receives it. */
   oneOff?: boolean
+  /** Material this speed is for. Missing means drywall. */
+  substrate?: Substrate
+  /** Other speeds for the same surface. Missing means this rate is its own group. */
+  substrateGroup?: string
 }
 
 export interface PaymentMethod {
@@ -200,6 +206,8 @@ export interface SurfaceInput {
   crewNote: string
   primerCoats?: number
   finishCoats?: number
+  /** Material on this surface. Missing means drywall. The matching rate supplies the speed. */
+  substrate?: Substrate
 }
 
 /** A named section of rooms, such as Upstairs or Front of the house. */
@@ -248,6 +256,8 @@ export interface LineItemInput {
   selected?: boolean
   /** Held off the invoice until the customer signs it. A negative price becomes a credit. */
   pending?: boolean
+  /** Picture the customer sees beside this line. A jpeg, png, or webp data URL, or an https image. */
+  photo?: string
 }
 
 export type ClientStatus = "draft" | "sent" | "accepted" | "declined"
@@ -362,6 +372,14 @@ export interface NoteEntry {
   body: string
 }
 
+/** A message on the proposal thread. The customer and the office both see it. */
+export interface ProposalMessage {
+  id: string
+  from: "customer" | "office"
+  body: string
+  createdAt: string
+}
+
 export interface Client {
   id: string
   name: string
@@ -417,6 +435,8 @@ export interface Estimate {
   stageChanges?: StageChange[]
   proposalOpens?: ProposalOpen[]
   noteLog?: NoteEntry[]
+  /** Questions and replies on the customer proposal. */
+  proposalMessages?: ProposalMessage[]
   changeOrders?: ChangeOrder[]
   /** Signed reductions. Each amount is positive and comes off the balance. */
   credits?: JobCredit[]
