@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · ScopePipe",
   },
   description:
-    "Mobile-first painting estimates and a four-stage job pipeline. $49 a month.",
+    "Mobile-first painting estimates and a four-stage job pipeline.",
 };
 
 export const viewport: Viewport = {

@@ -2,7 +2,7 @@
 
 Mobile-first estimating and pipeline for painting contractors. A room's length, width, and height become wall square feet, ceiling square feet, and trim linear feet. Each surface uses a coat rate (the rate for that many full coats), hours round up, and labor is hours times the hourly rate. The customer proposal shows area prices and payment methods. The work order shows hours, products, and crew notes, and leaves prices off.
 
-ScopePipe Field is **$49 a month**. This preview stores jobs in the browser. The production schema is in `supabase/migrations/001_scopepipe.sql`. The full plan — file tree, tables, and screen layout — is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+ScopePipe Field is a painting estimate and pipeline. This preview stores jobs in the browser. The production schema is in `supabase/migrations/001_scopepipe.sql`. The full plan — file tree, tables, and screen layout — is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Run locally
 

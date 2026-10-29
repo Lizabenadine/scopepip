@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
-import { DEFAULT_ESTIMATE_SETTINGS, MINIMUM_JOB_CHARGE, PAYMENT_METHODS, PLAN_NAME, PLAN_PRICE } from "@/lib/defaults"
+import { DEFAULT_ESTIMATE_SETTINGS, MINIMUM_JOB_CHARGE, PAYMENT_METHODS, PLAN_NAME } from "@/lib/defaults"
 import { FOLLOW_UP_STAGE_COPY } from "@/lib/follow-ups/defaults"
 import { clampDepositPercent } from "@/lib/payments/deposit"
 import type { EstimateSettings } from "@/lib/types"
@@ -259,7 +259,6 @@ function AddOnsPanel() {
   return (
     <section className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{PLAN_NAME}</p>
-      <p className="font-display text-3xl">${PLAN_PRICE} / month</p>
       <p className="mt-2 text-sm text-muted-foreground">
         Financing on proposals is turned on from Payments. Calendar, QuickBooks, Zapier, and CompanyCam connect from their own tabs.
       </p>

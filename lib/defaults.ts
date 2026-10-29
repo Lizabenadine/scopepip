@@ -265,7 +265,6 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
 ]
 
 export const PLAN_NAME = "ScopePipe Field"
-export const PLAN_PRICE = 49
 export const STORAGE_KEY = "scopepipe.v9"
 
 export const DEFAULT_RATE_CARD: RateCard = {

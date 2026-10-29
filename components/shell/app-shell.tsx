@@ -10,10 +10,11 @@ import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
 import { BrandLogo } from "@/components/brand/brand-logo"
 import { buttonVariants } from "@/components/ui/button"
 import type { UserRole } from "@/lib/auth/role"
-import { PLAN_PRICE } from "@/lib/defaults"
 import { useScope } from "@/lib/data/store"
 import { homeForRole } from "@/lib/auth/role"
 import { useFieldLanguage } from "@/hooks/use-field-language"
+import type { FieldLanguage } from "@/lib/field/language"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { managerCanOpen, navigationSections, type OfficeSection } from "@/lib/shell/navigation"
 import { cn } from "@/lib/utils"
 
@@ -34,8 +35,8 @@ function navIsActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-function roleLabel(role: UserRole): string {
-  return role === "project_manager" ? "Project manager" : "Owner"
+function roleLabel(role: UserRole, language: FieldLanguage): string {
+  return officeLabel(role === "project_manager" ? "Project manager" : "Owner", language)
 }
 
 async function signOut() {
@@ -46,12 +47,15 @@ async function signOut() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { notice, dismissNotice, ready, session } = useScope()
-  const { copy } = useFieldLanguage()
+  const { copy, language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const sections = navigationSections(session?.role ?? "owner")
   const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
+  const officeDashboard = pathname === "/"
   const fieldScreen =
+    officeDashboard ||
     pathname === "/work-orders" ||
     pathname.startsWith("/work-orders/") ||
     pathname === "/dispatch" ||
@@ -130,6 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onOpen={() => setOpenSection(openSection === section.name ? null : section.name)}
                 onClose={() => setOpenSection(null)}
                 placement="bar"
+                language={language}
               />
             ))}
           </nav>
@@ -140,22 +145,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {session.name}
             </p>
             <p className="text-xs text-slate-500" data-testid="signed-in-role">
-              {roleLabel(session.role)}
+              {roleLabel(session.role, language)}
             </p>
           </div>
           {fieldScreen ? <FieldLanguageSwitch /> : null}
           <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-600 hover:text-slate-900" onClick={() => void signOut()}>
-            Sign out
+            {say("Sign out")}
           </button>
           {crewCopy ? (
             <p className="hidden text-xs text-slate-500 xl:block">{copy.crewCopy}</p>
-          ) : (
-            <p className="hidden text-sm text-slate-500 xl:block">${PLAN_PRICE}/mo</p>
-          )}
+          ) : null}
           {session.role === "project_manager" ? null : (
             <Link href="/estimate" className={cn(buttonVariants({ size: "lg" }), "h-9 shrink-0")}>
               <Plus />
-              <span className="hidden sm:inline">New estimate</span>
+              <span className="hidden sm:inline">{say("New estimate")}</span>
             </Link>
           )}
         </div>
@@ -169,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={dismissNotice}
               className="rounded-md p-1 hover:bg-amber-200"
-              aria-label="Dismiss notice"
+              aria-label={say("Dismiss notice")}
             >
               <X className="size-4" />
             </button>
@@ -178,9 +181,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-4 pb-24 md:px-8 md:py-8 md:pb-8">
           {managerLimited ? (
             <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
-              <h1 className="text-xl font-semibold">This login stays on the job</h1>
+              <h1 className="text-xl font-semibold">{say("This login stays on the job")}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                A project manager can open progress jobs, work orders, and invoices.
+                {say("A project manager can open progress jobs, work orders, and invoices.")}
               </p>
             </div>
           ) : (
@@ -198,6 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 section={sections.find((section) => section.name === openSection)}
                 pathname={pathname}
                 onNavigate={() => setOpenSection(null)}
+                language={language}
                 wide
               />
             </div>
@@ -212,6 +216,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onOpen={() => setOpenSection(openSection === section.name ? null : section.name)}
                 onClose={() => setOpenSection(null)}
                 placement="dock"
+                language={language}
               />
             ))}
           </div>
@@ -237,6 +242,7 @@ function SectionControl({
   onOpen,
   onClose,
   placement,
+  language,
 }: {
   section: OfficeSection
   pathname: string
@@ -244,7 +250,9 @@ function SectionControl({
   onOpen: () => void
   onClose: () => void
   placement: "bar" | "dock"
+  language: FieldLanguage
 }) {
+  const say = (text: string) => officeLabel(text, language)
   const active = sectionIsActive(pathname, section)
   const Icon = SECTION_ICONS[section.name as keyof typeof SECTION_ICONS]
   if (!section.links.length && section.href) {
@@ -266,7 +274,7 @@ function SectionControl({
         className={className}
       >
         {placement === "dock" ? <Icon className="size-5" /> : null}
-        {placement === "dock" ? section.short : section.name}
+        {placement === "dock" ? say(section.short) : say(section.name)}
       </Link>
     )
   }
@@ -277,7 +285,7 @@ function SectionControl({
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={section.name === "Daily" ? "Daily Operations" : section.name}
+        aria-label={say(section.name === "Daily" ? "Daily Operations" : section.name)}
         data-testid={`nav-section-${section.name.toLowerCase()}`}
         onClick={onOpen}
         className={cn(
@@ -294,12 +302,12 @@ function SectionControl({
         )}
       >
         {placement === "dock" ? <Icon className="size-5" /> : null}
-        {placement === "dock" ? section.short : section.name}
+        {placement === "dock" ? say(section.short) : say(section.name)}
         {placement === "bar" ? <ChevronDown className="size-3.5" /> : null}
       </button>
       {placement === "bar" && open ? (
         <div className="absolute left-0 top-full z-30 mt-2">
-          <SectionMenu section={section} pathname={pathname} onNavigate={onClose} />
+          <SectionMenu section={section} pathname={pathname} onNavigate={onClose} language={language} />
         </div>
       ) : null}
     </div>
@@ -310,18 +318,21 @@ function SectionMenu({
   section,
   pathname,
   onNavigate,
+  language,
   wide = false,
 }: {
   section: OfficeSection | undefined
   pathname: string
   onNavigate: () => void
+  language: FieldLanguage
   wide?: boolean
 }) {
+  const say = (text: string) => officeLabel(text, language)
   if (!section || section.links.length === 0) return null
   return (
     <div role="menu" className={cn("min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg", wide && "w-full")}>
       <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">
-        {section.name === "Daily" ? "Daily Operations" : section.name}
+        {say(section.name === "Daily" ? "Daily Operations" : section.name)}
       </p>
       {section.links.map((link) => {
         const active = navIsActive(pathname, link.href)
@@ -341,7 +352,7 @@ function SectionMenu({
               active ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50",
             )}
           >
-            {link.name}
+            {say(link.name)}
           </Link>
         )
       })}

@@ -1,6 +1,6 @@
 # ScopePipe architecture
 
-ScopePipe is a mobile-first estimating and pipeline tool for painting contractors. The product is **ScopePipe Field at $49/month**: unlimited estimates, a four-stage board, and a client book. This repo is the field app plus the production schema. Billing is not wired. Jobs persist in the browser and match the Supabase tables so a hosted project can take over without a redesign.
+ScopePipe is a mobile-first estimating and pipeline tool for painting contractors. The product is **ScopePipe Field**: unlimited estimates, a four-stage board, and a client book. This repo is the field app plus the production schema. Billing is not wired. Jobs persist in the browser and match the Supabase tables so a hosted project can take over without a redesign.
 
 The pricing function in `lib/estimate/calculate.ts` is the only place money is computed. Screens render that result. A save materializes the same numbers into `line_items`.
 
@@ -22,7 +22,7 @@ app/
   clients/
     page.tsx
     [id]/page.tsx
-  settings/page.tsx          # rate card + $49 plan
+  settings/page.tsx          # rate card
 components/
   ui/                        # shadcn primitives (Button, Input, Dialog, Sheet, …)
   shell/app-shell.tsx        # mobile bottom nav, desktop sidebar
@@ -47,7 +47,7 @@ components/
   settings/rate-settings.tsx
 lib/
   types.ts                   # domain types aligned with the SQL tables
-  defaults.ts                # starter production rates and the $49 plan
+  defaults.ts                # starter production rates
   format.ts
   stages.ts                  # stage order, labels, empty copy
   estimate/
@@ -151,12 +151,12 @@ Phone first. Thumb reach and outdoor contrast matter more than density. Desktop 
 ```
 phone                         desktop
 ┌─────────────────────┐       ┌────────┬──────────────────────┐
-│ ScopePipe    $49/mo │       │ logo   │                      │
+│ ScopePipe           │       │ logo   │                      │
 │                     │       │ + New  │   page               │
 │   page              │       │ Jobs   │                      │
 │                     │       │ Clients│                      │
 │ Jobs Estimate       │       │ Rates  │                      │
-│ Clients Rates       │       │ $49/mo │                      │
+│ Clients Rates       │       │        │                      │
 └─────────────────────┘       └────────┴──────────────────────┘
 ```
 
@@ -260,5 +260,5 @@ The sample book is six Portland-area jobs spread across Lead, Estimate Sent, Sch
 ## What is intentionally not here
 
 - No Supabase client and no env keys. The migration is ready; the UI runs without them.
-- No card checkout. The $49 plan is shown as the product, not a charge.
+- No subscription checkout.
 - No accounts, drag-and-drop board, or photo takeoff. The forward action on a card is the whole pipeline interaction.

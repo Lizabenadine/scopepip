@@ -1,7 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { jobsCsv } from "@/lib/pipeline/export"
 import type { Estimate } from "@/lib/types"
 
@@ -14,6 +16,7 @@ const STATUS_LABEL = {
 
 export function JobsExport({ estimates }: { estimates: Estimate[] }) {
   const scope = useScope()
+  const { language } = useFieldLanguage()
   return (
     <Button
       type="button"
@@ -42,7 +45,7 @@ export function JobsExport({ estimates }: { estimates: Estimate[] }) {
         URL.revokeObjectURL(url)
       }}
     >
-      Export
+      {officeLabel("Export", language)}
     </Button>
   )
 }

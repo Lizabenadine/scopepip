@@ -6,8 +6,10 @@ import { useState } from "react"
 import { buttonVariants } from "@/components/ui/button"
 import { Button } from "@/components/ui/button"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
+import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
-import { money, scopeSummary, jobDate } from "@/lib/format"
+import { money } from "@/lib/format"
+import { officeAreas, officeLabel, officeNextAction, officeOnSite, officeStageName } from "@/lib/office/dashboard-copy"
 import { adjacentStage, NEXT_ACTION, stageTone } from "@/lib/stages"
 import { cn } from "@/lib/utils"
 import type { Estimate } from "@/lib/types"
@@ -15,6 +17,8 @@ import type { Estimate } from "@/lib/types"
 export function EstimateCard({ estimate }: { estimate: Estimate }) {
   const router = useRouter()
   const { clientById, stageById, stages, quoteEstimate, moveStage } = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const client = clientById(estimate.clientId)
   const stage = stageById(estimate.stageId)
   const quote = quoteEstimate(estimate)
@@ -42,22 +46,22 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
               stageTone(stage.slug),
             )}
           >
-            {stage.name}
+            {officeStageName(stage.slug, stage.name, language)}
           </p>
           {estimate.paymentStatus === "deposit_paid" ? (
             <p className="ml-2 inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2 py-0.5 text-xs font-medium text-[oklch(0.32_0.07_155)]">
-              Deposit Paid / Scheduled
+              {say("Deposit Paid / Scheduled")}
             </p>
           ) : estimate.clientStatus === "accepted" ? (
             <p className="ml-2 inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2 py-0.5 text-xs font-medium text-[oklch(0.32_0.07_155)]">
-              Accepted
+              {say("Accepted")}
             </p>
           ) : estimate.clientStatus === "declined" ? (
-            <p className="ml-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium">Declined</p>
+            <p className="ml-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{say("Declined")}</p>
           ) : null}
           <h3 className="mt-2 truncate text-base font-semibold">
             <Link href={`/estimates/${estimate.id}`} className="hover:underline">
-              {client?.name ?? "Missing client"}
+              {client?.name ?? say("Missing client")}
             </Link>
           </h3>
           <p className="truncate text-sm text-muted-foreground">{estimate.title}</p>
@@ -66,19 +70,19 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
           {money(quote.total)}
         </p>
       </div>
-      <p className="text-sm">{estimate.jobAddress || "No address yet"}</p>
-      <p className="text-sm text-muted-foreground">{scopeSummary(estimate)}</p>
+      <p className="text-sm">{estimate.jobAddress || say("No address yet")}</p>
+      <p className="text-sm text-muted-foreground">{officeAreas(estimate.areas.map((area) => area.name), language)}</p>
       {estimate.scheduledOn ? (
-        <p className="text-sm font-medium">On site {jobDate(estimate.scheduledOn)}</p>
+        <p className="text-sm font-medium">{officeOnSite(estimate.scheduledOn, language)}</p>
       ) : null}
       <div className="mt-auto flex gap-2">
         {next && NEXT_ACTION[stage.slug] ? (
           <Button type="button" className="h-11 flex-1" onClick={advance}>
-            {NEXT_ACTION[stage.slug]}
+            {officeNextAction(stage.slug, NEXT_ACTION[stage.slug], language)}
           </Button>
         ) : (
           <span className="flex h-11 flex-1 items-center text-sm text-muted-foreground">
-            Closed
+            {say("Closed")}
           </span>
         )}
         {stage.slug === "scheduled" || stage.slug === "completed" ? (
@@ -86,20 +90,21 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
             href={`/work-orders/${estimate.id}`}
             className={cn(buttonVariants({ variant: "outline" }), "h-11 px-4")}
           >
-            Crew sheet
+            {say("Crew sheet")}
           </Link>
         ) : null}
         <Link
           href={`/estimates/${estimate.id}`}
           className={cn(buttonVariants({ variant: "outline" }), "h-11 px-4")}
         >
-          Open
+          {say("Open")}
         </Link>
       </div>
       {next?.slug === "scheduled" ? (
         <ScheduleDialog
           open={scheduleOpen}
-          clientName={client?.name ?? "this job"}
+          clientName={client?.name ?? say("Missing client")}
+          language={language}
           initialDate={estimate.scheduledOn}
           onOpenChange={setScheduleOpen}
           onConfirm={(date) => {
