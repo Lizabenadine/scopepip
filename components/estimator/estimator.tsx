@@ -6,6 +6,8 @@ import { useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
 import { AreaEditor } from "@/components/estimator/area-editor"
+import { HourlyRateBuildButton } from "@/components/estimator/hourly-rate-build"
+import { EstimateVersions } from "@/components/estimator/versions"
 import { LinePhotoField } from "@/components/estimator/line-photo"
 import { CalculationPanel } from "@/components/estimator/calculation-panel"
 import { ClientField } from "@/components/estimator/client-field"
@@ -80,6 +82,8 @@ export function Estimator({
     clients,
     patch,
     persist,
+    versions,
+    restoreVersion,
     setStatus,
     moveStage,
     deleteEstimate,
@@ -145,6 +149,7 @@ export function Estimator({
               Proposal
             </Link>
           ) : null}
+          {draft.id ? <EstimateVersions versions={versions} onRestore={restoreVersion} /> : null}
           {draft.id ? <PhotoGallery estimateId={draft.id} /> : null}
           {draft.id ? (
             <ChangeOrderDialog
@@ -540,15 +545,28 @@ export function Estimator({
             </div>
           </section>
           <section className="grid gap-3 sm:grid-cols-2">
-            <NumberBox
-              label={`${ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"]} hourly rate`}
-              value={draft.settings.hourlyRate}
-              onChange={(hourlyRate) =>
-                patch({
-                  settings: setKindHourlyRate(draft.settings, draft.estimateKind ?? "interior", hourlyRate),
-                })
-              }
-            />
+            <div className="grid content-start gap-2">
+              <NumberBox
+                label={`${ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"]} hourly rate`}
+                value={draft.settings.hourlyRate}
+                onChange={(hourlyRate) =>
+                  patch({
+                    settings: setKindHourlyRate(draft.settings, draft.estimateKind ?? "interior", hourlyRate),
+                  })
+                }
+              />
+              <HourlyRateBuildButton
+                initial={draft.settings.hourlyRateBuild}
+                onApply={(hourlyRate, hourlyRateBuild) =>
+                  patch({
+                    settings: {
+                      ...setKindHourlyRate(draft.settings, draft.estimateKind ?? "interior", hourlyRate),
+                      hourlyRateBuild,
+                    },
+                  })
+                }
+              />
+            </div>
             <NumberBox
               label="Tax %"
               value={draft.settings.taxPercent}

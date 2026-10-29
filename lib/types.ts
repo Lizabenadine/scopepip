@@ -83,8 +83,20 @@ export interface PaymentMethod {
   surchargePercent: number
 }
 
+/** Costs behind a built hourly rate. The customer never sees these. */
+export interface HourlyRateBuild {
+  laborCostPerHour: number
+  overheadPerHour: number
+  /** Paint and sundries per painter hour. 0 when paint is priced on the estimate. */
+  sundriesPerHour: number
+  /** Gross margin as a percent of the selling rate. 10 means 10%. */
+  profitPercent: number
+}
+
 export interface EstimateSettings {
   hourlyRate: number
+  /** How the hourly rate was built. Missing means the rate was typed. */
+  hourlyRateBuild?: HourlyRateBuild
   /** Company rate before a type override. Missing uses hourlyRate. */
   generalHourlyRate?: number
   /** Blank type uses the general hourly rate. */
@@ -380,6 +392,22 @@ export interface ProposalMessage {
   createdAt: string
 }
 
+/** The priced scope as it was at a save. Restoring it does not touch the signature or the ledger. */
+export interface EstimateVersion {
+  id: string
+  savedAt: string
+  title: string
+  jobAddress: string
+  estimateKind?: EstimateKind
+  areas: AreaInput[]
+  areaGroups?: AreaGroup[]
+  lineItems: LineItemInput[]
+  rates: ProductionRate[]
+  settings: EstimateSettings
+  notes: string
+  crewNote: string
+}
+
 export interface Client {
   id: string
   name: string
@@ -437,6 +465,8 @@ export interface Estimate {
   noteLog?: NoteEntry[]
   /** Questions and replies on the customer proposal. */
   proposalMessages?: ProposalMessage[]
+  /** Older copies of the priced scope, newest first. */
+  versions?: EstimateVersion[]
   changeOrders?: ChangeOrder[]
   /** Signed reductions. Each amount is positive and comes off the balance. */
   credits?: JobCredit[]

@@ -354,10 +354,22 @@ async function findByEstimate(match: (estimate: Estimate) => boolean): Promise<{
   return null
 }
 
+function forCustomer(estimate: Estimate): Estimate {
+  if (!estimate.versions && !estimate.settings.hourlyRateBuild) return estimate
+  const copy = { ...estimate }
+  delete copy.versions
+  if (copy.settings.hourlyRateBuild) {
+    const settings = { ...copy.settings }
+    delete settings.hourlyRateBuild
+    copy.settings = settings
+  }
+  return copy
+}
+
 function proposalViewFrom(state: ScopeState, estimate: Estimate): PublicProposalView {
   const client = state.clients.find((item) => item.id === estimate.clientId)
   return {
-    estimate,
+    estimate: forCustomer(estimate),
     clientName: client?.name ?? "Client",
     companyName: state.estimateSettings.companyName?.trim() || "ScopePipe",
     companyEmail: state.estimateSettings.companyEmail?.trim() || "",
@@ -384,7 +396,7 @@ export async function declinePublicProposal(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === result.estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "This proposal could not be saved. Try again." }
-  return { ok: true, estimate }
+  return { ok: true, estimate: forCustomer(estimate) }
 }
 
 export async function acceptPublicProposal(
@@ -399,7 +411,7 @@ export async function acceptPublicProposal(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === result.estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "This proposal could not be saved. Try again." }
-  return { ok: true, estimate }
+  return { ok: true, estimate: forCustomer(estimate) }
 }
 
 export async function publicEstimate(id: string): Promise<{ estimate: Estimate; clientName: string; paymentMethods: PaymentMethod[] } | null> {
@@ -407,7 +419,7 @@ export async function publicEstimate(id: string): Promise<{ estimate: Estimate; 
   if (!found) return null
   const client = found.book.state.clients.find((item) => item.id === found.estimate.clientId)
   return {
-    estimate: found.estimate,
+    estimate: forCustomer(found.estimate),
     clientName: client?.name ?? "Client",
     paymentMethods: found.book.state.paymentMethods,
   }
@@ -425,7 +437,7 @@ export async function recordPublicDeposit(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "The deposit could not be saved. Try again." }
-  return { ok: true, estimate }
+  return { ok: true, estimate: forCustomer(estimate) }
 }
 
 export async function recordPendingSignature(
@@ -443,7 +455,7 @@ export async function recordPendingSignature(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "The signature could not be saved. Try again." }
-  return { ok: true, estimate }
+  return { ok: true, estimate: forCustomer(estimate) }
 }
 
 export async function recordProposalMessage(
@@ -461,7 +473,7 @@ export async function recordProposalMessage(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === found.estimate.id)
   if (!saved.ok || !estimate) return { ok: false, reason: "The message could not be saved. Try again." }
-  return { ok: true, estimate }
+  return { ok: true, estimate: forCustomer(estimate) }
 }
 
 export async function publicBooking(token: string): Promise<PublicBookingView | null> {

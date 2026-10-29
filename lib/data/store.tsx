@@ -17,6 +17,7 @@ import { applyDeposit } from "@/lib/payments/apply-deposit"
 import { readCompanyProfile, saveCompanyProfile } from "@/lib/brand/profile"
 import { applyChangeOrder } from "@/lib/change-orders/apply"
 import { signPendingWork } from "@/lib/estimate/pending"
+import { rememberVersion, restoreVersion } from "@/lib/estimate/versions"
 import { postProposalMessage } from "@/lib/proposals/chat"
 import { syncChangeOrder } from "@/lib/change-orders/sync"
 import { applyAcceptance, type AcceptanceInput } from "@/lib/proposals/accept"
@@ -323,6 +324,10 @@ export interface ScopeApi {
   stageById: (id: string) => PipelineStage | undefined
   quoteEstimate: (estimate: Estimate) => EstimateQuote
   saveEstimate: (draft: EstimateDraft) => { id: string; clientId: string }
+  restoreEstimateVersion: (
+    estimateId: string,
+    versionId: string,
+  ) => { ok: true; estimate: Estimate; restored: boolean } | { ok: false; reason: string }
   deleteEstimate: (id: string) => void
   moveStage: (id: string, stageId: string, scheduledOn?: string | null) => void
   addEstimateNote: (id: string, text: string) => void
@@ -468,6 +473,26 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         })
       }
 
+      const versions = previous
+        ? rememberVersion(
+            previous.versions,
+            previous,
+            {
+              title: draft.title,
+              jobAddress: draft.jobAddress,
+              estimateKind: draft.estimateKind ?? previous.estimateKind ?? "interior",
+              areas: draft.areas,
+              areaGroups: draft.areaGroups,
+              lineItems: draft.lineItems,
+              rates: draft.rates,
+              settings: draft.settings,
+              notes: draft.notes,
+              crewNote: draft.crewNote,
+            },
+            now,
+          )
+        : undefined
+
       const estimate: Estimate = {
         id,
         clientId,
@@ -507,6 +532,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         proposalOpens: previous?.proposalOpens ? [...previous.proposalOpens] : [],
         noteLog: previous?.noteLog ? [...previous.noteLog] : [],
         proposalMessages: previous?.proposalMessages ? [...previous.proposalMessages] : undefined,
+        versions,
         createdAt: draft.createdAt ?? now,
         updatedAt: now,
       }
@@ -521,6 +547,18 @@ function buildApi(snapshot: Snapshot): ScopeApi {
 
       commitReconciled({ ...latest, clients, estimates, workOrders })
       return { id, clientId }
+    },
+    restoreEstimateVersion: (estimateId, versionId) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return { ok: false, reason: "This estimate is not on file." }
+      const restored = restoreVersion(estimate, versionId, new Date().toISOString())
+      if (!restored.ok || !restored.restored) return restored
+      commitReconciled({
+        ...latest,
+        estimates: latest.estimates.map((item) => (item.id === estimateId ? restored.estimate : item)),
+      })
+      return restored
     },
     deleteEstimate: (id) => {
       const latest = getSnapshot().state

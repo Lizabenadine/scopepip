@@ -8,7 +8,7 @@ import { captureEstimateTemplate, type SavedEstimateTemplate } from "@/lib/estim
 import { useScope } from "@/lib/data/store"
 import { PAYMENT_METHODS } from "@/lib/defaults"
 import { adjacentStage } from "@/lib/stages"
-import type { Estimate, EstimateDraft, PipelineStage, ProductionRate } from "@/lib/types"
+import type { Estimate, EstimateDraft, EstimateVersion, PipelineStage, ProductionRate } from "@/lib/types"
 
 function withSubstrateRates(draft: EstimateDraft, companyRates: ProductionRate[]): EstimateDraft {
   const rates = ensureSubstrateRates(draft.rates, companyRates)
@@ -181,6 +181,22 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     return saved
   }
 
+  const restoreVersion = (versionId: string) => {
+    if (!draft?.id) return
+    const restored = scope.restoreEstimateVersion(draft.id, versionId)
+    if (!restored.ok) {
+      setStatus(restored.reason)
+      return
+    }
+    sessionStorage.removeItem(draftKey(draft.id))
+    setDraft(fromEstimate(restored.estimate, draft.clientName))
+    setStatus(restored.restored ? "Restored" : "This is already the current estimate.")
+  }
+
+  const versions: EstimateVersion[] = draft?.id
+    ? (scope.estimates.find((item) => item.id === draft.id)?.versions ?? [])
+    : []
+
   return {
     ready: scope.ready && loadKey === loadedKey && (Boolean(draft) || missing),
     missing,
@@ -195,6 +211,8 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     clients: scope.clients,
     patch,
     persist,
+    versions,
+    restoreVersion,
     setStatus,
     moveStage: scope.moveStage,
     deleteEstimate: scope.deleteEstimate,
