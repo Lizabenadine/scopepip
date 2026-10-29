@@ -21,6 +21,7 @@ import { hoursLabel, jobDate, money } from "@/lib/format"
 import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
+import { ProposalEmail } from "@/components/proposal/proposal-email"
 import { OfficeProposalChat } from "@/components/proposal/proposal-chat"
 
 export function ProposalView({ id }: { id: string }) {
@@ -72,6 +73,7 @@ export function ProposalView({ id }: { id: string }) {
         <button type="button" className="font-medium text-primary" onClick={() => window.print()}>
           Print
         </button>
+        <ProposalEmail estimateId={estimate.id} hasEmail={Boolean(client?.email.includes("@"))} />
         <button
           type="button"
           data-testid="copy-spanish-proposal"
