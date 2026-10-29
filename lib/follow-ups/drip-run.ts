@@ -6,7 +6,7 @@ import { sendWebhook } from "../webhooks/send.ts"
 
 let running = false
 
-/** Walk every company book, or one company, and send quote notes that are due. */
+/** Walk every company book, or one company, and send follow-up notes that are due. */
 export async function runAllQuoteDrips(origin?: string, companyId?: string): Promise<number> {
   if (running) return 0
   running = true

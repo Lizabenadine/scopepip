@@ -345,7 +345,7 @@ export async function writeCompanyBook(
   const next = current.revision + 1
   await writeBook(companyId, { revision: next, state })
   for (const moment of hookMoments(current.state, state)) {
-    void sendWebhook(moment.event, moment.payload, companyId)
+    void sendWebhook(moment.event, moment.payload, companyId, state.estimateSettings.outboundHooks)
   }
   return { ok: true, revision: next }
 }
@@ -399,6 +399,7 @@ function publicSettings(settings: EstimateSettings): EstimateSettings {
   delete copy.leadWebhookToken
   delete copy.zapierWebhookUrl
   delete copy.zapierSince
+  delete copy.outboundHooks
   return copy
 }
 

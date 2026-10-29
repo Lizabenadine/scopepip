@@ -6,6 +6,13 @@ export const HOOK_EVENTS = ["lead.created", "proposal.sent", "proposal.signed", 
 
 export type HookEvent = (typeof HOOK_EVENTS)[number]
 
+export const HOOK_EVENT_LABELS: Record<HookEvent, string> = {
+  "lead.created": "New lead",
+  "proposal.sent": "Proposal sent",
+  "proposal.signed": "Proposal signed",
+  "job.completed": "Job completed",
+}
+
 export interface HookMoment {
   event: HookEvent
   payload: {

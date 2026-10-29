@@ -137,7 +137,7 @@ export function describeFollowUp(state: ScopeState, estimate: Estimate, nowMs: n
     if (picked.reason === "visit_booked") return "Follow-up stopped. Visit booked."
     return "Follow-up stopped."
   }
-  if (picked.kind === "waiting") return "Follow-up starts while this office is open."
+  if (picked.kind === "waiting") return "Follow-up starts on its own."
   if (picked.kind === "off") return "Follow-up is off for this column."
   if (picked.kind === "hold") return `Next ${channelName(picked.step.channel)} is waiting to retry.`
   if (picked.kind === "needs-contact") {

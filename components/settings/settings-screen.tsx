@@ -215,7 +215,7 @@ function NotificationsPanel({ onEdit }: { onEdit: () => void }) {
     <section className="flex flex-col gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
       <h2 className="text-lg font-semibold">Notifications</h2>
       <p className="text-sm text-muted-foreground">
-        Each column can text or email the customer while the office is open. A reply or a booked visit stops that sequence.
+        Each column texts or emails the customer on its own. A reply or a booked visit stops that sequence.
       </p>
       <ul className="flex flex-col gap-2 text-sm">
         {followUpSequences.map((sequence) => (

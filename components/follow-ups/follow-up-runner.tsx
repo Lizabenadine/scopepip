@@ -1,9 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
-import type { DueFollowUp, FollowUpMessage } from "@/lib/follow-ups/types"
 import { isBookingTime, type PublicBooking } from "@/lib/bookings/apply"
 import type { InboundLead } from "@/lib/leads/types"
 import type { ProposalEngagementEvent } from "@/lib/proposals/engagement"
@@ -20,52 +18,7 @@ export function FollowUpRunner() {
   scopeRef.current = scope
 
   useEffect(() => {
-    const inflight = new Set<string>()
     let stopped = false
-
-    async function sendOne(item: DueFollowUp, fromName: string) {
-      const key = `${item.estimateId}:${item.stepId}`
-      if (inflight.has(key)) return
-      inflight.add(key)
-      try {
-        const response = await fetch("/api/follow-ups/send", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            channel: item.channel,
-            to: item.to,
-            subject: item.subject,
-            body: item.body,
-            fromName,
-          }),
-        })
-        const result = (await response.json()) as { delivery?: string; detail?: string }
-        if (stopped) return
-        const delivery = result.delivery
-        if (delivery === "sent" || delivery === "logged" || delivery === "skipped") {
-          const message: FollowUpMessage = {
-            id: crypto.randomUUID(),
-            estimateId: item.estimateId,
-            stepId: item.stepId,
-            stage: item.stage,
-            channel: item.channel,
-            to: item.to,
-            subject: item.subject,
-            body: item.body,
-            sentAt: new Date().toISOString(),
-            delivery,
-            detail: typeof result.detail === "string" ? result.detail : "",
-          }
-          scopeRef.current.recordFollowUpDelivery(message)
-          return
-        }
-        scopeRef.current.holdFollowUp(item.estimateId, 15)
-      } catch {
-        if (!stopped) scopeRef.current.holdFollowUp(item.estimateId, 15)
-      } finally {
-        inflight.delete(key)
-      }
-    }
 
     async function pullInbound() {
       const response = await fetch("/api/messages/inbound")
@@ -202,17 +155,11 @@ export function FollowUpRunner() {
         // A missed proposal open retries on the next tick.
       }
       if (stopped) return
-      const due = api.prepareFollowUps().filter((item) => item.stage !== "proposal_sent")
-      const fromName = displayCompanyName(api.estimateSettings.companyName)
-      for (const item of due) {
-        if (stopped) return
-        await sendOne(item, fromName)
-      }
-      if (stopped) return
+      api.prepareFollowUps()
       try {
         await fetch("/api/follow-ups/drip", { method: "POST" })
       } catch {
-        // The quote drip retries on the next tick.
+        // The follow-up drip retries on the next tick.
       }
       await pushIntegrations()
     }

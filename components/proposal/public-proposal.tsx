@@ -28,6 +28,7 @@ import { jobDate, money, moneyExact } from "@/lib/format"
 import { financingTerms, monthlyPayment } from "@/lib/financing/offer"
 import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
+import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { proposalFigures } from "@/lib/proposals/figures"
 
 interface ProposalPayload {
@@ -335,6 +336,7 @@ function ProposalDocument({
               <div key={line.id} className="flex items-start justify-between gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-foreground/10">
                 <div className="min-w-0">
                   <ProposalLinePhoto src={line.photo} alt={line.label} />
+                  <ProposalLineVideo src={line.video} label={line.label} />
                   <p className="font-medium">{line.label}</p>
                   {line.clientNote ? (
                     <p className="text-sm whitespace-pre-line text-muted-foreground">{line.clientNote}</p>
@@ -370,6 +372,7 @@ function ProposalDocument({
                   />
                   <span className="min-w-0">
                     <ProposalLinePhoto src={line.photo} alt={line.label} />
+                    <ProposalLineVideo src={line.video} label={line.label} />
                     <span className="block font-medium">{line.label}</span>
                     {line.clientNote ? (
                       <span className="mt-1 block text-sm whitespace-pre-line text-muted-foreground">

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Label } from "@/components/ui/label"
+import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { LINE_VIDEO_BYTE_LIMIT, lineVideo, lineVideoTooLarge } from "@/lib/estimate/line-video"
 
 export function LineVideoField({
@@ -26,9 +27,7 @@ export function LineVideoField({
         <p className="text-sm text-muted-foreground">Save this estimate before adding a video.</p>
       ) : shown ? (
         <div>
-          <p className="text-sm" data-testid={`line-video-ready-${lineId}`}>
-            Video attached
-          </p>
+          <ProposalLineVideo src={shown} label="Video on the proposal" testId={`line-video-play-${lineId}`} />
           <button
             type="button"
             className="mt-2 text-sm text-muted-foreground"

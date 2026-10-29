@@ -134,7 +134,16 @@ export interface EstimateSettings {
   zapierSince?: string
   /** Secret segment of the inbound lead webhook. The customer proposal never receives it. */
   leadWebhookToken?: string
+  /** Addresses that receive a new lead, a sent proposal, a signature, or a finished job. */
+  outboundHooks?: OutboundHook[]
   calendarFeedToken?: string
+}
+
+export interface OutboundHook {
+  id: string
+  event: "lead.created" | "proposal.sent" | "proposal.signed" | "job.completed"
+  url: string
+  active: boolean
 }
 
 export type DepositMethod = "card" | "apple_pay" | "google_pay"

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useScope } from "@/lib/data/store"
 import { leadWebhookToken } from "@/lib/webhooks/token"
+import { OutboundHooks } from "@/components/settings/outbound-hooks"
 import { zapierTarget } from "@/lib/zapier/events"
 
 export function Connections() {
@@ -139,9 +140,6 @@ export function Connections() {
         <p className="mt-1 text-sm text-muted-foreground">
           Paste a Catch Hook URL. ScopePipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
         </p>
-        <p className="mt-2 text-sm text-muted-foreground" data-testid="hook-events">
-          Active hooks also fire on their own for a new lead, a proposal sent, a proposal signed, and a job completed. Subscribe with lead.created, proposal.sent, proposal.signed, or job.completed.
-        </p>
         <div className="mt-3 grid gap-2">
           <Label htmlFor="zapierWebhook">Webhook URL</Label>
           <Input id="zapierWebhook" value={webhook} className="h-11" placeholder="https://" onValueChange={setWebhook} data-testid="zapier-webhook" />
@@ -156,6 +154,7 @@ export function Connections() {
         </div>
         {zapierDetail ? <p className="mt-2 text-sm" data-testid="zapier-status">{zapierDetail}</p> : null}
       </div>
+      <OutboundHooks />
       <div>
         <h2 className="text-lg font-semibold">CompanyCam</h2>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -103,9 +103,10 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
         <div className="max-w-2xl">
           {heading ? <h1 className="text-2xl font-semibold tracking-tight">Follow-ups</h1> : null}
           <p className={heading ? "mt-1 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
-            A sent quote follows up on its own: the next day, again at three days, and again at a week. Each note
-            includes the proposal link. A reply or a booked visit stops it. The other columns still send while this
-            office is open. Messages log on the deal until Resend and Twilio keys are set.
+            Every column follows up on its own. A sent quote gets a note the next day, again at three days, and
+            again at a week, each with the proposal link. Cold and warm leads use their own cadence, and a finished
+            job asks for a review the next day. A reply or a booked visit stops a pursuit. Messages log on the deal
+            until Resend and Twilio keys are set.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Tokens: {"{client}"} {"{company}"} {"{address}"} {"{visit}"} {"{job}"} {"{salesperson}"} {"{book}"}{" "}

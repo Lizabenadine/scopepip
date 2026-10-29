@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "../supabase/admin.ts"
+import type { OutboundHook } from "../types.ts"
 import { zapierTarget } from "../zapier/events.ts"
+import { readOutboundHooks } from "./hooks.ts"
 
 export interface WebhookSubscription {
   url: string
@@ -24,9 +26,14 @@ export function selectWebhookUrls(rows: WebhookSubscription[], event: string, co
 }
 
 /** Look up active hooks and post without waiting on their replies. */
-export async function sendWebhook(event: string, payload: unknown, companyId?: string): Promise<void> {
+export async function sendWebhook(
+  event: string,
+  payload: unknown,
+  companyId?: string,
+  saved?: OutboundHook[],
+): Promise<void> {
   if (!EVENT_NAME.test(event)) return
-  const urls = await loadActiveWebhookUrls(event, companyId)
+  const urls = mergeUrls(bookHookUrls(saved, event), await loadActiveWebhookUrls(event, companyId))
   const body = JSON.stringify({ event, payload })
   for (const url of urls) {
     void fetch(url, {
@@ -35,6 +42,28 @@ export async function sendWebhook(event: string, payload: unknown, companyId?: s
       body,
     }).catch(() => undefined)
   }
+}
+
+/** Https addresses the office saved for this event. A paused hook is skipped. */
+export function bookHookUrls(saved: OutboundHook[] | undefined, event: string): string[] {
+  return selectWebhookUrls(
+    readOutboundHooks(saved).map((hook) => ({
+      url: hook.url,
+      event: hook.event,
+      active: hook.active,
+      company_id: "book",
+    })),
+    event,
+    "book",
+  )
+}
+
+function mergeUrls(first: string[], second: string[]): string[] {
+  const urls = [...first]
+  for (const url of second) {
+    if (!urls.includes(url)) urls.push(url)
+  }
+  return urls.slice(0, 20)
 }
 
 async function loadActiveWebhookUrls(event: string, companyId?: string): Promise<string[]> {
