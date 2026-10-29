@@ -7,7 +7,7 @@ import type { DueFollowUp, FollowUpMessage } from "@/lib/follow-ups/types"
 import { isBookingTime, type PublicBooking } from "@/lib/bookings/apply"
 import type { InboundLead } from "@/lib/leads/types"
 import type { ProposalEngagementEvent } from "@/lib/proposals/engagement"
-import { INBOUND_LEAD_SOURCES } from "@/lib/types"
+import { LEAD_SOURCES } from "@/lib/types"
 import { calendarEvents } from "@/lib/calendar/events"
 import { companyCamJobs } from "@/lib/companycam/match"
 import { pendingZapierEvents } from "@/lib/zapier/events"
@@ -103,7 +103,7 @@ export function FollowUpRunner() {
       const ids: string[] = []
       for (const lead of leads) {
         if (stopped || !lead || typeof lead.id !== "string" || typeof lead.name !== "string") continue
-        if (!INBOUND_LEAD_SOURCES.some((source) => source === lead.source)) continue
+        if (!LEAD_SOURCES.some((source) => source === lead.source)) continue
         scopeRef.current.receiveInboundLead({
           id: lead.id,
           source: lead.source,
@@ -202,13 +202,18 @@ export function FollowUpRunner() {
         // A missed proposal open retries on the next tick.
       }
       if (stopped) return
-      const due = api.prepareFollowUps()
+      const due = api.prepareFollowUps().filter((item) => item.stage !== "proposal_sent")
       const fromName = displayCompanyName(api.estimateSettings.companyName)
       for (const item of due) {
         if (stopped) return
         await sendOne(item, fromName)
       }
       if (stopped) return
+      try {
+        await fetch("/api/follow-ups/drip", { method: "POST" })
+      } catch {
+        // The quote drip retries on the next tick.
+      }
       await pushIntegrations()
     }
 

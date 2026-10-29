@@ -103,11 +103,13 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
         <div className="max-w-2xl">
           {heading ? <h1 className="text-2xl font-semibold tracking-tight">Follow-ups</h1> : null}
           <p className={heading ? "mt-1 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
-            Each column sends its own email and text sequence while this office is open. A customer reply stops that
-            sequence. Messages log on the deal until Resend and Twilio keys are set.
+            A sent quote follows up on its own: the next day, again at three days, and again at a week. Each note
+            includes the proposal link. A reply or a booked visit stops it. The other columns still send while this
+            office is open. Messages log on the deal until Resend and Twilio keys are set.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Tokens: {"{client}"} {"{company}"} {"{address}"} {"{visit}"} {"{job}"} {"{salesperson}"} {"{book}"}
+            Tokens: {"{client}"} {"{company}"} {"{address}"} {"{visit}"} {"{job}"} {"{salesperson}"} {"{book}"}{" "}
+            {"{proposal}"}
           </p>
         </div>
         <div className="flex gap-2">

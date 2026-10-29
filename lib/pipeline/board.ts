@@ -42,6 +42,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   yelp: "Yelp",
   google: "Google",
   referral: "Referral",
+  webhook: "Webhook",
 }
 
 export const DATE_RANGES = [

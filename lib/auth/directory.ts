@@ -3,6 +3,9 @@ import fs from "node:fs"
 import path from "node:path"
 import { listJsonNames, readJsonFile, writeJsonFile } from "./account-store.ts"
 import { supabaseServerKey } from "../supabase/admin.ts"
+import { hookMoments } from "../webhooks/moments.ts"
+import { sendWebhook } from "../webhooks/send.ts"
+import { leadWebhookToken } from "../webhooks/token.ts"
 import { recordStageChanges } from "../clients/activity.ts"
 import { createCompanyBook } from "../data/company-book.ts"
 import { isScopeState, type ScopeState } from "../data/seed.ts"
@@ -39,7 +42,7 @@ interface AccountFile {
   companies: StoredCompany[]
 }
 
-interface BookFile {
+export interface BookFile {
   revision: number
   state: ScopeState
 }
@@ -320,6 +323,15 @@ export async function readCompanyBook(companyId: string): Promise<BookFile | nul
   return readBookFile(companyId)
 }
 
+export async function companyForLeadWebhook(token: string): Promise<{ companyId: string; book: BookFile } | null> {
+  const expected = leadWebhookToken(token)
+  if (!expected) return null
+  for (const row of await eachBook()) {
+    if (leadWebhookToken(row.book.state.estimateSettings.leadWebhookToken) === expected) return row
+  }
+  return null
+}
+
 export async function writeCompanyBook(
   companyId: string,
   revision: number,
@@ -332,6 +344,9 @@ export async function writeCompanyBook(
   }
   const next = current.revision + 1
   await writeBook(companyId, { revision: next, state })
+  for (const moment of hookMoments(current.state, state)) {
+    void sendWebhook(moment.event, moment.payload, companyId)
+  }
   return { ok: true, revision: next }
 }
 
@@ -375,8 +390,16 @@ function proposalViewFrom(state: ScopeState, estimate: Estimate): PublicProposal
     companyName: state.estimateSettings.companyName?.trim() || "ScopePipe",
     companyEmail: state.estimateSettings.companyEmail?.trim() || "",
     paymentMethods: state.paymentMethods,
-    estimateSettings: state.estimateSettings,
+    estimateSettings: publicSettings(state.estimateSettings),
   }
+}
+
+function publicSettings(settings: EstimateSettings): EstimateSettings {
+  const copy = { ...settings }
+  delete copy.leadWebhookToken
+  delete copy.zapierWebhookUrl
+  delete copy.zapierSince
+  return copy
 }
 
 export async function publicProposal(token: string): Promise<PublicProposalView | null> {

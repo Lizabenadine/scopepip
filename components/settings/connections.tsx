@@ -1,19 +1,38 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useScope } from "@/lib/data/store"
+import { leadWebhookToken } from "@/lib/webhooks/token"
 import { zapierTarget } from "@/lib/zapier/events"
 
 export function Connections() {
   const scope = useScope()
   const [webhook, setWebhook] = useState(scope.estimateSettings.zapierWebhookUrl ?? "")
   const [zapierDetail, setZapierDetail] = useState("")
+  const [leadDetail, setLeadDetail] = useState("")
+  const [origin, setOrigin] = useState("")
   const [token, setToken] = useState("")
   const [companyCam, setCompanyCam] = useState("CompanyCam is not connected.")
   const [savingCam, setSavingCam] = useState(false)
+  const creatingWebhook = useRef(false)
+  const inboundToken = leadWebhookToken(scope.estimateSettings.leadWebhookToken)
+  const inboundUrl = origin && inboundToken ? `${origin}/api/webhooks/leads/${inboundToken}` : ""
+
+  useEffect(() => {
+    setOrigin(window.location.origin)
+  }, [])
+
+  useEffect(() => {
+    if (!scope.ready || inboundToken || creatingWebhook.current) return
+    creatingWebhook.current = true
+    scope.updateEstimateSettings({
+      ...scope.estimateSettings,
+      leadWebhookToken: crypto.randomUUID().replace(/-/g, ""),
+    })
+  }, [scope, inboundToken])
 
   useEffect(() => {
     let cancelled = false
@@ -90,12 +109,38 @@ export function Connections() {
     }
   }
 
+  async function copyInbound() {
+    if (!inboundUrl) return
+    try {
+      await navigator.clipboard.writeText(inboundUrl)
+      setLeadDetail("Webhook address copied.")
+    } catch {
+      setLeadDetail("Copy the address above into Zapier.")
+    }
+  }
+
   return (
     <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10" data-testid="connections">
       <div>
-        <h2 className="text-lg font-semibold">Zapier</h2>
+        <h2 className="text-lg font-semibold">Lead webhook</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Paste a Catch Hook URL. ScopePipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. Older history stays put.
+          Paste this address into Zapier, your website, or another lead source. A post with a name and a phone or email opens a card immediately. Use source when you know it: thumbtack, angi, yelp, facebook, google, or referral.
+        </p>
+        <p className="mt-3 break-all font-mono text-sm" data-testid="lead-webhook-url">
+          {inboundUrl || "Preparing the webhook address."}
+        </p>
+        <Button type="button" variant="outline" className="mt-3 h-11" data-testid="lead-webhook-copy" disabled={!inboundUrl} onClick={() => void copyInbound()}>
+          Copy webhook address
+        </Button>
+        {leadDetail ? <p className="mt-2 text-sm">{leadDetail}</p> : null}
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold">Zapier triggers</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Paste a Catch Hook URL. ScopePipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground" data-testid="hook-events">
+          Active hooks also fire on their own for a new lead, a proposal sent, a proposal signed, and a job completed. Subscribe with lead.created, proposal.sent, proposal.signed, or job.completed.
         </p>
         <div className="mt-3 grid gap-2">
           <Label htmlFor="zapierWebhook">Webhook URL</Label>

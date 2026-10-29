@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import { INBOUND_LEAD_SOURCES } from "../types.ts"
+import { LEAD_SOURCES } from "../types.ts"
 import type { InboundLead } from "./types.ts"
 
 function spoolFile(): string {
@@ -51,6 +51,6 @@ function isInboundLead(value: unknown): value is InboundLead {
     typeof lead.message === "string" &&
     typeof lead.createdAt === "string" &&
     (lead.companyId === undefined || typeof lead.companyId === "string") &&
-    INBOUND_LEAD_SOURCES.some((source) => source === lead.source)
+    LEAD_SOURCES.some((source) => source === lead.source)
   )
 }

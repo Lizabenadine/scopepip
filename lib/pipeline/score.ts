@@ -10,6 +10,7 @@ const SOURCE_POINTS: Record<LeadSource, number> = {
   angi: 8,
   yelp: 8,
   facebook: 8,
+  webhook: 8,
 }
 
 const STAGE_POINTS: Record<string, number> = {

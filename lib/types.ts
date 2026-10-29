@@ -132,6 +132,8 @@ export interface EstimateSettings {
   zapierWebhookUrl?: string
   /** Zapier ignores events that happened before this instant. */
   zapierSince?: string
+  /** Secret segment of the inbound lead webhook. The customer proposal never receives it. */
+  leadWebhookToken?: string
   calendarFeedToken?: string
 }
 
@@ -312,6 +314,7 @@ export const LEAD_SOURCES = [
   "yelp",
   "google",
   "referral",
+  "webhook",
 ] as const
 
 export type LeadSource = (typeof LEAD_SOURCES)[number]

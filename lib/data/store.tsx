@@ -35,6 +35,7 @@ import type { ProposalEngagementEvent } from "@/lib/proposals/engagement"
 import { JOB_PIPELINE_STAGES, SALES_STAGES, type SalesStage } from "@/lib/types"
 import { applyInboundLead } from "@/lib/leads/apply"
 import type { InboundLead } from "@/lib/leads/types"
+import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
 import type {
   Client,
@@ -938,44 +939,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       return collectDueFollowUps(next, now.getTime())
     },
     recordFollowUpDelivery: (message) => {
-      const latest = getSnapshot().state
-      const now = new Date().toISOString()
-      let next: ScopeState = {
-        ...latest,
-        estimates: latest.estimates.map((estimate) => {
-          if (estimate.id !== message.estimateId) return estimate
-          const followUpLog = [...(estimate.followUpLog ?? []), message].slice(-40)
-          const enrollment = estimate.followUp
-          const stillActive =
-            enrollment?.status === "active" && enrollment.stage === message.stage
-          const followUp =
-            stillActive && enrollment
-              ? {
-                  ...enrollment,
-                  sentStepIds: enrollment.sentStepIds.includes(message.stepId)
-                    ? enrollment.sentStepIds
-                    : [...enrollment.sentStepIds, message.stepId],
-                  holdUntil: null,
-                }
-              : enrollment
-          return { ...estimate, followUp, followUpLog, updatedAt: now }
-        }),
-      }
-      if (message.channel === "text" && message.delivery !== "skipped") {
-        const estimate = next.estimates.find((item) => item.id === message.estimateId)
-        if (estimate) {
-          next = applyOutbound(next, estimate.clientId, {
-            id: message.id,
-            direction: "out",
-            body: message.body,
-            mediaUrls: [],
-            createdAt: message.sentAt || now,
-            estimateId: message.estimateId,
-            delivery: message.delivery === "sent" ? "sent" : "logged",
-          })
-        }
-      }
-      commit(next)
+      commit(recordDrip(getSnapshot().state, message))
     },
     receiveInbound: (inbound) => {
       const latest = getSnapshot().state
@@ -1134,19 +1098,8 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     customColumns: state.customColumns ?? [],
     columnLabels: state.columnLabels ?? {},
     holdFollowUp: (estimateId, minutes) => {
-      const latest = getSnapshot().state
-      const estimate = latest.estimates.find((item) => item.id === estimateId)
-      if (!estimate?.followUp || estimate.followUp.status !== "active") return
-      const span = Number.isFinite(minutes) && minutes > 0 ? minutes : 15
-      const holdUntil = new Date(Date.now() + span * 60 * 1000).toISOString()
-      commit({
-        ...latest,
-        estimates: latest.estimates.map((item) =>
-          item.id === estimateId && item.followUp
-            ? { ...item, followUp: { ...item.followUp, holdUntil } }
-            : item,
-        ),
-      })
+      const next = holdDrip(getSnapshot().state, estimateId, minutes, Date.now())
+      if (next !== getSnapshot().state) commit(next)
     },
     resetDemo: () => {
       clearSessionDrafts()

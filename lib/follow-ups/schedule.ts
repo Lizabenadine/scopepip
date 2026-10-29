@@ -94,7 +94,7 @@ export function reconcileFollowUps(state: ScopeState, nowIso: string): ScopeStat
 }
 
 export function renderFollowUp(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(client|company|address|visit|job|salesperson|book)\}/g, (_, key: string) => vars[key] ?? "")
+  return template.replace(/\{(client|company|address|visit|job|salesperson|book|proposal)\}/g, (_, key: string) => vars[key] ?? "")
 }
 
 export function clientFirstName(name: string): string {
@@ -110,11 +110,11 @@ export function visitDayOf(estimate: Estimate): string | null {
   return match?.[1] ?? null
 }
 
-export function collectDueFollowUps(state: ScopeState, nowMs: number): DueFollowUp[] {
+export function collectDueFollowUps(state: ScopeState, nowMs: number, origin?: string): DueFollowUp[] {
   const sequences = resolveSequences(state.followUpSequences)
   const due: DueFollowUp[] = []
   for (const estimate of state.estimates) {
-    const picked = inspectFollowUp(state, estimate, sequences, nowMs)
+    const picked = inspectFollowUp(state, estimate, sequences, nowMs, origin)
     if (picked.kind !== "due") continue
     due.push({
       estimateId: estimate.id,
@@ -169,6 +169,7 @@ function inspectFollowUp(
   estimate: Estimate,
   sequences: FollowUpSequence[],
   nowMs: number,
+  origin?: string,
 ): Inspection {
   const enrollment = estimate.followUp
   if (!enrollment) return { kind: "waiting" }
@@ -180,7 +181,7 @@ function inspectFollowUp(
   const visitDay = visitDayOf(estimate)
   const jobDay = state.workOrders.find((order) => order.estimateId === estimate.id)?.scheduledStartDate ?? null
   const anchors: FollowUpAnchorInstants = { visitStartInstant: estimate.estimateVisitAt }
-  const vars = messageVars(state, estimate, client, visitDay, jobDay)
+  const vars = messageVars(state, estimate, client, visitDay, jobDay, origin)
   const unsent = sequence.steps.filter((step) => step.body.trim() && !enrollment.sentStepIds.includes(step.id))
   const timed = unsent
     .map((step) => ({ step, at: dueAt(step, enrollment.startedAt, visitDay, jobDay, anchors) }))
@@ -239,6 +240,7 @@ function messageVars(
   client: Client | undefined,
   visitDay: string | null,
   jobDay: string | null,
+  origin?: string,
 ): Record<string, string> {
   return {
     client: clientFirstName(client?.name ?? ""),
@@ -248,7 +250,14 @@ function messageVars(
     job: jobDay && isoDay(jobDay) ? dayLabel(jobDay) : "the start day",
     salesperson: estimate.salesperson?.trim() || displayCompanyName(state.estimateSettings.companyName),
     book: bookingLink(estimate.publicToken),
+    proposal: proposalLink(estimate.publicToken, origin),
   }
+}
+
+function proposalLink(token: string, origin?: string): string {
+  const path = `/p/${token}`
+  const base = origin?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location?.origin : "") || ""
+  return base ? `${base}${path}` : path
 }
 
 function destination(channel: FollowUpChannel, client: Client | undefined): string {
@@ -320,8 +329,14 @@ function normalizeStep(value: FollowUpStep): FollowUpStep | null {
     anchor,
     offsetHours,
     subject: typeof value.subject === "string" ? value.subject : "",
-    body: typeof value.body === "string" ? value.body : "",
+    body: proposalBody(id, typeof value.body === "string" ? value.body : ""),
   }
+}
+
+function proposalBody(id: string, body: string): string {
+  if (!id.startsWith("proposal-") || body.includes("{proposal}")) return body
+  const trimmed = body.trim()
+  return trimmed ? `${trimmed}\n\n{proposal}` : body
 }
 
 export function isFollowUpStage(value: string): value is FollowUpStage {

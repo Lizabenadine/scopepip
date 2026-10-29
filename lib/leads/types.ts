@@ -1,8 +1,8 @@
-import type { InboundLeadSource } from "../types.ts"
+import type { LeadSource } from "../types.ts"
 
 export interface InboundLead {
   id: string
-  source: InboundLeadSource
+  source: LeadSource
   name: string
   phone: string
   email: string

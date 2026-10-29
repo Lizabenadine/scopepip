@@ -19,7 +19,7 @@ export const FOLLOW_UP_STAGE_COPY: Record<FollowUpStage, { label: string; cadenc
   },
   proposal_sent: {
     label: "Proposal Sent",
-    cadence: "Nudges while the proposal is still open.",
+    cadence: "The quote follows up on its own: the next day, again at three days, and again at a week. Each note includes the proposal link.",
   },
   project_accepted: {
     label: "Project Accepted",
@@ -190,7 +190,7 @@ export function defaultSequences(): FollowUpSequence[] {
           "entered",
           24,
           "Your painting proposal is ready",
-          "Hi {client},\n\nYour proposal for {address} is ready to review. Reply with any questions and {company} will walk through it.\n\n{salesperson}\n{company}",
+          "Hi {client},\n\nYour proposal for {address} is ready: {proposal}\n\nReply with any questions and {company} will walk through it.\n\n{salesperson}\n{company}",
         ),
         step(
           "proposal-text-3d",
@@ -198,7 +198,7 @@ export function defaultSequences(): FollowUpSequence[] {
           "entered",
           72,
           "",
-          "Hi {client}, did you get a chance to look at the painting proposal for {address}?",
+          "Hi {client}, your painting proposal for {address} is here: {proposal}",
         ),
         step(
           "proposal-email-7d",
@@ -206,7 +206,7 @@ export function defaultSequences(): FollowUpSequence[] {
           "entered",
           168,
           "Your painting proposal is still open",
-          "Hi {client},\n\nThe proposal for {address} is still open. Reply if you want to change the scope, or if you are ready to start.\n\n{salesperson}\n{company}",
+          "Hi {client},\n\nThe proposal for {address} is still open: {proposal}\n\nReply if you want to change the scope, or if you are ready to start.\n\n{salesperson}\n{company}",
         ),
       ],
     },
