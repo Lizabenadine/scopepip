@@ -270,6 +270,8 @@ export interface LineItemInput {
   pending?: boolean
   /** Picture the customer sees beside this line. A jpeg, png, or webp data URL, or an https image. */
   photo?: string
+  /** Playback address for a short clip. The file lives in storage. */
+  video?: string
 }
 
 export type ClientStatus = "draft" | "sent" | "accepted" | "declined"

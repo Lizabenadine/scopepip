@@ -10,6 +10,7 @@ import { HourlyRateBuildButton } from "@/components/estimator/hourly-rate-build"
 import { EstimateActivityLog } from "@/components/estimator/activity"
 import { EstimateVersions } from "@/components/estimator/versions"
 import { LinePhotoField } from "@/components/estimator/line-photo"
+import { LineVideoField } from "@/components/estimator/line-video"
 import { CalculationPanel } from "@/components/estimator/calculation-panel"
 import { ClientField } from "@/components/estimator/client-field"
 import { PriceSummary } from "@/components/estimator/price-summary"
@@ -315,6 +316,12 @@ export function Estimator({
                   lineId={line.id}
                   photo={line.photo}
                   onPhoto={(photo) => updateLine(draft.lineItems, line.id, { photo }, patch)}
+                />
+                <LineVideoField
+                  estimateId={draft.id}
+                  lineId={line.id}
+                  video={line.video}
+                  onVideo={(video) => updateLine(draft.lineItems, line.id, { video }, patch)}
                 />
                 <label className="mt-3 flex items-center gap-2 text-sm">
                   <input

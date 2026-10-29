@@ -1,4 +1,5 @@
 import { linePhoto } from "./line-photo.ts"
+import { lineVideo } from "./line-video.ts"
 import type {
   AreaInput,
   AreaScope,
@@ -77,6 +78,8 @@ export interface PricedLine {
   detail: string
   /** Picture shown beside this line on the proposal. */
   photo?: string
+  /** Playback address shown beside this line on the proposal. */
+  video?: string
 }
 
 export interface PricedArea {
@@ -513,6 +516,7 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
   // The price field and each material row are both charged. Row cost is quantity × unit price.
   const materialCost = cents(materials.reduce((sum, row) => sum + row.cost, 0))
   const photo = linePhoto(item.photo)
+  const video = lineVideo(item.video)
   return {
     id: item.id,
     label: item.label.trim() || "Line item",
@@ -526,6 +530,7 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
     price: roundMoney(rawPrice + materialCost, settings.priceRounding),
     detail,
     ...(photo ? { photo } : {}),
+    ...(video ? { video } : {}),
   }
 }
 
