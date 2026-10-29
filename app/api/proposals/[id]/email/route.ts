@@ -1,5 +1,6 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
+import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
 
@@ -25,6 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     companyName: book.state.estimateSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin,
+    logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
   })
   if ("error" in mail) return Response.json({ ok: false, reason: mail.error }, { status: 400 })
   const result = await sendProposalEmail({ to: mail.to, subject: mail.subject, body: mail.text, pdf: mail.pdf })

@@ -1,5 +1,6 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
+import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
 import { proposalMail } from "@/lib/proposals/mail"
 
 export const runtime = "nodejs"
@@ -23,6 +24,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     companyName: book.state.estimateSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin: new URL(request.url).origin,
+    logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
   })
   if ("error" in mail) return Response.json({ ok: false, reason: mail.error }, { status: 400 })
   return new Response(Buffer.from(mail.pdf), {

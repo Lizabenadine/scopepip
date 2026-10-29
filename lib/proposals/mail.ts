@@ -5,6 +5,7 @@ import type { Estimate, PaymentMethod } from "../types.ts"
 import { proposalDocument } from "./document.ts"
 import { proposalFigures } from "./figures.ts"
 import { textPdf } from "./pdf.ts"
+import type { PdfLogo } from "../brand/logo-pdf.ts"
 
 export interface ProposalMail {
   to: string
@@ -31,6 +32,7 @@ export function proposalMail(input: {
   companyName: string | undefined
   paymentMethods: PaymentMethod[]
   origin: string
+  logo?: PdfLogo | null
 }): ProposalMail | { error: string } {
   const to = input.clientEmail.trim()
   if (!to.includes("@") || /\s/.test(to)) return { error: "Add an email on the client before this proposal can go to an inbox." }
@@ -99,7 +101,7 @@ export function proposalMail(input: {
     subject: subject.slice(0, 180),
     text,
     filename: "proposal.pdf",
-    pdf: textPdf(lines.flatMap((line) => wrap(line))),
+    pdf: textPdf(lines.flatMap((line) => wrap(line)), input.logo),
   }
 }
 

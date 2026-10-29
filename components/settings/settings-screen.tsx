@@ -207,7 +207,7 @@ function BrandPanel() {
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <h2 className="text-lg font-semibold">Brand</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Proposals, crew sheets, and invoices show this logo. Without a logo they show {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
+        Proposals, crew sheets, invoices, and the proposal PDF show this logo. Without a logo they show {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
       </p>
       <CompanyLogoField />
     </section>
