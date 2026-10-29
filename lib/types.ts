@@ -384,6 +384,13 @@ export interface NoteEntry {
   body: string
 }
 
+/** One line in the estimate history. The customer never sees it. */
+export interface EstimateActivity {
+  id: string
+  at: string
+  label: string
+}
+
 /** A message on the proposal thread. The customer and the office both see it. */
 export interface ProposalMessage {
   id: string
@@ -467,6 +474,8 @@ export interface Estimate {
   proposalMessages?: ProposalMessage[]
   /** Older copies of the priced scope, newest first. */
   versions?: EstimateVersion[]
+  /** What changed on this estimate, oldest first. */
+  activity?: EstimateActivity[]
   changeOrders?: ChangeOrder[]
   /** Signed reductions. Each amount is positive and comes off the balance. */
   credits?: JobCredit[]

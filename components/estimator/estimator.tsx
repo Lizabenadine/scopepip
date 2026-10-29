@@ -7,6 +7,7 @@ import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
 import { AreaEditor } from "@/components/estimator/area-editor"
 import { HourlyRateBuildButton } from "@/components/estimator/hourly-rate-build"
+import { EstimateActivityLog } from "@/components/estimator/activity"
 import { EstimateVersions } from "@/components/estimator/versions"
 import { LinePhotoField } from "@/components/estimator/line-photo"
 import { CalculationPanel } from "@/components/estimator/calculation-panel"
@@ -83,6 +84,7 @@ export function Estimator({
     patch,
     persist,
     versions,
+    activity,
     restoreVersion,
     setStatus,
     moveStage,
@@ -150,6 +152,7 @@ export function Estimator({
             </Link>
           ) : null}
           {draft.id ? <EstimateVersions versions={versions} onRestore={restoreVersion} /> : null}
+          {draft.id ? <EstimateActivityLog entries={activity} /> : null}
           {draft.id ? <PhotoGallery estimateId={draft.id} /> : null}
           {draft.id ? (
             <ChangeOrderDialog

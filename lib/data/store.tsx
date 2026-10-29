@@ -17,6 +17,7 @@ import { applyDeposit } from "@/lib/payments/apply-deposit"
 import { readCompanyProfile, saveCompanyProfile } from "@/lib/brand/profile"
 import { applyChangeOrder } from "@/lib/change-orders/apply"
 import { signPendingWork } from "@/lib/estimate/pending"
+import { describeScopeChange, rememberActivity, restoredLabel } from "@/lib/estimate/activity"
 import { rememberVersion, restoreVersion } from "@/lib/estimate/versions"
 import { postProposalMessage } from "@/lib/proposals/chat"
 import { syncChangeOrder } from "@/lib/change-orders/sync"
@@ -411,6 +412,43 @@ export interface ScopeApi {
 
 const ScopeContext = createContext<ScopeApi | null>(null)
 
+function scopeActivity(
+  state: ScopeState,
+  previous: Estimate | undefined,
+  draft: EstimateDraft,
+  now: string,
+): Estimate["activity"] {
+  if (!previous) return undefined
+  const incoming = {
+    title: draft.title,
+    jobAddress: draft.jobAddress,
+    estimateKind: draft.estimateKind ?? previous.estimateKind ?? "interior",
+    areas: draft.areas,
+    areaGroups: draft.areaGroups,
+    lineItems: draft.lineItems,
+    rates: draft.rates,
+    settings: draft.settings,
+    notes: draft.notes,
+    crewNote: draft.crewNote,
+  }
+  const described = describeScopeChange(previous, incoming, pricedTotal(state, previous), pricedTotal(state, incoming))
+  if (!described) return previous.activity ? [...previous.activity] : undefined
+  return rememberActivity(previous.activity, described, now)
+}
+
+function pricedTotal(
+  state: ScopeState,
+  source: Pick<Estimate, "areas" | "lineItems" | "rates" | "settings">,
+): number {
+  return calculateEstimate({
+    areas: source.areas,
+    lineItems: source.lineItems,
+    rates: quoteRates(source.rates, state.productionRates, source.areas),
+    settings: source.settings,
+    paymentMethods: state.paymentMethods,
+  }).total
+}
+
 function buildApi(snapshot: Snapshot): ScopeApi {
   const { state } = snapshot
 
@@ -533,6 +571,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         noteLog: previous?.noteLog ? [...previous.noteLog] : [],
         proposalMessages: previous?.proposalMessages ? [...previous.proposalMessages] : undefined,
         versions,
+        activity: scopeActivity(latest, previous, draft, now),
         createdAt: draft.createdAt ?? now,
         updatedAt: now,
       }
@@ -552,13 +591,18 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       const latest = getSnapshot().state
       const estimate = latest.estimates.find((item) => item.id === estimateId)
       if (!estimate) return { ok: false, reason: "This estimate is not on file." }
-      const restored = restoreVersion(estimate, versionId, new Date().toISOString())
+      const at = new Date().toISOString()
+      const restored = restoreVersion(estimate, versionId, at)
       if (!restored.ok || !restored.restored) return restored
+      const next = {
+        ...restored.estimate,
+        activity: rememberActivity(estimate.activity, restoredLabel(restored.estimate.title), at),
+      }
       commitReconciled({
         ...latest,
-        estimates: latest.estimates.map((item) => (item.id === estimateId ? restored.estimate : item)),
+        estimates: latest.estimates.map((item) => (item.id === estimateId ? next : item)),
       })
-      return restored
+      return { ...restored, estimate: next }
     },
     deleteEstimate: (id) => {
       const latest = getSnapshot().state

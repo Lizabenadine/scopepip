@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { listActivity } from "@/lib/estimate/activity"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
 import { selectEstimateKind } from "@/lib/estimate/kinds"
 import { captureEstimateTemplate, type SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { useScope } from "@/lib/data/store"
 import { PAYMENT_METHODS } from "@/lib/defaults"
 import { adjacentStage } from "@/lib/stages"
-import type { Estimate, EstimateDraft, EstimateVersion, PipelineStage, ProductionRate } from "@/lib/types"
+import type { Estimate, EstimateActivity, EstimateDraft, EstimateVersion, PipelineStage, ProductionRate } from "@/lib/types"
 
 function withSubstrateRates(draft: EstimateDraft, companyRates: ProductionRate[]): EstimateDraft {
   const rates = ensureSubstrateRates(draft.rates, companyRates)
@@ -193,9 +194,9 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     setStatus(restored.restored ? "Restored" : "This is already the current estimate.")
   }
 
-  const versions: EstimateVersion[] = draft?.id
-    ? (scope.estimates.find((item) => item.id === draft.id)?.versions ?? [])
-    : []
+  const saved = draft?.id ? scope.estimates.find((item) => item.id === draft.id) : undefined
+  const versions: EstimateVersion[] = saved?.versions ?? []
+  const activity: EstimateActivity[] = saved ? listActivity(saved) : []
 
   return {
     ready: scope.ready && loadKey === loadedKey && (Boolean(draft) || missing),
@@ -212,6 +213,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     patch,
     persist,
     versions,
+    activity,
     restoreVersion,
     setStatus,
     moveStage: scope.moveStage,

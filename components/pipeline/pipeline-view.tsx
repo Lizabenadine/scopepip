@@ -1,6 +1,7 @@
 "use client"
 
 import { EstimateCard } from "@/components/pipeline/estimate-card"
+import { JobsExport } from "@/components/pipeline/jobs-export"
 import { Input } from "@/components/ui/input"
 import { usePipeline } from "@/hooks/use-pipeline"
 import { money } from "@/lib/format"
@@ -31,13 +32,20 @@ export function PipelineView() {
           </p>
         </div>
       </div>
-      <Input
-        value={query}
-        onValueChange={setQuery}
-        placeholder="Search clients or streets"
-        aria-label="Search jobs"
-        className="h-11"
-      />
+      <div className="flex items-center gap-2">
+        <Input
+          value={query}
+          onValueChange={setQuery}
+          placeholder="Search clients or streets"
+          aria-label="Search jobs"
+          className="h-11"
+        />
+        <JobsExport
+          estimates={ordered
+            .filter((stage) => filter === "all" || filter === stage.slug)
+            .flatMap((stage) => visible.filter((estimate) => estimate.stageId === stage.id))}
+        />
+      </div>
       <div
         className="flex gap-2 overflow-x-auto pb-1 lg:hidden"
         role="tablist"

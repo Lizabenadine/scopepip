@@ -355,9 +355,10 @@ async function findByEstimate(match: (estimate: Estimate) => boolean): Promise<{
 }
 
 function forCustomer(estimate: Estimate): Estimate {
-  if (!estimate.versions && !estimate.settings.hourlyRateBuild) return estimate
+  if (!estimate.versions && !estimate.activity && !estimate.settings.hourlyRateBuild) return estimate
   const copy = { ...estimate }
   delete copy.versions
+  delete copy.activity
   if (copy.settings.hourlyRateBuild) {
     const settings = { ...copy.settings }
     delete settings.hourlyRateBuild
