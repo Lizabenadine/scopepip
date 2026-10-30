@@ -15,12 +15,12 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://scopepipe.com"),
   title: {
     default: "ScopePipe",
-    template: "%s · ScopePipe",
+    template: "%s | ScopePipe",
   },
-  description:
-    "Mobile-first painting estimates and a four-stage job pipeline.",
+  description: "Fast estimating, video proposals, and automated bilingual crew sheets for contractors.",
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,8 @@
+import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Check, Mail, Paintbrush, Video } from "lucide-react"
 import { ProposalDemo } from "@/components/marketing/proposal-demo"
+import { SiteFooter } from "@/components/marketing/site-footer"
 
 const NAV = [
   { href: "#features", label: "Features" },
@@ -59,9 +61,18 @@ export function LandingPage() {
     <div className="min-h-dvh bg-[#0B0F17] text-white">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
-          <a href="#top" className="flex items-center gap-2 text-base font-semibold tracking-tight">
-            <Paintbrush className="size-4 text-cyan-300" aria-hidden="true" />
-            Scopepipe
+          <a href="#top" aria-label="Scopepipe" className="inline-flex items-center">
+            <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+              <Image
+                src="/logo.png"
+                alt="Scopepipe"
+                width={120}
+                height={32}
+                priority
+                className="h-7 w-auto object-contain"
+                style={{ width: "auto" }}
+              />
+            </div>
           </a>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 lg:flex" aria-label="Page">
             {NAV.map((item) => (
@@ -70,13 +81,13 @@ export function LandingPage() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-slate-300 hover:text-white">
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
               Sign In
             </Link>
             <Link
               href="/signup"
-              className="rounded-full bg-cyan-400 px-3.5 py-2 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.35)] hover:bg-cyan-300"
+              className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-md transition-all hover:bg-cyan-400"
             >
               Start 14-Day Free Trial
             </Link>
@@ -229,6 +240,12 @@ export function LandingPage() {
                   </li>
                 ),
               )}
+              <li className="flex items-center justify-center gap-3 font-semibold text-cyan-400">
+                <svg className="h-5 w-5 shrink-0 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Up to 3 Team Seats Included (Owner, PM, Field Lead)
+              </li>
             </ul>
             <Link
               href="/signup"
@@ -241,6 +258,7 @@ export function LandingPage() {
           </div>
         </section>
       </main>
+      <SiteFooter />
     </div>
   )
 }

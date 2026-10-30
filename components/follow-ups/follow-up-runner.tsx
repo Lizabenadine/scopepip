@@ -15,7 +15,10 @@ const TICK_MS = 20_000
 export function FollowUpRunner() {
   const scope = useScope()
   const scopeRef = useRef(scope)
-  scopeRef.current = scope
+
+  useEffect(() => {
+    scopeRef.current = scope
+  })
 
   useEffect(() => {
     let stopped = false

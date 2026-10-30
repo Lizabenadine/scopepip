@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useFieldLanguage } from "@/hooks/use-field-language"
@@ -23,11 +23,10 @@ export function InboxView() {
   const [phoneSaved, setPhoneSaved] = useState(false)
   const selected = chosen === "unset" ? requested : chosen
 
-  useEffect(() => {
-    if (!scope.ready || phoneReady) return
+  if (scope.ready && !phoneReady) {
     setPhone(scope.estimateSettings.businessPhone ?? "")
     setPhoneReady(true)
-  }, [scope.ready, scope.estimateSettings.businessPhone, phoneReady])
+  }
 
   const threads = useMemo(() => {
     return [...scope.clients].sort((left, right) => lastAt(right) - lastAt(left))

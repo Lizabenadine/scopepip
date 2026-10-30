@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useState } from "react"
+import { useClientNow } from "@/lib/browser/client-env"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useDispatchBoard } from "@/hooks/use-dispatch"
 import { useFieldLanguage } from "@/hooks/use-field-language"
@@ -28,11 +29,11 @@ export function CrewCalendar() {
   const { copy, language } = useFieldLanguage()
   const locale = fieldLocale(language)
   const [mode, setMode] = useState<CalendarMode>("month")
+  const now = useClientNow()
   const [anchor, setAnchor] = useState<Date | null>(null)
-
-  useEffect(() => {
-    setAnchor(new Date())
-  }, [])
+  if (now !== null && anchor === null) {
+    setAnchor(new Date(now))
+  }
 
   if (!ready || !anchor) {
     return (
@@ -45,7 +46,6 @@ export function CrewCalendar() {
 
   const today = isoDate(new Date())
   const days = mode === "month" ? monthGrid(anchor).map((day) => day.iso) : weekDays(anchor)
-  const visible = new Set(days)
   const lastVisible = days[days.length - 1] ?? ""
   const nextJob = jobs
     .filter(

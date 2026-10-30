@@ -97,6 +97,41 @@ describe("accounts", () => {
     assert.equal((await login({ email: "ada@hale.test", password: "nope" })).ok, false)
   })
 
+  it("stops a team invite once the founding plan already has 3 seats", async () => {
+    const owner = await signup({
+      name: "Cara Nguyen",
+      email: "cara@nguyen.test",
+      password: "password1",
+      companyName: "Nguyen Painting",
+    })
+    assert.equal(owner.ok, true)
+    if (!owner.ok) return
+    const first = await addProjectManager(owner.user.id, {
+      name: "First Seat",
+      email: "first@nguyen.test",
+      password: "password3",
+    })
+    const second = await addProjectManager(owner.user.id, {
+      name: "Second Seat",
+      email: "second@nguyen.test",
+      password: "password3",
+    })
+    assert.equal(first.ok, true)
+    assert.equal(second.ok, true)
+    const blocked = await addProjectManager(owner.user.id, {
+      name: "Third Seat",
+      email: "third@nguyen.test",
+      password: "password3",
+    })
+    assert.equal(blocked.ok, false)
+    if (!blocked.ok) {
+      assert.equal(
+        blocked.reason,
+        "You have reached the 3-seat limit for the Founding Plan. Upgrade for additional seats.",
+      )
+    }
+  })
+
   it("creates a hosted company on Vercel without writing a book file", async () => {
     const session = {
       id: "user-hosted",

@@ -11,7 +11,7 @@ import {
   pageNumber,
 } from "@/components/proposal/proposal-pages"
 import { displayCompanyName } from "@/lib/brand/company"
-import { useEffect, useState } from "react"
+import { usePageOrigin } from "@/lib/browser/client-env"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { translatePainting, paintingText } from "@/lib/field/terms"
@@ -29,12 +29,9 @@ export function ProposalView({ id }: { id: string }) {
   const { language } = useFieldLanguage()
   const say = (text: string) => translatePainting(text, language)
   const label = (text: string) => officeLabel(text, language)
-  const [spanishLink, setSpanishLink] = useState("")
+  const origin = usePageOrigin()
   const publicToken = scope.ready ? scope.estimates.find((item) => item.id === id)?.publicToken ?? "" : ""
-  useEffect(() => {
-    if (!publicToken) return
-    setSpanishLink(`${window.location.origin}/p/${publicToken}?lang=es`)
-  }, [publicToken])
+  const spanishLink = origin && publicToken ? `${origin}/p/${publicToken}?lang=es` : ""
   if (!scope.ready) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
   }

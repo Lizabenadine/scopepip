@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -152,9 +152,11 @@ function CoatField({
   onCommit: (value: number) => void
 }) {
   const [text, setText] = useState(String(value))
-  useEffect(() => {
+  const [source, setSource] = useState(value)
+  if (value !== source) {
+    setSource(value)
     setText(String(value))
-  }, [value])
+  }
   return (
     <label className="grid w-28 gap-1 text-xs text-muted-foreground">
       {label.replace(/.*, /, "")}

@@ -52,8 +52,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sections = navigationSections(session?.role ?? "owner")
   const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
+  const [sectionPath, setSectionPath] = useState(pathname)
+  if (pathname !== sectionPath) {
+    setSectionPath(pathname)
+    setOpenSection(null)
+  }
   const crewCopy = /^\/work-orders\/.+/.test(pathname)
-  const marketingPage = pathname === "/" || pathname === "/innova" || pathname.startsWith("/innova/")
+  const marketingPage =
+    pathname === "/" ||
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
+    pathname === "/refunds" ||
+    pathname === "/innova" ||
+    pathname.startsWith("/innova/")
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
@@ -64,10 +75,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/verify-email"
-
-  useEffect(() => {
-    setOpenSection(null)
-  }, [pathname])
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {

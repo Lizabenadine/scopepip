@@ -23,10 +23,9 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
   const [transport, setTransport] = useState<Transport | null>(null)
   const [savedNote, setSavedNote] = useState("")
 
-  useEffect(() => {
-    if (!ready) return
-    setDraft((current) => current ?? cloneSequences(followUpSequences))
-  }, [ready, followUpSequences])
+  if (ready && !draft) {
+    setDraft(cloneSequences(followUpSequences))
+  }
 
   useEffect(() => {
     let cancelled = false

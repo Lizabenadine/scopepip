@@ -9,23 +9,20 @@ import { leadWebhookToken } from "@/lib/webhooks/token"
 import { OutboundHooks } from "@/components/settings/outbound-hooks"
 import { SendingKeys } from "@/components/settings/sending-keys"
 import { zapierTarget } from "@/lib/zapier/events"
+import { usePageOrigin } from "@/lib/browser/client-env"
 
 export function Connections() {
   const scope = useScope()
   const [webhook, setWebhook] = useState(scope.estimateSettings.zapierWebhookUrl ?? "")
   const [zapierDetail, setZapierDetail] = useState("")
   const [leadDetail, setLeadDetail] = useState("")
-  const [origin, setOrigin] = useState("")
+  const origin = usePageOrigin()
   const [token, setToken] = useState("")
   const [companyCam, setCompanyCam] = useState("CompanyCam is not connected.")
   const [savingCam, setSavingCam] = useState(false)
   const creatingWebhook = useRef(false)
   const inboundToken = leadWebhookToken(scope.estimateSettings.leadWebhookToken)
   const inboundUrl = origin && inboundToken ? `${origin}/api/webhooks/leads/${inboundToken}` : ""
-
-  useEffect(() => {
-    setOrigin(window.location.origin)
-  }, [])
 
   useEffect(() => {
     if (!scope.ready || inboundToken || creatingWebhook.current) return

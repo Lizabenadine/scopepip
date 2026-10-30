@@ -90,7 +90,9 @@ export function OfficeProposalChat({
 }) {
   const scope = useScope()
   const reload = useRef(scope.reloadBook)
-  reload.current = scope.reloadBook
+  useEffect(() => {
+    reload.current = scope.reloadBook
+  })
   useEffect(() => {
     const timer = window.setInterval(() => void reload.current(), 8000)
     return () => window.clearInterval(timer)

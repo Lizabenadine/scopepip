@@ -21,6 +21,10 @@ import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
 import { roleSignInReason, type UserRole } from "./role.ts"
 
+const FOUNDING_PLAN_SEATS = 3
+const FOUNDING_PLAN_SEAT_LIMIT =
+  "You have reached the 3-seat limit for the Founding Plan. Upgrade for additional seats."
+
 interface StoredUser {
   id: string
   email: string
@@ -411,6 +415,10 @@ export async function addProjectManager(
   if (!owner || owner.role !== "owner") return { ok: false, reason: "Only the owner can add a project manager." }
   const company = accounts.companies.find((item) => item.id === owner.companyId)
   if (!company) return { ok: false, reason: "Only the owner can add a project manager." }
+  const seats = accounts.users.filter((item) => item.companyId === company.id).length
+  if (seats >= FOUNDING_PLAN_SEATS) {
+    return { ok: false, reason: FOUNDING_PLAN_SEAT_LIMIT }
+  }
   const name = input.name.trim()
   const email = normalizeEmail(input.email)
   if (!name) return { ok: false, reason: "Enter a name." }

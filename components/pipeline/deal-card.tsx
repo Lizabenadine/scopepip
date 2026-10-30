@@ -10,6 +10,7 @@ import { appointmentLabel } from "@/lib/appointments/visit"
 import { describeFollowUp, visitDayOf } from "@/lib/follow-ups/schedule"
 import { latestInbound } from "@/lib/messages/thread"
 import { latestProposalOpen } from "@/lib/proposals/opens"
+import { useClientNow } from "@/lib/browser/client-env"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobHeading } from "@/lib/field/copy"
 import { money } from "@/lib/format"
@@ -36,6 +37,7 @@ export function DealCard({
   const jobLanguage = mode === "jobs" ? language : "en"
   const limited = scope.session?.role === "project_manager"
   const { setEstimateTags } = scope
+  const now = useClientNow() ?? 0
   const [labelsOpen, setLabelsOpen] = useState(false)
   const [sendingSuggestion, setSendingSuggestion] = useState(false)
   const source = estimate.leadSource
@@ -54,7 +56,7 @@ export function DealCard({
       followUpSequences: scope.followUpSequences,
     },
     estimate,
-    Date.now(),
+    now,
   )
   const visitDay = visitDayOf(estimate)
   const lastMessage = estimate.followUpLog?.[estimate.followUpLog.length - 1]
