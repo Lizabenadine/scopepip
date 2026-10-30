@@ -55,7 +55,7 @@ export async function syncCompanyCam(
 ): Promise<{ connected: boolean; detail: string; jobs: CompanyCamJobResult[] }> {
   const token = companyCamToken()
   if (token.length < 20) {
-    return { connected: false, detail: "CompanyCam is not connected.", jobs: [] }
+    return { connected: false, detail: "Job photos are not connected.", jobs: [] }
   }
   try {
     const projects = parseCompanyCamProjects(await companyCam(token, "/projects?per_page=50"))
@@ -63,7 +63,7 @@ export async function syncCompanyCam(
     for (const job of jobs.slice(0, 8)) {
       const project = matchCompanyCamProject(job, projects)
       if (!project) {
-        results.push({ estimateId: job.estimateId, matched: false, photos: [], detail: "No CompanyCam project matches this address." })
+        results.push({ estimateId: job.estimateId, matched: false, photos: [], detail: "No photo project matches this address." })
         continue
       }
       let photos: CompanyCamPhoto[] = []
@@ -79,12 +79,12 @@ export async function syncCompanyCam(
         projectName: project.name,
         projectUrl: project.projectUrl,
         photos,
-        detail: photos.length > 0 ? `Synced ${photos.length} photos.` : "Project matched. CompanyCam has no photos yet.",
+        detail: photos.length > 0 ? `Synced ${photos.length} photos.` : "Project matched. No photos yet.",
       })
     }
-    return { connected: true, detail: "CompanyCam answered.", jobs: results }
+    return { connected: true, detail: "Photos came back.", jobs: results }
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "CompanyCam could not be reached."
+    const detail = error instanceof Error ? error.message : "Job photos could not be reached."
     return { connected: true, detail, jobs: [] }
   }
 }
@@ -93,7 +93,7 @@ async function companyCam(token: string, pathName: string): Promise<unknown> {
   const response = await fetch(`https://api.companycam.com/v2${pathName}`, {
     headers: { authorization: `Bearer ${token}`, accept: "application/json" },
   })
-  if (response.status === 401 || response.status === 403) throw new Error("CompanyCam rejected the token.")
-  if (!response.ok) throw new Error("CompanyCam could not be reached.")
+  if (response.status === 401 || response.status === 403) throw new Error("The photo token was rejected.")
+  if (!response.ok) throw new Error("Job photos could not be reached.")
   return response.json()
 }

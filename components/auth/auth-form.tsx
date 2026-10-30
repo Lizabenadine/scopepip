@@ -6,13 +6,14 @@ import { readBrowserLogin, saveBrowserBook, saveBrowserLogin } from "@/lib/auth/
 import { homeForRole, type UserRole } from "@/lib/auth/role"
 import type { OfficeSession } from "@/lib/auth/session"
 import { isScopeState } from "@/lib/data/seed"
-import { BrandLogo } from "@/components/brand/brand-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; banner?: string | null }) {
   const signup = mode === "signup"
+  const fieldClass = signup ? "h-auto w-full rounded-md border-slate-700 bg-slate-800 px-3 py-2 text-white" : "h-11"
+  const labelClass = signup ? "block text-sm font-medium text-slate-300" : undefined
   const [name, setName] = useState("")
   const [companyName, setCompanyName] = useState("")
   const [email, setEmail] = useState("")
@@ -68,88 +69,127 @@ export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; ba
 
   return (
     <div className="mx-auto grid w-full max-w-md gap-6">
-      <BrandLogo />
-      <form onSubmit={submit} className="grid gap-4 rounded-2xl bg-card p-5 border border-slate-200 bg-white shadow-sm" data-testid={signup ? "signup-form" : "login-form"}>
+      <form
+        onSubmit={submit}
+        className={
+          signup
+            ? "space-y-4 rounded-2xl border border-slate-700 bg-slate-950 p-5"
+            : "grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        }
+        data-testid={signup ? "signup-form" : "login-form"}
+      >
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{signup ? "Create the company login" : "Sign in"}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className={signup ? "text-2xl font-semibold tracking-tight text-white" : "text-2xl font-semibold tracking-tight"}>
+            {signup ? "Create the company login" : "Sign in"}
+          </h1>
+          <p className={signup ? "mt-1 text-sm text-slate-400" : "mt-1 text-sm text-muted-foreground"}>
             {signup
               ? "You are the owner. The sample jobs are copied onto this login only. Another company cannot see them."
-              : "Sign in as the role on this account. An owner opens the office. A project manager opens progress jobs, work orders, and invoices."}
+              : "Use the role on this login. The owner opens the office. A project manager opens the jobs, work orders, and invoices."}
           </p>
         </div>
-        {banner ? <p className="text-sm text-foreground">{banner}</p> : null}
+        {banner ? <p className={signup ? "text-sm text-slate-200" : "text-sm text-foreground"}>{banner}</p> : null}
         {signup ? (
-              <>
-                <div className="grid gap-1">
-                  <Label htmlFor="signup-name">Your name</Label>
-                  <Input id="signup-name" data-testid="signup-name" value={name} onValueChange={setName} autoComplete="name" className="h-11" />
-                </div>
-                <div className="grid gap-1">
-                  <Label htmlFor="signup-company">Company name</Label>
-                  <Input id="signup-company" data-testid="signup-company" value={companyName} onValueChange={setCompanyName} autoComplete="organization" className="h-11" />
-                </div>
-              </>
-            ) : (
-              <fieldset className="grid gap-2">
-                <legend className="text-sm font-medium">Role</legend>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="owner"
-                    data-testid="login-role-owner"
-                    checked={role === "owner"}
-                    onChange={() => setRole("owner")}
-                  />
-                  Owner
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="project_manager"
-                    data-testid="login-role-project-manager"
-                    checked={role === "project_manager"}
-                    onChange={() => setRole("project_manager")}
-                  />
-                  Project manager
-                </label>
-              </fieldset>
-            )}
+          <>
             <div className="grid gap-1">
-              <Label htmlFor="auth-email">Email</Label>
-              <Input
-                id="auth-email"
-                data-testid={signup ? "signup-email" : "login-email"}
-                type="email"
-                value={email}
-                onValueChange={setEmail}
-                autoComplete="email"
-                className="h-11"
-              />
+              <Label htmlFor="signup-name" className={labelClass}>Your name</Label>
+              <Input id="signup-name" data-testid="signup-name" value={name} onValueChange={setName} autoComplete="name" className={fieldClass} />
             </div>
             <div className="grid gap-1">
-              <Label htmlFor="auth-password">Password</Label>
-              <Input
-                id="auth-password"
-                data-testid={signup ? "signup-password" : "login-password"}
-                type="password"
-                value={password}
-                onValueChange={setPassword}
-                autoComplete={signup ? "new-password" : "current-password"}
-                className="h-11"
-              />
+              <Label htmlFor="signup-company" className={labelClass}>Company name</Label>
+              <Input id="signup-company" data-testid="signup-company" value={companyName} onValueChange={setCompanyName} autoComplete="organization" className={fieldClass} />
             </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button type="submit" data-testid={signup ? "signup-submit" : "login-submit"} className="h-11" disabled={pending}>
-              {pending ? "Saving" : signup ? "Create account" : "Sign in"}
-            </Button>
-        <p className="text-sm text-muted-foreground">
+          </>
+        ) : (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">Role</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="role"
+                value="owner"
+                data-testid="login-role-owner"
+                checked={role === "owner"}
+                onChange={() => setRole("owner")}
+              />
+              Owner
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="role"
+                value="project_manager"
+                data-testid="login-role-project-manager"
+                checked={role === "project_manager"}
+                onChange={() => setRole("project_manager")}
+              />
+              Project manager
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="role"
+                value="estimator"
+                data-testid="login-role-estimator"
+                checked={role === "estimator"}
+                onChange={() => setRole("estimator")}
+              />
+              Estimator
+            </label>
+          </fieldset>
+        )}
+        <div>
+          <Label htmlFor="auth-email" className={labelClass}>
+            Email
+          </Label>
+          <Input
+            id="auth-email"
+            name="email"
+            data-testid={signup ? "signup-email" : "login-email"}
+            type="email"
+            required
+            value={email}
+            onValueChange={setEmail}
+            autoComplete={signup ? "email" : "username"}
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <Label htmlFor="auth-password" className={labelClass}>
+            Password
+          </Label>
+          <Input
+            id="auth-password"
+            name="password"
+            data-testid={signup ? "signup-password" : "login-password"}
+            type="password"
+            required
+            value={password}
+            onValueChange={setPassword}
+            autoComplete={signup ? "new-password" : "current-password"}
+            className={fieldClass}
+          />
+        </div>
+        {error ? <p className={signup ? "text-sm text-red-300" : "text-sm text-destructive"}>{error}</p> : null}
+        {signup ? (
+          <button
+            type="submit"
+            data-testid="signup-submit"
+            disabled={pending}
+            className="w-full rounded-md bg-cyan-500 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-60"
+          >
+            {pending ? "Saving" : "Create account"}
+          </button>
+        ) : (
+          <Button type="submit" data-testid="login-submit" className="h-11" disabled={pending}>
+            {pending ? "Saving" : "Sign in"}
+          </Button>
+        )}
+        <p className={signup ? "text-sm text-slate-400" : "text-sm text-muted-foreground"}>
           {signup ? (
             <>
               Already have a login?{" "}
-              <Link href="/login" className="font-medium text-primary">
+              <Link href="/login" className="font-medium text-cyan-400">
                 Sign in
               </Link>
             </>

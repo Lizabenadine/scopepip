@@ -39,8 +39,8 @@ export function CalendarSync() {
       const feedWebcal = feed.replace(/^https?:/, "webcal:")
       setSubscribe(feed ? `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(feedWebcal)}` : "")
       const google = payload.google?.connected
-        ? payload.google.detail || `Updated ${payload.google.synced ?? 0} events in Google Calendar.`
-        : "Google Calendar push is not connected. Subscribe to the feed, or set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN."
+        ? payload.google.detail || `Updated ${payload.google.synced ?? 0} events on the calendar.`
+        : "Calendar push is not connected. Subscribe to the feed, or set the calendar keys on the host."
       setDetail(payload.ok ? `Feed updated with ${payload.count ?? 0} events. ${google}` : "The calendar feed could not be saved.")
     } catch {
       setDetail("The calendar feed could not be saved.")
@@ -51,17 +51,17 @@ export function CalendarSync() {
 
   return (
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="calendar-sync">
-      <h2 className="text-lg font-semibold">Google Calendar</h2>
+      <h2 className="text-lg font-semibold">Calendar</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Visits and scheduled jobs publish to a feed Google Calendar can subscribe to. A saved link is not required.
+        Visits and scheduled jobs publish to a calendar feed. A saved link is not required.
       </p>
       <Button type="button" className="mt-3 h-11" data-testid="calendar-publish" disabled={sending} onClick={() => void publish()}>
-        {sending ? "Updating..." : "Update Google Calendar"}
+        {sending ? "Updating..." : "Update calendar"}
       </Button>
       {detail ? <p className="mt-2 text-sm">{detail}</p> : null}
       {subscribe ? (
         <a href={subscribe} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm font-medium text-primary" data-testid="calendar-subscribe">
-          Subscribe in Google Calendar
+          Subscribe to the calendar
         </a>
       ) : null}
     </section>

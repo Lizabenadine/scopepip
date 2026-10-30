@@ -23,6 +23,7 @@ import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { ProposalEmail } from "@/components/proposal/proposal-email"
 import { OfficeProposalChat } from "@/components/proposal/proposal-chat"
+import { ClientWorkOrder } from "@/components/proposal/client-work-order"
 
 export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
@@ -106,51 +107,18 @@ export function ProposalView({ id }: { id: string }) {
       />
       {estimate.notes ? <p className="text-sm">{paintingText(estimate.notes, estimate.notesEs, language)}</p> : null}
       <div id="proposal-page-scope" data-testid="proposal-page-scope" className="flex flex-col gap-3">
-      {sectionByGroup(
-        quote.areas.filter((area) => area.surfaces.length > 0),
-        estimate.areaGroups,
-        (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
-      ).map((section) => (
-        <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
-          {section.groupName ? (
-            <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="proposal-group">
-              {say(section.groupName)}
-            </h2>
-          ) : null}
-          {section.items.map((area) => {
-            const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
-            return (
-              <section key={area.id} className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-lg font-semibold">{say(area.name)}</h2>
-                  <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {area.areaType === "room"
-                    ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
-                    : `${area.lengthFt} × ${area.heightFt} ft`}
-                </p>
-                <ul className="mt-3 flex flex-col gap-3">
-                  {visible.map((surface) => (
-                    <li key={surface.id}>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <p className="font-medium">{say(surface.clientLabel)}</p>
-                        {surface.showPrice ? (
-                          <p className="tabular-nums">{money(surface.price)}</p>
-                        ) : null}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {say(surface.clientDescription)}
-                        {surface.showCoats ? ` · ${say(`${surface.coatCount} coats`)}` : ""}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
-      ))}
+      <ClientWorkOrder
+        companyName={companyName}
+        logoUrl={scope.estimateSettings.logoUrl}
+        clientName={client?.name || "Client"}
+        jobAddress={estimate.jobAddress}
+        orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
+        sections={sectionByGroup(
+          quote.areas.filter((area) => area.surfaces.length > 0),
+          estimate.areaGroups,
+          (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
+        )}
+      />
       {quote.lineItems.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">

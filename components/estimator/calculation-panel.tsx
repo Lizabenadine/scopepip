@@ -8,11 +8,13 @@ export function CalculationPanel({
   settings,
   areas,
   areaGroups,
+  showCosts = true,
 }: {
   quote: EstimateQuote
   settings: EstimateSettings
   areas?: AreaInput[]
   areaGroups?: AreaGroup[]
+  showCosts?: boolean
 }) {
   const paintingHours = Math.round(quote.areas.reduce((sum, area) => sum + area.allocatedHours, 0) * 1000) / 1000
   const groupIdOf = new Map((areas ?? []).map((area) => [area.id, area.groupId]))
@@ -26,8 +28,8 @@ export function CalculationPanel({
         to the nearest {settings.hourRounding === 0 ? "exact hour" : `${settings.hourRounding} hr`}.
         Coat counts go through six. A count past the rates on file keeps the highest one, then adds one coat of time for each coat after it.
         A typed square-foot, linear-foot, or hour amount on a surface replaces that part of the math.
-        Typed hours are used as entered. Labor is those hours times ${settings.hourlyRate}/hr.
-        Materials are added on their own.
+        Typed hours are used as entered.
+        {showCosts ? ` Labor is those hours times $${settings.hourlyRate}/hr. Materials are added on their own.` : " The price is the bid for this scope."}
       </p>
       {sections.map((section) => (
         <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
@@ -63,13 +65,17 @@ export function CalculationPanel({
         <div className="col-span-2">
           <dt className="text-xs text-muted-foreground">Labor</dt>
           <dd className="tabular-nums" data-testid="estimate-labor">
-            {hoursLabel(paintingHours)} × ${settings.hourlyRate}/hr = {money(quote.laborPrice)}
+            {showCosts
+              ? `${hoursLabel(paintingHours)} × $${settings.hourlyRate}/hr = ${money(quote.laborPrice)}`
+              : hoursLabel(paintingHours)}
           </dd>
         </div>
+        {showCosts ? (
         <div>
           <dt className="text-xs text-muted-foreground">Materials</dt>
           <dd className="tabular-nums">{money(quote.materialCost + quote.lineItemPrice)}</dd>
         </div>
+        ) : null}
         <div>
           <dt className="text-xs text-muted-foreground">Discount</dt>
           <dd className="tabular-nums">{money(quote.discount)}</dd>
@@ -80,10 +86,12 @@ export function CalculationPanel({
           </dt>
           <dd className="tabular-nums">{money(quote.tax)}</dd>
         </div>
+        {showCosts ? (
         <div>
           <dt className="text-xs text-muted-foreground">Sales rate</dt>
           <dd className="tabular-nums">{money(quote.salesRate)}/hr</dd>
         </div>
+        ) : null}
         <div>
           <dt className="text-xs text-muted-foreground">Total</dt>
           <dd className="font-display text-lg text-price tabular-nums">{money(quote.total)}</dd>

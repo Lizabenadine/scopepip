@@ -227,6 +227,9 @@ export interface SurfaceInput {
   itemCount: number
   quantityOverride: number | null
   hoursOverride?: number | null
+  /** Finish speed learned from a finished room of this size. Used when it matches the coat count. */
+  paceSpeed?: number
+  paceCoats?: number
   hideFromCustomer?: boolean
   crewNote: string
   primerCoats?: number
@@ -255,6 +258,10 @@ export interface AreaInput {
   accessFactor?: number
   /** Missing means the area is not in a group. */
   groupId?: string
+  /** Color the customer signs for this room. */
+  colorName?: string
+  colorCode?: string
+  sheen?: string
 }
 
 export interface LineMaterial {
@@ -323,6 +330,8 @@ export const INBOUND_LEAD_SOURCES = ["website", "thumbtack", "angi", "google_lsa
 export type InboundLeadSource = (typeof INBOUND_LEAD_SOURCES)[number]
 
 export const LEAD_SOURCES = [
+  "phone",
+  "text",
   "website",
   "thumbtack",
   "angi",
@@ -485,6 +494,8 @@ export interface Estimate {
   inboundLeadId?: string | null
   tags?: string[]
   salesperson?: string
+  /** The login that owns sales credit for this bid. */
+  estimatorId?: string
   salesStage?: SalesStage | null
   /** When set, the card sits in that office column instead of the stage column. */
   boardColumnId?: string | null
@@ -544,6 +555,7 @@ export interface EstimateDraft {
   id: string | null
   clientId: string | null
   clientName: string
+  clientEmail: string
   stageId: string
   title: string
   jobAddress: string
@@ -600,6 +612,19 @@ export interface CrewLead {
   color: string
 }
 
+export type SubcontractorOfferStatus = "sent" | "accepted" | "declined"
+
+/** One person asked to take the job. The link is theirs alone. */
+export interface SubcontractorOffer {
+  id: string
+  token: string
+  name: string
+  email: string
+  status: SubcontractorOfferStatus
+  sentAt: string
+  answeredAt?: string
+}
+
 /** Field packet. Holds no prices. */
 export interface WorkOrder {
   estimateId: string
@@ -615,6 +640,8 @@ export interface WorkOrder {
   notifiedAt: string | null
   subSignature?: string
   subSignedDate?: string
+  /** People this job was sent to. They accept or pass from their own link. */
+  offers?: SubcontractorOffer[]
   companyCamUrl?: string
   companyCamProjectId?: string
   companyCamProjectUrl?: string

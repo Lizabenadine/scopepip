@@ -1,14 +1,14 @@
-import Image from "next/image"
 import Link from "next/link"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { ArrowRight, Check, Mail, Paintbrush, Video } from "lucide-react"
 import { ProposalDemo } from "@/components/marketing/proposal-demo"
 import { SiteFooter } from "@/components/marketing/site-footer"
 
 const NAV = [
   { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How It Works" },
+  { href: "#how-it-works", label: "How it works" },
   { href: "#pricing", label: "Pricing" },
-  { href: "#proposal-demo", label: "Interactive Proposal Demo" },
+  { href: "#proposal-demo", label: "Sample proposal" },
 ] as const
 
 const COLUMNS = [
@@ -32,54 +32,78 @@ const COLUMNS = [
   },
 ] as const
 
+const OPERATIONS = [
+  {
+    title: "Lock In Colors Before the First Coat",
+    subheadline: "Stop paid callbacks and mid-job disputes.",
+    body: "Force color and sheen acceptance room-by-room right on the customer proposal. When the client signs, exact specs automatically transfer to the crew packet—eliminating \"Not Specified\" guesswork and costly repaints.",
+  },
+  {
+    title: "From Estimate to Paint Counter in 1 Click",
+    subheadline: "A price quote is easy to copy. A room-mapped buy list is not.",
+    body: "Automatically convert room square footage into precise gallon requirements grouped by surface type and rounded to whole buy quantities. Hand the crew or paint counter a single, price-free buy list with complete room mapping.",
+  },
+  {
+    title: "Stop Losing Money on Rooms You Priced Too Fast",
+    subheadline: "Turn completed jobs into pricing intelligence.",
+    body: "Log actual labor hours after job completion to refine your estimating database. Scopepipe adapts future estimates to your crew's actual production speeds, protecting your profit margins on every future bid.",
+  },
+] as const
+
 const FEATURES = [
   {
     icon: Video,
-    title: "Interactive Proposals with Video Walkthroughs",
-    body: "Attach a short walkthrough to the line it belongs to. The customer plays it on the proposal, then accepts.",
+    title: "A video on the line",
+    body: "Film the wall, the trim, or the front of the house and attach it to that line. The customer plays it on the proposal.",
   },
   {
     icon: Paintbrush,
-    title: "Bilingual English/Spanish Crew Sheets",
-    body: "The same work order opens in English or Spanish. Prices stay off the crew sheet.",
+    title: "Crew sheets in English or Spanish",
+    body: "Same work order. The crew picks the language at the top. Prices, costs, and margins stay off the sheet.",
   },
   {
     icon: Mail,
-    title: "One-Click PDF & Email Link Delivery",
-    body: "Email the public proposal link with the PDF attached. The customer opens one link.",
+    title: "Email the proposal",
+    body: "Send the link with the PDF attached. The customer opens one page, then accepts and signs.",
   },
 ] as const
 
 const STEPS = [
-  { step: "01", title: "Price the rooms", body: "Wall area, trim, and cabinets land in one estimate." },
-  { step: "02", title: "Send the proposal", body: "The customer gets the link, the PDF, and the line videos." },
-  { step: "03", title: "Hand the crew a sheet", body: "English or Spanish, with the scope and no prices." },
+  {
+    step: "01",
+    title: "Take-Off & Color Sign-Off",
+    body: "Enter the room size and the surfaces. Lock the color and sheen on each room before the client signs the proposal.",
+  },
+  {
+    step: "02",
+    title: "Generate Store Buy List & Dispatch",
+    body: "One page for the paint counter or the crew lead. Gallons round up to whole cans, each product stays mapped to its rooms, and the price stays off.",
+  },
+  {
+    step: "03",
+    title: "Log Hours & Refine Speeds",
+    body: "After the job, enter the hours it took. The next room of that size uses that speed on the next bid.",
+  },
 ] as const
 
 export function LandingPage() {
   return (
     <div className="min-h-dvh bg-[#0B0F17] text-white">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
-          <a href="#top" aria-label="Scopepipe" className="inline-flex items-center">
-            <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-              <Image
-                src="/logo.png"
-                alt="Scopepipe"
-                width={120}
-                height={32}
-                priority
-                className="h-7 w-auto object-contain"
-                style={{ width: "auto" }}
-              />
-            </div>
-          </a>
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#02182F]">
+        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 py-2 md:px-6">
+          <BrandLogo href="/" />
           <nav className="hidden items-center gap-6 text-sm text-slate-300 lg:flex" aria-label="Page">
-            {NAV.map((item) => (
-              <a key={item.href} href={item.href} className="hover:text-white">
-                {item.label}
-              </a>
-            ))}
+            {NAV.map((item) =>
+              item.href.startsWith("/") ? (
+                <Link key={item.href} href={item.href} className="hover:text-white">
+                  {item.label}
+                </Link>
+              ) : (
+                <a key={item.href} href={item.href} className="hover:text-white">
+                  {item.label}
+                </a>
+              ),
+            )}
           </nav>
           <div className="flex items-center gap-4">
             <Link href="/login" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
@@ -94,11 +118,17 @@ export function LandingPage() {
           </div>
         </div>
         <nav className="flex gap-4 overflow-x-auto px-4 pb-3 text-sm text-slate-300 lg:hidden" aria-label="Page">
-          {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="shrink-0 hover:text-white">
-              {item.label}
-            </a>
-          ))}
+          {NAV.map((item) =>
+            item.href.startsWith("/") ? (
+              <Link key={item.href} href={item.href} className="shrink-0 hover:text-white">
+                {item.label}
+              </Link>
+            ) : (
+              <a key={item.href} href={item.href} className="shrink-0 hover:text-white">
+                {item.label}
+              </a>
+            ),
+          )}
         </nav>
       </header>
 
@@ -116,16 +146,19 @@ export function LandingPage() {
                 <span className="size-6 rounded-full border border-[#0B0F17] bg-indigo-400" />
               </span>
               <span className="size-2 rounded-full bg-emerald-400" aria-hidden="true" />
-              Built for Professional Painting Contractors
+              For painting contractors
             </p>
             <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-bold tracking-tight text-white md:text-7xl">
-              Close More Painting Deals. Stop Juggling Apps.
+              Write the estimate. Send the proposal. Hand the crew the sheet.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
-              Scopepipe combines fast estimating, interactive customer proposals with line-item video attachments, and
-              automatic bilingual crew sheets—all in one $49/mo platform.
+              Scopepipe is $49 a month. You price the rooms, the customer opens the proposal and can play a short video
+              on that line, and the crew gets the sheet in English or Spanish.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <p className="mx-auto mt-8 max-w-3xl text-sm leading-6 text-slate-200">
+              Room-by-Room Color Sign-off • Automated Paint Counter Buy Lists • Adaptive Rate Cards
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-6 py-3 text-base font-semibold text-slate-950 shadow-[0_0_40px_rgba(34,211,238,0.45)] hover:bg-cyan-300"
@@ -140,7 +173,7 @@ export function LandingPage() {
                 View Sample Proposal
               </a>
             </div>
-            <p className="mt-4 text-sm text-slate-400">14-day free trial • No credit card required • Set up in 2 minutes</p>
+            <p className="mt-4 text-sm text-slate-400">14-day trial. No card to start.</p>
           </div>
 
           <div className="relative mx-auto mt-16 max-w-5xl">
@@ -198,6 +231,15 @@ export function LandingPage() {
 
         <section id="features" className="scroll-mt-24 px-4 py-20 md:px-6">
           <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-3">
+            {OPERATIONS.map((feature) => (
+              <article key={feature.title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h2 className="text-xl font-semibold tracking-tight text-balance">{feature.title}</h2>
+                <p className="mt-3 text-sm font-medium text-cyan-200">{feature.subheadline}</p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">{feature.body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mx-auto mt-4 grid max-w-6xl gap-4 md:grid-cols-3">
             {FEATURES.map((feature) => (
               <article key={feature.title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
                 <feature.icon className="size-5 text-cyan-300" aria-hidden="true" />
@@ -208,15 +250,15 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="scroll-mt-24 px-4 py-8 md:px-6">
+        <section id="how-it-works" className="scroll-mt-24 px-4 py-20 md:px-6">
           <div className="mx-auto max-w-6xl">
-            <h2 className="text-3xl font-bold tracking-tight">How It Works</h2>
+            <h2 className="text-3xl font-bold tracking-tight">How Scopepipe works</h2>
             <ol className="mt-8 grid gap-4 md:grid-cols-3">
               {STEPS.map((item) => (
-                <li key={item.step} className="rounded-2xl border border-white/10 bg-[#0B0F17] p-6">
-                  <p className="text-sm font-medium text-cyan-300">{item.step}</p>
-                  <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm text-slate-300">{item.body}</p>
+                <li key={item.step} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                  <p className="text-3xl font-semibold tracking-tight text-cyan-300">{item.step}</p>
+                  <h3 className="mt-4 text-xl font-semibold tracking-tight">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-300">{item.body}</p>
                 </li>
               ))}
             </ol>
@@ -232,7 +274,7 @@ export function LandingPage() {
               $49<span className="text-xl font-medium text-slate-400">/mo</span>
             </p>
             <ul className="mt-6 space-y-2 text-sm text-slate-300">
-              {["Estimates, proposals, and crew sheets", "Line-item video on the proposal", "English and Spanish crew sheets"].map(
+              {["Estimates, proposals, and crew sheets", "A video on the proposal line", "English and Spanish crew sheets"].map(
                 (item) => (
                   <li key={item} className="flex items-center justify-center gap-2">
                     <Check className="size-4 text-cyan-300" aria-hidden="true" />
@@ -244,7 +286,7 @@ export function LandingPage() {
                 <svg className="h-5 w-5 shrink-0 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Up to 3 Team Seats Included (Owner, PM, Field Lead)
+                3 Team Seats. You pick who uses them.
               </li>
             </ul>
             <Link

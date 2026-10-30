@@ -1,5 +1,5 @@
 import { visitDayOf } from "../follow-ups/schedule.ts"
-import type { Client, Estimate } from "../types.ts"
+import type { Client, Estimate, WorkOrder } from "../types.ts"
 
 export interface SalesAppointment {
   estimateId: string
@@ -9,6 +9,7 @@ export interface SalesAppointment {
   salesperson: string
   visitDay: string
   visitStartInstant: string | null
+  kind: "visit" | "job"
 }
 
 function startInstant(value: string | null | undefined): string | null {
@@ -17,22 +18,41 @@ function startInstant(value: string | null | undefined): string | null {
   return Number.isFinite(ms) ? value : null
 }
 
-export function listSalesAppointments(estimates: Estimate[], clients: Client[]): SalesAppointment[] {
+export function listSalesAppointments(
+  estimates: Estimate[],
+  clients: Client[],
+  workOrders: WorkOrder[] = [],
+): SalesAppointment[] {
   const appointments: SalesAppointment[] = []
   for (const estimate of estimates) {
     if (estimate.archived) continue
-    const visitDay = visitDayOf(estimate)
-    if (!visitDay) continue
     const client = clients.find((item) => item.id === estimate.clientId)
-    appointments.push({
-      estimateId: estimate.id,
-      clientId: estimate.clientId,
-      clientName: client?.name ?? "Client",
-      jobAddress: estimate.jobAddress.trim(),
-      salesperson: estimate.salesperson?.trim() ?? "",
-      visitDay,
-      visitStartInstant: startInstant(estimate.estimateVisitAt),
-    })
+    const visitDay = visitDayOf(estimate)
+    if (visitDay) {
+      appointments.push({
+        estimateId: estimate.id,
+        clientId: estimate.clientId,
+        clientName: client?.name ?? "Client",
+        jobAddress: estimate.jobAddress.trim(),
+        salesperson: estimate.salesperson?.trim() ?? "",
+        visitDay,
+        visitStartInstant: startInstant(estimate.estimateVisitAt),
+        kind: "visit",
+      })
+    }
+    const order = workOrders.find((item) => item.estimateId === estimate.id)
+    if (order?.scheduledStartDate && order.status !== "unscheduled") {
+      appointments.push({
+        estimateId: estimate.id,
+        clientId: estimate.clientId,
+        clientName: client?.name ?? "Client",
+        jobAddress: estimate.jobAddress.trim(),
+        salesperson: "",
+        visitDay: order.scheduledStartDate,
+        visitStartInstant: null,
+        kind: "job",
+      })
+    }
   }
   return appointments.sort((left, right) => {
     const day = left.visitDay.localeCompare(right.visitDay)

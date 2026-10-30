@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { laborPaymentSchedule } from "./schedule.ts"
+import { laborPaymentSchedule, SURFACES_FOR_SIDE } from "./schedule.ts"
 
 describe("laborPaymentSchedule", () => {
   it("turns surface quantity and coats into hours, labor cost, and a 30/50/20 schedule", () => {
@@ -43,6 +43,12 @@ describe("laborPaymentSchedule", () => {
       result.schedule.milestones.map((milestone) => milestone.amount),
       [433.88, 723.13, 289.24],
     )
+  })
+
+  it("keeps drywall on interior rows and siding on exterior rows", () => {
+    assert.equal(SURFACES_FOR_SIDE.interior.includes("drywall"), true)
+    assert.equal(SURFACES_FOR_SIDE.exterior.includes("drywall"), false)
+    assert.equal(SURFACES_FOR_SIDE.exterior[0], "siding")
   })
 
   it("rejects a missing surface list and percentages that do not collect the whole job", () => {

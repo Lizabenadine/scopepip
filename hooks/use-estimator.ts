@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { applyLearnedPaces } from "@/lib/estimate/learned-pace"
 import { listActivity } from "@/lib/estimate/activity"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
 import { selectEstimateKind } from "@/lib/estimate/kinds"
@@ -30,17 +31,18 @@ function readSession(id: string | null): EstimateDraft | null {
       return null
     }
     if (id && parsed.id !== id) return null
-    return parsed
+    return { ...parsed, clientEmail: parsed.clientEmail ?? "" }
   } catch {
     return null
   }
 }
 
-function fromEstimate(estimate: Estimate, clientName: string): EstimateDraft {
+function fromEstimate(estimate: Estimate, clientName: string, clientEmail: string): EstimateDraft {
   return {
     id: estimate.id,
     clientId: estimate.clientId,
     clientName,
+    clientEmail,
     stageId: estimate.stageId,
     title: estimate.title,
     jobAddress: estimate.jobAddress,
@@ -77,7 +79,7 @@ function buildInitialDraft(
     return {
       missing: false,
       draft: withSubstrateRates(
-        readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? ""),
+        readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? "", client?.email ?? ""),
         scope.productionRates,
       ),
     }
@@ -88,6 +90,7 @@ function buildInitialDraft(
     id: null,
     clientId: null,
     clientName: "",
+    clientEmail: "",
     stageId: lead?.id ?? scope.stages[0]?.id ?? "",
     title: "",
     jobAddress: "",
@@ -125,6 +128,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
   const [missing, setMissing] = useState(false)
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
+  const [lockedAreaIds, setLockedAreaIds] = useState<ReadonlySet<string>>(new Set())
 
   const loadKey = scope.ready ? `${mode}:${estimateId ?? "new"}` : null
   if (loadKey && loadKey !== loadedKey) {
@@ -132,6 +136,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     setLoadedKey(loadKey)
     setMissing(initial.missing)
     setDraft(initial.draft)
+    setLockedAreaIds(new Set(initial.draft?.id ? initial.draft.areas.map((area) => area.id) : []))
     setStatus(null)
   }
 
@@ -140,11 +145,14 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     sessionStorage.setItem(draftKey(draft.id), JSON.stringify(draft))
   }, [draft])
 
-  const quote: EstimateQuote | null = draft
+  const pacedAreas = draft
+    ? applyLearnedPaces(draft.areas, scope.learnedPaces, draft.id, lockedAreaIds)
+    : null
+  const quote: EstimateQuote | null = draft && pacedAreas
     ? calculateEstimate({
-        areas: draft.areas,
+        areas: pacedAreas,
         lineItems: draft.lineItems,
-        rates: quoteRates(draft.rates, scope.productionRates, draft.areas),
+        rates: quoteRates(draft.rates, scope.productionRates, pacedAreas),
         settings: draft.settings,
         paymentMethods: PAYMENT_METHODS,
       })
@@ -179,16 +187,18 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
   }
 
   const persist = () => {
-    if (!draft) return null
-    const rates = quoteRates(draft.rates, scope.productionRates, draft.areas)
-    const saved = scope.saveEstimate({ ...draft, rates })
+    if (!draft || !pacedAreas) return null
+    const rates = quoteRates(draft.rates, scope.productionRates, pacedAreas)
+    const saved = scope.saveEstimate({ ...draft, areas: pacedAreas, rates })
     sessionStorage.removeItem(draftKey(draft.id))
     sessionStorage.removeItem(draftKey(null))
     setDraft({
       ...draft,
+      areas: pacedAreas,
       rates,
       id: saved.id,
       clientId: saved.clientId,
+      publicToken: saved.publicToken,
       createdAt: draft.createdAt ?? new Date().toISOString(),
     })
     setStatus("Saved")
@@ -203,7 +213,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
       return
     }
     sessionStorage.removeItem(draftKey(draft.id))
-    setDraft(fromEstimate(restored.estimate, draft.clientName))
+    setDraft(fromEstimate(restored.estimate, draft.clientName, draft.clientEmail))
     setStatus(restored.restored ? "Restored" : "This is already the current estimate.")
   }
 

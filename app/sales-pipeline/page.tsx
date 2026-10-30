@@ -3,7 +3,7 @@ import { PipelineBoard } from "@/components/pipeline/pipeline-board"
 
 export const metadata: Metadata = {
   title: "Sales Pipeline",
-  description: "Cold leads through proposals. Website, Thumbtack, Angi, Google Local Services, and Facebook open a card and start the sequence.",
+  description: "New lead through a sent proposal. Move each job one step at a time.",
 }
 
 export default function SalesPipelinePage() {

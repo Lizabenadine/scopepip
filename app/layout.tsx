@@ -17,10 +17,19 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   metadataBase: new URL("https://scopepipe.com"),
   title: {
-    default: "ScopePipe",
-    template: "%s | ScopePipe",
+    default: "Scopepipe | Contractor Estimating & Proposal Software",
+    template: "%s | Scopepipe",
   },
-  description: "Fast estimating, video proposals, and automated bilingual crew sheets for contractors.",
+  description:
+    "Estimating, proposals, and crew sheets for painting contractors. $49 a month. Put a video on the proposal line, and open the crew sheet in English or Spanish.",
+  icons: {
+    icon: [
+      { url: "/scopepipe-tab.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon.ico", type: "image/x-icon" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [{ url: "/scopepipe-mark-180.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {

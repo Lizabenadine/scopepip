@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { documentedBedroom } from "../defaults.ts"
 import { measureArea } from "./calculate.ts"
-import { areaFromTemplate, areasFromEstimateTemplate, AREA_TEMPLATES } from "./templates.ts"
+import { areaFromTemplate, areasFromEstimateTemplate, AREA_TEMPLATES, estimateTemplatesFor } from "./templates.ts"
 
 describe("estimate templates", () => {
   it("keeps the bedroom template on the 12 by 15 by 8 room", () => {
@@ -53,6 +53,22 @@ describe("estimate templates", () => {
     assert.equal(vanity?.surfaces[0]?.itemCount, 4)
     const job = areasFromEstimateTemplate("cabinet-refinish")
     assert.equal(job.length, 2)
+  })
+
+  it("keeps a whole interior job and a whole exterior job in templates", () => {
+    assert.deepEqual(
+      estimateTemplatesFor("interior").map((template) => template.name),
+      ["Interior repaint", "Bedrooms and hall"],
+    )
+    assert.deepEqual(
+      estimateTemplatesFor("exterior").map((template) => template.name),
+      ["Exterior repaint"],
+    )
+    const exterior = areasFromEstimateTemplate("exterior-repaint")
+    assert.deepEqual(
+      exterior.map((area) => area.name),
+      ["House wall", "Fascia", "Soffit", "Shutters", "Front door"],
+    )
   })
 
   it("covers interior, exterior, and cabinet starters", () => {

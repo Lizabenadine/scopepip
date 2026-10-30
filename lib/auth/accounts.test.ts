@@ -127,7 +127,7 @@ describe("accounts", () => {
     if (!blocked.ok) {
       assert.equal(
         blocked.reason,
-        "You have reached the 3-seat limit for the Founding Plan. Upgrade for additional seats.",
+        "You have reached the 3 seats included for $49 a month.",
       )
     }
   })
@@ -139,8 +139,8 @@ describe("accounts", () => {
       email: "nadine@example.test",
       role: "owner" as const,
       companyId: "company-hosted",
-      companyName: "PB Painting",
-      companySlug: "pb-painting",
+      companyName: "ScopePipe",
+      companySlug: "scopepipe",
     }
     const token = signOfficeSession(session, "test-secret", 1_000)
     assert.deepEqual(readOfficeSession(token, "test-secret", 1_000), session)
@@ -159,12 +159,12 @@ describe("accounts", () => {
         name: "Nadine Lizabe",
         email: "nadine-hosted@example.test",
         password: "password1",
-        companyName: "PB Painting",
+        companyName: "ScopePipe",
       })
       assert.equal(created.ok, true)
       if (!created.ok) return
       assert.equal(created.hosted, true)
-      assert.equal(created.book?.estimateSettings.companyName, "PB Painting")
+      assert.equal(created.book?.estimateSettings.companyName, "ScopePipe")
       assert.equal(created.revision, 1)
       assert.equal(await readCompanyBook(created.user.companyId), null)
       const again = await login({
@@ -176,7 +176,7 @@ describe("accounts", () => {
       assert.equal(again.ok, true)
       if (!again.ok) return
       assert.equal(again.hosted, true)
-      assert.equal(again.user.companyName, "PB Painting")
+      assert.equal(again.user.companyName, "ScopePipe")
       process.env.SUPABASE_SECRET_KEY = "not-a-real-key"
       const blocked = await login({
         email: "nadine-hosted@example.test",

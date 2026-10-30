@@ -30,7 +30,7 @@ describe("field language", () => {
     assert.equal(spanish.photoTag("before"), "Antes")
     assert.equal(spanish.photoLink("Prep · Kitchen"), "Preparación · Kitchen")
     assert.equal(fieldJobHeading("Project In Progress", "es"), "Proyecto en proceso")
-    assert.equal(fieldJobHeading("Cold Leads", "es"), "Prospectos fríos")
+    assert.equal(fieldJobHeading("New lead", "es"), "Nuevo prospecto")
     assert.equal(fieldJobHeading("Custom column", "es"), "Custom column")
   })
 })

@@ -2,7 +2,6 @@ import { calculateEstimate } from "../estimate/calculate.ts"
 import type { ScopeState } from "../data/seed.ts"
 import { moneyExact } from "../format.ts"
 import {
-  SALES_STAGES,
   type Estimate,
   type JobPipelineStage,
   type LeadSource,
@@ -12,28 +11,30 @@ import {
 
 export const DEAL_LABELS = ["On Hold", "Needs HOA", "No Answer", "Bad Info", "NEW"] as const
 
-export function nextSalesStage(stage: SalesStage): SalesStage | null {
-  const index = SALES_STAGES.indexOf(stage)
-  if (index < 0 || index >= SALES_STAGES.length - 1) return null
-  return SALES_STAGES[index + 1] ?? null
-}
-
 export const SALES_COLUMNS: { id: SalesStage; label: string; empty: string }[] = [
-  { id: "cold", label: "Cold Leads", empty: "No cold leads in this view." },
-  { id: "warm", label: "Warm Leads", empty: "No warm leads in this view." },
-  { id: "estimate_requested", label: "Estimate Requested", empty: "No estimate requests in this view." },
-  { id: "estimate_scheduled", label: "Estimate Scheduled", empty: "No site visits booked." },
-  { id: "proposal_sent", label: "Proposal Sent", empty: "No proposals out." },
+  { id: "cold", label: "New lead", empty: "A call or a text starts a new lead." },
+  { id: "warm", label: "Contacted", empty: "No conversations recorded yet." },
+  { id: "estimate_scheduled", label: "Estimate scheduled", empty: "No walkthroughs booked." },
+  { id: "estimate_requested", label: "Estimate in progress", empty: "No rooms are being measured." },
+  { id: "proposal_sent", label: "Proposal sent", empty: "No proposals are waiting on a homeowner." },
 ]
 
 export const JOB_COLUMNS: { id: JobPipelineStage; label: string; empty: string }[] = [
-  { id: "project_accepted", label: "Project Accepted", empty: "Accepted projects land here." },
-  { id: "project_scheduled", label: "Project Scheduled", empty: "Nothing is on the calendar." },
-  { id: "project_in_progress", label: "Project In Progress", empty: "No crew is on site." },
-  { id: "project_completed", label: "Project Completed", empty: "Finished projects land here." },
+  { id: "project_accepted", label: "Accepted", empty: "Accepted jobs land here." },
+  { id: "project_scheduled", label: "Scheduled", empty: "No start dates yet." },
+  { id: "project_in_progress", label: "In production", empty: "No crew is on site." },
+  { id: "project_completed", label: "Completed", empty: "Finished jobs land here." },
 ]
 
+export function nextSalesStage(stage: SalesStage): SalesStage | null {
+  const index = SALES_COLUMNS.findIndex((column) => column.id === stage)
+  if (index < 0 || index >= SALES_COLUMNS.length - 1) return null
+  return SALES_COLUMNS[index + 1]?.id ?? null
+}
+
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  phone: "Phone call",
+  text: "Text",
   website: "Website",
   thumbtack: "Thumbtack",
   angi: "Angi",

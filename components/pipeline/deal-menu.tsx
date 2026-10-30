@@ -15,7 +15,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { localVisitClock } from "@/lib/appointments/visit"
 import { useScope } from "@/lib/data/store"
-import { boardColumns, jobStageOf, nextSalesStage, salesStageOf } from "@/lib/pipeline/board"
+import { boardColumns, jobStageOf, nextSalesStage, SALES_COLUMNS, salesStageOf } from "@/lib/pipeline/board"
 import type { Estimate } from "@/lib/types"
 
 export function DealMenu({
@@ -41,7 +41,19 @@ export function DealMenu({
   const scheduledStage = stages.find((stage) => stage.slug === "scheduled")
   const order = workOrders.find((item) => item.estimateId === estimate.id)
   const salesStage = salesStageOf(estimate)
-  const canAdvanceSales = mode === "sales" && salesStage !== null && nextSalesStage(salesStage) !== null
+  const nextSales = salesStage ? nextSalesStage(salesStage) : null
+  const canAdvanceSales = mode === "sales" && nextSales !== null
+  const nextSalesLabel = nextSales
+    ? columnLabels?.[nextSales]?.trim() || SALES_COLUMNS.find((column) => column.id === nextSales)?.label
+    : null
+  const nextJobLabel =
+    !order || order.status === "unscheduled"
+      ? "Scheduled"
+      : order.status === "scheduled"
+        ? "In production"
+        : order.status === "in_progress"
+          ? "Completed"
+          : null
   const canAdvanceJob = mode === "jobs" && order?.status !== "complete"
   const columns = boardColumns({ customColumns, columnLabels }, mode)
   const moveTargets = mode === "sales" ? columns : columns.filter((column) => column.custom)
@@ -147,7 +159,7 @@ export function DealMenu({
                 }
               }}
             >
-              Move forward
+              {mode === "sales" ? (nextSalesLabel ?? "Move forward") : (nextJobLabel ?? "Move forward")}
             </MenuButton>
             <div className="mx-2 my-1 rounded-xl bg-muted py-1" data-testid={`move-columns-${estimate.id}`}>
               <p className="px-3 py-1 text-xs font-medium text-muted-foreground">Move to</p>

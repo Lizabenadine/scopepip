@@ -25,7 +25,7 @@ describe("sales and job pipelines", () => {
     assert.deepEqual(ids.project_scheduled, ["est-lena"])
     assert.deepEqual(ids.project_in_progress, ["est-rosa"])
     assert.deepEqual(ids.project_completed, ["est-jim"])
-    assert.equal(columns.map((column) => column.label).join("|"), "Project Accepted|Project Scheduled|Project In Progress|Project Completed")
+    assert.equal(columns.map((column) => column.label).join("|"), "Accepted|Scheduled|In production|Completed")
   })
 
   it("sums each column into a footer total", () => {
@@ -59,6 +59,9 @@ describe("sales and job pipelines", () => {
 
   it("advances a sales column and drops an archived deal", () => {
     assert.equal(nextSalesStage("cold"), "warm")
+    assert.equal(nextSalesStage("warm"), "estimate_scheduled")
+    assert.equal(nextSalesStage("estimate_scheduled"), "estimate_requested")
+    assert.equal(nextSalesStage("estimate_requested"), "proposal_sent")
     assert.equal(nextSalesStage("proposal_sent"), null)
     const state = createSeedState()
     const maya = state.estimates.find((item) => item.id === "est-maya")

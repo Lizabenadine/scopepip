@@ -49,9 +49,9 @@ export function CompanyCamSync({ estimateId }: { estimateId: string }) {
           },
         ])
       }
-      setDetail(job?.detail || payload.detail || "CompanyCam could not be reached.")
+      setDetail(job?.detail || payload.detail || "Job photos could not be reached.")
     } catch {
-      setDetail("CompanyCam could not be reached.")
+      setDetail("Job photos could not be reached.")
     } finally {
       setSending(false)
     }

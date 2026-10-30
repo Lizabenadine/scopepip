@@ -7,6 +7,7 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
 import { officeCount, officeLabel, officeSalesNote } from "@/lib/office/dashboard-copy"
 import { DealCard } from "@/components/pipeline/deal-card"
+import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SCOPE_VERSION } from "@/lib/data/seed"
@@ -105,11 +106,6 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             </div>
             {progressOnly ? null : (
             <div className="flex gap-4">
-              {kind === "sales" ? (
-                <Link href={scope.session ? `/request/${scope.session.companySlug}` : "/signup"} data-testid="website-form" className="text-sm font-medium text-primary hover:underline">
-                  {say("Website form")}
-                </Link>
-              ) : null}
               <Link href="/follow-ups" className="text-sm font-medium text-primary hover:underline">
                 {say("Follow-ups")}
               </Link>
@@ -118,9 +114,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
           </div>
           {progressOnly ? null : (
           <div className="flex flex-wrap items-center gap-2">
-            <Link href="/estimates/new" data-testid="new-lead" className={cn(buttonVariants(), "h-9")}>
-              {say("+ New Lead")}
-            </Link>
+            <NewLeadButton label={say("+ New Lead")} className={newLeadButtonClass()} />
             <Link
               href="/estimates/new"
               data-testid="new-proposal"
@@ -257,7 +251,9 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                   <p className="text-[11px] font-medium tracking-wide text-muted-foreground">
                     {footerLabel}
                   </p>
-                  <p className="font-display text-2xl leading-none text-price tabular-nums">{moneyExact(column.total)}</p>
+                  <p className="font-display text-2xl leading-none text-price tabular-nums">
+                    {scope.session?.role === "estimator" ? column.cards.length : moneyExact(column.total)}
+                  </p>
                 </footer>
               </section>
             ))}

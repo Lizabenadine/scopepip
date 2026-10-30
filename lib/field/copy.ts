@@ -129,6 +129,7 @@ export type FieldCopy = {
   workOrdersTitle: string
   acceptedEmpty: string
   acceptedCount: (count: number) => string
+  checkWork: string
   noActiveJobs: string
   status: Record<"unscheduled" | "scheduled" | "in_progress" | "complete", string>
   crewSheetWaits: string
@@ -184,6 +185,22 @@ export type FieldCopy = {
   crewLeadName: string
   date: string
   acceptSign: string
+  sendOffers: string
+  sendOffersBody: string
+  offerName: string
+  offerEmail: string
+  sendOffer: string
+  offerWaiting: string
+  offerAccepted: string
+  offerDeclined: string
+  copyOfferLink: string
+  sendNext: string
+  linkCopied: string
+  acceptJob: string
+  declineJob: string
+  passedJob: string
+  jobTaken: string
+  offerInvalid: string
   notSpecified: string
   dispatch: string
   dispatchSummary: (count: number) => string
@@ -262,6 +279,7 @@ const english: FieldCopy = {
   workOrdersTitle: "Work Orders",
   acceptedEmpty: "Accepted work shows up here.",
   acceptedCount: (count) => `${count} accepted ${count === 1 ? "job" : "jobs"}`,
+  checkWork: "Open a job and check the work.",
   noActiveJobs: "No active jobs yet.",
   status: {
     unscheduled: "Unscheduled",
@@ -298,8 +316,8 @@ const english: FieldCopy = {
   phone: "Phone",
   salesRep: "Sales Rep",
   generated: "Generated",
-  jobPhotos: "Job photos and site documentation: view progress and prep photos in CompanyCam.",
-  openCompanyCam: "Open CompanyCam",
+  jobPhotos: "Job photos and site documentation: view progress and prep photos.",
+  openCompanyCam: "Open job photos",
   colors: "Paint colors and finishes",
   fromEstimate: "From the estimate",
   noPaint: "No paint products on this estimate.",
@@ -323,6 +341,23 @@ const english: FieldCopy = {
   crewLeadName: "Crew lead name",
   date: "Date",
   acceptSign: "Accept and sign subcontractor copy",
+  sendOffers: "Send this job",
+  sendOffersBody:
+    "The subcontractor is not with you while you write the estimate. Send it to one person. If they pass, send it to the next one.",
+  offerName: "Subcontractor name",
+  offerEmail: "Email",
+  sendOffer: "Send work order",
+  offerWaiting: "Waiting",
+  offerAccepted: "Accepted",
+  offerDeclined: "Passed",
+  copyOfferLink: "Copy link",
+  sendNext: "Send it to the next person.",
+  linkCopied: "Link copied",
+  acceptJob: "Accept this job",
+  declineJob: "Pass on this job",
+  passedJob: "You passed on this job.",
+  jobTaken: "This job was already accepted.",
+  offerInvalid: "This work order link is not valid.",
   notSpecified: "Not specified",
   dispatch: "Dispatch",
   dispatchSummary: (count) =>
@@ -368,12 +403,12 @@ const english: FieldCopy = {
   signAndApply: "Sign and apply",
   changeError: "Add the scope, the amount, and the client's signature.",
   changeFailed: "Could not apply the change order.",
-  companyCam: "CompanyCam sync",
+  companyCam: "Job photos",
   companyCamLinked: "Pulls the matching project and its photos. The saved link on this job is separate.",
   companyCamUnlinked: "Pulls the matching project and its photos. A saved link is not this sync.",
   lastSync: "Last sync",
   syncing: "Syncing...",
-  syncCompanyCam: "Sync CompanyCam",
+  syncCompanyCam: "Sync job photos",
   sitePhotos: "Site photos",
   noSitePhotos: "No site photos yet. Take one before you start, and another when the room is done.",
   tag: "Tag",
@@ -407,6 +442,7 @@ const spanish: FieldCopy = {
   workOrdersTitle: "Órdenes de trabajo",
   acceptedEmpty: "El trabajo aceptado aparece aquí.",
   acceptedCount: (count) => `${count} ${count === 1 ? "trabajo aceptado" : "trabajos aceptados"}`,
+  checkWork: "Abre un trabajo y revisa la lista.",
   noActiveJobs: "Todavía no hay trabajos activos.",
   status: {
     unscheduled: "Sin programar",
@@ -443,8 +479,8 @@ const spanish: FieldCopy = {
   phone: "Teléfono",
   salesRep: "Vendedor",
   generated: "Generada",
-  jobPhotos: "Fotos del trabajo y del sitio: ve el avance y la preparación en CompanyCam.",
-  openCompanyCam: "Abrir CompanyCam",
+  jobPhotos: "Fotos del trabajo y del sitio: ve el avance y la preparación.",
+  openCompanyCam: "Abrir fotos del trabajo",
   colors: "Colores y acabados",
   fromEstimate: "Del estimado",
   noPaint: "Este estimado no tiene productos de pintura.",
@@ -468,6 +504,23 @@ const spanish: FieldCopy = {
   crewLeadName: "Nombre del líder",
   date: "Fecha",
   acceptSign: "Aceptar y firmar la copia del subcontratista",
+  sendOffers: "Enviar este trabajo",
+  sendOffersBody:
+    "El subcontratista no está contigo mientras escribes el estimado. Envíalo a una persona. Si lo rechaza, envíaselo a la siguiente.",
+  offerName: "Nombre del subcontratista",
+  offerEmail: "Correo",
+  sendOffer: "Enviar orden de trabajo",
+  offerWaiting: "En espera",
+  offerAccepted: "Aceptada",
+  offerDeclined: "Rechazada",
+  copyOfferLink: "Copiar enlace",
+  sendNext: "Envíaselo a la siguiente persona.",
+  linkCopied: "Enlace copiado",
+  acceptJob: "Aceptar este trabajo",
+  declineJob: "Rechazar este trabajo",
+  passedJob: "Rechazaste este trabajo.",
+  jobTaken: "Este trabajo ya fue aceptado.",
+  offerInvalid: "Este enlace de la orden no es válido.",
   notSpecified: "Sin especificar",
   dispatch: "Despacho",
   dispatchSummary: (count) =>
@@ -513,12 +566,12 @@ const spanish: FieldCopy = {
   signAndApply: "Firmar y aplicar",
   changeError: "Agrega el alcance, el monto y la firma del cliente.",
   changeFailed: "No se pudo aplicar la orden de cambio.",
-  companyCam: "Sincronizar CompanyCam",
+  companyCam: "Fotos del trabajo",
   companyCamLinked: "Trae el proyecto que coincide y sus fotos. El enlace guardado de este trabajo es aparte.",
   companyCamUnlinked: "Trae el proyecto que coincide y sus fotos. Un enlace guardado no es esta sincronización.",
   lastSync: "Última sincronización",
   syncing: "Sincronizando...",
-  syncCompanyCam: "Sincronizar CompanyCam",
+  syncCompanyCam: "Sincronizar fotos",
   sitePhotos: "Fotos del sitio",
   noSitePhotos: "Todavía no hay fotos. Toma una antes de empezar y otra cuando el cuarto esté listo.",
   tag: "Etiqueta",
@@ -544,17 +597,21 @@ const JOB_HEADINGS: Record<string, { label: string; empty: string }> = {
   "Project Scheduled": { label: "Proyecto programado", empty: "Nada está en el calendario." },
   "Project In Progress": { label: "Proyecto en proceso", empty: "Ninguna cuadrilla está en el sitio." },
   "Project Completed": { label: "Proyecto terminado", empty: "Los proyectos terminados llegan aquí." },
+  Accepted: { label: "Aceptado", empty: "Los trabajos aceptados llegan aquí." },
+  Scheduled: { label: "Programado", empty: "Todavía no hay fechas de inicio." },
+  "In production": { label: "En producción", empty: "Ninguna cuadrilla está en el sitio." },
+  Completed: { label: "Terminado", empty: "Los trabajos terminados llegan aquí." },
   "Jobs Pipeline": { label: "Trabajos", empty: "" },
   "Progress jobs": { label: "Trabajos en proceso", empty: "" },
   "Crew board": { label: "Tablero de cuadrilla", empty: "" },
   "No address yet": { label: "Todavía no hay dirección", empty: "" },
   "Not priced": { label: "Sin precio", empty: "" },
   "Sales Pipeline": { label: "Pipeline de ventas", empty: "" },
-  "Cold Leads": { label: "Prospectos fríos", empty: "No hay prospectos fríos en esta vista." },
-  "Warm Leads": { label: "Prospectos tibios", empty: "No hay prospectos tibios en esta vista." },
-  "Estimate Requested": { label: "Estimado solicitado", empty: "No hay solicitudes de estimado en esta vista." },
-  "Estimate Scheduled": { label: "Visita programada", empty: "No hay visitas agendadas." },
-  "Proposal Sent": { label: "Propuesta enviada", empty: "No hay propuestas afuera." },
+  "New lead": { label: "Nuevo prospecto", empty: "Una llamada o un texto empieza un prospecto." },
+  Contacted: { label: "Contactado", empty: "Todavía no hay conversaciones." },
+  "Estimate scheduled": { label: "Visita programada", empty: "No hay visitas agendadas." },
+  "Estimate in progress": { label: "Estimado en proceso", empty: "No se están midiendo cuartos." },
+  "Proposal sent": { label: "Propuesta enviada", empty: "Ninguna propuesta está esperando al cliente." },
 }
 
 export function fieldJobHeading(label: string, language: FieldLanguage): string {

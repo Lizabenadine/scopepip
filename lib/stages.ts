@@ -17,7 +17,7 @@ export const NEXT_ACTION: Record<StageSlug, string | null> = {
 }
 
 export const EMPTY_STAGE: Record<StageSlug, string> = {
-  lead: "No walkthroughs waiting.",
+  lead: "A call or a text starts here.",
   estimate_sent: "Nothing out for approval.",
   scheduled: "No days on the calendar.",
   completed: "Finished jobs land here.",

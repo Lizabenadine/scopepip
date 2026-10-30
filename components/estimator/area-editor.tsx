@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useTypedNumber } from "@/hooks/use-typed-number"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
 import { OneOffRateForm } from "@/components/estimator/one-off-rate"
 import { TemplatePicker } from "@/components/estimator/template-picker"
@@ -16,6 +17,8 @@ import {
   sectionByGroup,
 } from "@/lib/estimate/groups"
 import { ratesForKind } from "@/lib/estimate/kinds"
+import { quickRoom } from "@/lib/estimate/quick-room"
+import { areaFromTemplate, areaTemplatesFor } from "@/lib/estimate/templates"
 import { attachOneOffRate, detachRateSurface } from "@/lib/estimate/one-off"
 import {
   SUBSTRATE_LABEL,
@@ -53,12 +56,27 @@ export function AreaEditor({
   onSaveTemplate: () => void
   areaNames: AreaName[]
   onAreaNames: (names: AreaName[]) => void
-  onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[], rates?: ProductionRate[]) => void
+  onChange: (
+    areas: AreaInput[],
+    title?: string,
+    lineItems?: LineItemInput[],
+    rates?: ProductionRate[],
+    kind?: EstimateKind,
+  ) => void
   onGroups: (groups: AreaGroup[]) => void
   onDuplicate: (areas: AreaInput[]) => void
 }) {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [namesOpen, setNamesOpen] = useState(false)
+  const [roomDraft, setRoomDraft] = useState("")
+  const [focusAreaId, setFocusAreaId] = useState<string | null>(null)
+  const addRoom = (name: string) => {
+    const room = quickRoom(name, kind)
+    if (!room) return
+    onChange([...areas, room])
+    setRoomDraft("")
+    setFocusAreaId(room.id)
+  }
   const [groupDraft, setGroupDraft] = useState("")
   const [groupError, setGroupError] = useState<string | null>(null)
   const sections = sectionByGroup(areas, areaGroups, (area) => area.groupId, { includeEmpty: true })
@@ -107,6 +125,55 @@ export function AreaEditor({
           </button>
         </div>
       </div>
+      <div className="rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm" data-testid="add-room">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="grid min-w-0 flex-1 gap-1">
+            <Label htmlFor="add-room-name">Add a room</Label>
+            <Input
+              id="add-room-name"
+              data-testid="add-room-name"
+              value={roomDraft}
+              placeholder="Bedroom, Kitchen, North wall"
+              className="h-11"
+              onValueChange={setRoomDraft}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return
+                event.preventDefault()
+                addRoom(roomDraft)
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            data-testid="add-room-button"
+            className="h-11 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
+            onClick={() => addRoom(roomDraft)}
+          >
+            Add
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {areaTemplatesFor(kind).slice(0, 8).map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              data-testid={`add-room-${template.id}`}
+              className="rounded-full bg-muted px-3 py-1.5 text-sm"
+              onClick={() => {
+                const room = areaFromTemplate(template.id)
+                if (!room) return
+                onChange([...areas, room])
+                setFocusAreaId(room.id)
+              }}
+            >
+              {template.name}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Type a name and press Enter. A known room brings its size and surfaces. A new name starts with walls, ceiling, and trim so the price moves as you type the size.
+        </p>
+      </div>
       <div className="rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -151,18 +218,17 @@ export function AreaEditor({
       />
       <TemplatePicker
         open={templatesOpen}
-        kind={kind}
         savedTemplates={savedTemplates}
         onDeleteSaved={onDeleteSaved}
         onOpenChange={setTemplatesOpen}
-        onAdd={(next, title, lineItems, groups) => {
-          onChange([...areas, ...next], title, lineItems)
+        onAdd={(next, title, lineItems, groups, nextKind) => {
+          onChange([...areas, ...next], title, lineItems, undefined, nextKind)
           if (groups && groups.length > 0) onGroups([...areaGroups, ...groups])
         }}
       />
       {areas.length === 0 && areaGroups.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-          Open Templates for a measured room. Area names are labels you keep and reorder. A blank room starts empty.
+          Type a room above, or open Templates for a whole interior or exterior job.
         </p>
       ) : null}
       {sections.map((section) => {
@@ -233,6 +299,8 @@ export function AreaEditor({
                 rates={ratesForArea(rates, kind, area)}
                 areaNames={areaNames}
                 areaGroups={areaGroups}
+                focusLength={focusAreaId === area.id}
+                onFocused={() => setFocusAreaId(null)}
                 onKeepName={(name) => {
                   const next = addAreaName(areaNames, name)
                   if (next) onAreaNames(next)
@@ -272,6 +340,8 @@ function AreaCard({
   rates,
   areaNames,
   areaGroups,
+  focusLength,
+  onFocused,
   onKeepName,
   onChange,
   onPlace,
@@ -285,6 +355,8 @@ function AreaCard({
   rates: ProductionRate[]
   areaNames: AreaName[]
   areaGroups: AreaGroup[]
+  focusLength: boolean
+  onFocused: () => void
   onKeepName: (name: string) => void
   onChange: (area: AreaInput) => void
   onPlace: (groupId: string | null) => void
@@ -293,6 +365,11 @@ function AreaCard({
   onApplyOneOff: (rate: ProductionRate) => void
   onToggleOneOff: (rate: ProductionRate) => void
 }) {
+  useEffect(() => {
+    if (!focusLength) return
+    document.getElementById(`${area.id}-length`)?.focus()
+    onFocused()
+  }, [focusLength, area.id, onFocused])
   const measures = measureArea(area)
   const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
     onChange({
@@ -414,6 +491,47 @@ function AreaCard({
       <p className="mt-2 text-xs text-muted-foreground" data-testid="area-measures">
         {measures.wallSqFt} sq ft walls · {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft
       </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-color`}>Color</Label>
+          <Input
+            id={`${area.id}-color`}
+            data-testid={`color-name-${area.id}`}
+            value={area.colorName ?? ""}
+            placeholder="Agreeable Gray"
+            className="h-11"
+            onValueChange={(colorName) => onChange({ ...area, colorName })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-color-code`}>Color code</Label>
+          <Input
+            id={`${area.id}-color-code`}
+            data-testid={`color-code-${area.id}`}
+            value={area.colorCode ?? ""}
+            placeholder="SW 7029"
+            className="h-11"
+            onValueChange={(colorCode) => onChange({ ...area, colorCode })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-sheen`}>Sheen</Label>
+          <select
+            id={`${area.id}-sheen`}
+            data-testid={`sheen-${area.id}`}
+            className="h-11 rounded-lg border border-input bg-transparent px-2"
+            value={area.sheen ?? ""}
+            onChange={(event) => onChange({ ...area, sheen: event.target.value })}
+          >
+            <option value="">Not specified</option>
+            <option value="Flat">Flat</option>
+            <option value="Eggshell">Eggshell</option>
+            <option value="Satin">Satin</option>
+            <option value="Semi-gloss">Semi-gloss</option>
+            <option value="Gloss">Gloss</option>
+          </select>
+        </div>
+      </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <div className="grid gap-1">
           <Label htmlFor={`${area.id}-prep`}>Prep intensity</Label>
@@ -765,15 +883,18 @@ function NumberField({
   value: number
   onChange: (value: number) => void
 }) {
+  const typed = useTypedNumber(value, onChange)
   return (
     <div className="grid gap-1">
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
         inputMode="decimal"
-        value={String(value)}
+        value={typed.value}
         className="h-11"
-        onValueChange={(next) => onChange(Number(next.replace(/[^0-9.]/g, "")) || 0)}
+        onFocus={typed.onFocus}
+        onBlur={typed.onBlur}
+        onValueChange={typed.onValueChange}
       />
     </div>
   )

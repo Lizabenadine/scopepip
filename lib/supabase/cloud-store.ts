@@ -59,7 +59,7 @@ export async function readCloud(companyId: string): Promise<CloudSnapshot | null
 
 export async function writeCloudEstimate(companyId: string, payload: EstimateSyncPayload, workOrder: CloudWorkOrder | null): Promise<void> {
   const supabase = supabaseAdmin()
-  if (!supabase) throw new Error("Supabase is not configured.")
+  if (!supabase) throw new Error("The hosted book is not configured.")
   const clientResult = await supabase.from("clients").upsert(payload.client, { onConflict: "id" })
   if (clientResult.error) throw new Error(clientResult.error.message)
   const estimateResult = await supabase.from("estimates").upsert(payload.estimate, { onConflict: "id" })
@@ -84,7 +84,7 @@ export async function writeCloudEstimate(companyId: string, payload: EstimateSyn
 
 export async function deleteCloudEstimate(companyId: string, estimateId: string): Promise<void> {
   const supabase = supabaseAdmin()
-  if (!supabase) throw new Error("Supabase is not configured.")
+  if (!supabase) throw new Error("The hosted book is not configured.")
   const areas = await supabase.from("estimate_areas").delete().eq("project_id", estimateId)
   if (areas.error) throw new Error(areas.error.message)
   const estimate = await supabase.from("estimates").delete().eq("id", estimateId)

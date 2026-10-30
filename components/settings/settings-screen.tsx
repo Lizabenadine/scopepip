@@ -143,7 +143,7 @@ function EmailFields() {
   return (
     <DefaultsForm
       title="Email"
-      intro="Proposal mail uses this address. Follow-up email sends through Resend once that key is saved on Integrations. Until then those messages are logged."
+      intro="Proposal mail uses this address. Follow-up email sends once the email key is saved on Integrations. Until then those messages are logged."
     >
       <TextField id="companyEmail" name="companyEmail" label="Proposal email" type="email" placeholder="office@example.com" wide />
     </DefaultsForm>
@@ -177,7 +177,7 @@ function PaymentFields() {
   const scope = useScope()
   return (
     <div className="flex flex-col gap-6">
-      <DefaultsForm title="Payments" intro="Deposit and financing apply to the next proposal. Card and ACH checkout uses Stripe when the Stripe keys are set.">
+      <DefaultsForm title="Payments" intro="Deposit and financing apply to the next proposal. Card and bank checkout runs once the card keys are set.">
         <TextField id="depositPercent" name="depositPercent" label="Deposit %" />
         <TextField id="financingApr" name="financingApr" label="Financing APR %" />
         <TextField id="financingMonths" name="financingMonths" label="Financing months" />
@@ -238,23 +238,13 @@ function NotificationsPanel({ onEdit }: { onEdit: () => void }) {
 }
 
 function PortalPanel() {
-  const { session } = useScope()
-  const requestHref = session ? `/request/${session.companySlug}` : "/signup"
   return (
     <section className="flex flex-col gap-3 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <h2 className="text-lg font-semibold">Customer portal</h2>
       <p className="text-sm text-muted-foreground">
-        Customers open a proposal, request a visit, or book a time without the office menu.
+        Customers open a proposal or book a time without the office menu.
       </p>
-      <ul className="flex flex-col gap-2 text-sm">
-        <li>
-          <Link href={requestHref} className="font-medium text-primary">
-            Website form
-          </Link>
-          <span className="text-muted-foreground"> opens a Cold Leads card for this company.</span>
-        </li>
-        <li className="text-muted-foreground">Each sales card has its own booking page.</li>
-      </ul>
+      <p className="text-sm text-muted-foreground">Each sales card has its own booking page.</p>
     </section>
   )
 }
@@ -265,7 +255,7 @@ function AddOnsPanel() {
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{PLAN_NAME}</p>
       <p className="mt-2 text-sm text-muted-foreground">
-        Financing on proposals is turned on from Payments. Calendar, QuickBooks, Zapier, and CompanyCam connect from their own tabs.
+        Financing on proposals is turned on from Payments. The calendar, the books, and job photos connect from their own tabs.
       </p>
       <Link href="/billing" className="mt-3 inline-block text-sm font-medium text-primary">
         Billing
@@ -332,13 +322,13 @@ function readDefaults(current: EstimateSettings, data: FormData): EstimateSettin
   if (data.has("interiorHourlyRate") || data.has("exteriorHourlyRate") || data.has("cabinetsHourlyRate")) {
     next.typeHourlyRates = writeTypeRates(next.typeHourlyRates, data)
   }
-  if (data.has("taxPercent")) next.taxPercent = Number(data.get("taxPercent")) || 0
+  if (data.has("taxPercent")) next.taxPercent = readAmount(data.get("taxPercent"))
   if (data.has("expiryDays")) next.expiryDays = Number(data.get("expiryDays")) || 0
   if (data.has("hourRounding")) next.hourRounding = Number(data.get("hourRounding")) as EstimateSettings["hourRounding"]
-  if (data.has("materialMarkup")) next.materialMarkup = (Number(data.get("materialMarkup")) || 0) / 100
+  if (data.has("materialMarkup")) next.materialMarkup = readAmount(data.get("materialMarkup")) / 100
   if (data.has("taxBasis")) next.taxBasis = data.get("taxBasis") === "materials_only" ? "materials_only" : "total_job"
   if (data.has("minimumJobCharge")) next.minimumJobCharge = Number(data.get("minimumJobCharge")) || 0
-  if (data.has("depositPercent")) next.depositPercent = clampDepositPercent(Number(data.get("depositPercent")))
+  if (data.has("depositPercent")) next.depositPercent = clampDepositPercent(readAmount(data.get("depositPercent")))
   if (data.has("financingApr")) next.financingApr = Number(data.get("financingApr"))
   if (data.has("financingMonths")) next.financingMonths = Number(data.get("financingMonths"))
   if (data.has("financingLender")) next.financingLender = String(data.get("financingLender") ?? "")
@@ -408,6 +398,11 @@ function writeTypeRates(
   write("exterior", "exteriorHourlyRate")
   write("cabinets", "cabinetsHourlyRate")
   return next
+}
+
+function readAmount(value: FormDataEntryValue | null): number {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.-]/g, ""))
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function rateText(value: number | undefined): string {

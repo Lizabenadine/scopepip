@@ -8,6 +8,8 @@ export interface ActiveJob {
   jobAddress: string
   status: WorkOrder["status"]
   updatedAt: string
+  checklistDone: number
+  checklistTotal: number
 }
 
 export function listActiveJobs(
@@ -29,6 +31,8 @@ export function listActiveJobs(
       jobAddress: estimate.jobAddress,
       status: order?.status ?? "unscheduled",
       updatedAt: estimate.updatedAt,
+      checklistDone: order?.checklist.filter((item) => item.done).length ?? 0,
+      checklistTotal: order?.checklist.length ?? 0,
     })
   }
   return jobs.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))

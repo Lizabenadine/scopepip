@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   Documents: "Documentos",
   Docs: "Docs",
   Settings: "Ajustes",
+  Help: "Ayuda",
   Invoices: "Facturas",
   "Sales Pipeline": "Pipeline de ventas",
   Estimator: "Estimador",
@@ -38,6 +39,16 @@ const LABELS: Record<string, string> = {
   Export: "Exportar",
   "The book is empty. Price a room to start a lead.":
     "El libro está vacío. Cotiza un cuarto para empezar un prospecto.",
+  "A call or a text starts a new lead.": "Una llamada o un texto empieza un prospecto.",
+  "New lead": "Nuevo prospecto",
+  "Someone called or texted. Save their name and how to reach them.":
+    "Alguien llamó o escribió. Guarda el nombre y cómo contactarlo.",
+  "Customer name": "Nombre del cliente",
+  Phone: "Teléfono",
+  Address: "Dirección",
+  "Save lead": "Guardar prospecto",
+  Call: "Llamada",
+  Text: "Texto",
   "Deposit Paid / Scheduled": "Depósito pagado / Programado",
   Accepted: "Aceptado",
   Declined: "Rechazado",
@@ -62,7 +73,6 @@ const LABELS: Record<string, string> = {
   "This year": "Este año",
   Salesperson: "Vendedor",
   Everyone: "Todos",
-  "Website form": "Formulario del sitio",
   Rename: "Renombrar",
   Remove: "Quitar",
   Interior: "Interior",
@@ -70,6 +80,24 @@ const LABELS: Record<string, string> = {
   Cabinets: "Gabinetes",
   Estimate: "Estimado",
   "Work order": "Orden de trabajo",
+  "Store list": "Lista para la tienda",
+  "Hours from this job": "Horas de este trabajo",
+  "This job's price stays. The next room of this size uses this speed.":
+    "El precio de este trabajo se queda. El próximo cuarto de este tamaño usa esta velocidad.",
+  "Estimated hours": "Horas estimadas",
+  "Hours this room took": "Horas que tomó este cuarto",
+  "Save this speed": "Guardar esta velocidad",
+  "Use the rate card again": "Usar la tarifa otra vez",
+  "Enter the hours this room took.": "Escriba las horas que tomó este cuarto.",
+  "This room has no estimated hours to compare.": "Este cuarto no tiene horas estimadas para comparar.",
+  "This room has no timed surfaces to learn from.": "Este cuarto no tiene superficies con tiempo para aprender.",
+  "This login stays on the bid": "Este acceso se queda en la cotización",
+  "An estimator writes the bid and does not open dispatch, invoices, or the rate card.":
+    "Un estimador escribe la cotización y no abre el despacho, las facturas ni la tarifa.",
+  "Bids sent": "Cotizaciones enviadas",
+  "Win rate": "Tasa de cierre",
+  "Your follow-ups": "Sus seguimientos",
+  "No bids in your name yet.": "Todavía no hay cotizaciones a su nombre.",
   Company: "Empresa",
   Brand: "Marca",
   Email: "Correo",
@@ -88,14 +116,14 @@ const LABELS: Record<string, string> = {
 }
 
 const STAGES: Record<StageSlug, string> = {
-  lead: "Prospecto",
+  lead: "Nuevo prospecto",
   estimate_sent: "Estimado enviado",
   scheduled: "Programado",
   completed: "Terminado",
 }
 
 const EMPTY_STAGES: Record<StageSlug, string> = {
-  lead: "No hay visitas pendientes.",
+  lead: "Una llamada o un texto empieza aquí.",
   estimate_sent: "Nada está esperando aprobación.",
   scheduled: "No hay días en el calendario.",
   completed: "Los trabajos terminados llegan aquí.",
@@ -114,6 +142,7 @@ export function officeLabel(text: string, language: FieldLanguage): string {
 }
 
 export function officeStageName(slug: StageSlug, name: string, language: FieldLanguage): string {
+  if (slug === "lead") return language === "es" ? STAGES.lead : "New Lead"
   if (language === "en") return name
   return STAGES[slug] ?? name
 }
@@ -158,9 +187,9 @@ export function officeScheduleTitle(clientName: string, language: FieldLanguage)
 
 export function officeSalesNote(language: FieldLanguage): string {
   if (language === "en") {
-    return ". The website form, Thumbtack, Angi, Google Local Services, and Facebook open a Cold Leads card and start that sequence."
+    return ". A call or a text opens a New lead. Move each job one step at a time."
   }
-  return ". El formulario del sitio, Thumbtack, Angi, Google Local Services y Facebook abren una tarjeta de prospectos fríos y empiezan esa secuencia."
+  return ". Una llamada o un texto abre un nuevo prospecto. Mueva cada trabajo un paso a la vez."
 }
 
 export function officeCount(count: number, language: FieldLanguage): string {

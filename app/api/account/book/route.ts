@@ -1,3 +1,4 @@
+import { bookForEstimator } from "@/lib/auth/access"
 import { readCompanyBook, writeCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { isScopeState } from "@/lib/data/seed"
@@ -19,7 +20,10 @@ export async function PUT(request: Request) {
   if (!body || typeof body.revision !== "number" || !isScopeState(body.state)) {
     return Response.json({ reason: "The book could not be read." }, { status: 400 })
   }
-  const saved = await writeCompanyBook(session.companyId, body.revision, body.state)
+  const current = await readCompanyBook(session.companyId)
+  if (!current) return Response.json({ reason: "This company has no book." }, { status: 404 })
+  const state = session.role === "estimator" ? bookForEstimator(current.state, body.state, session.id) : body.state
+  const saved = await writeCompanyBook(session.companyId, body.revision, state)
   if (!saved.ok && "state" in saved) {
     return Response.json({ reason: "conflict", revision: saved.revision, state: saved.state }, { status: 409 })
   }

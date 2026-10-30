@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const result = await syncCompanyCam(jobs)
     return Response.json(result)
   } catch {
-    return Response.json({ connected: false, detail: "CompanyCam could not be reached.", jobs: [] })
+    return Response.json({ connected: false, detail: "Job photos could not be reached.", jobs: [] })
   }
 }
 

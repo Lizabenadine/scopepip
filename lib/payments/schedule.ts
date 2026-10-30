@@ -4,6 +4,16 @@ export const SURFACE_TYPES = ["drywall", "siding", "trim_linear", "doors"] as co
 
 export type SurfaceType = (typeof SURFACE_TYPES)[number]
 
+export const JOB_SIDES = ["interior", "exterior"] as const
+
+export type JobSide = (typeof JOB_SIDES)[number]
+
+/** Drywall is an interior wall. Siding is the exterior wall. Trim and doors are used on both. */
+export const SURFACES_FOR_SIDE: Record<JobSide, readonly SurfaceType[]> = {
+  interior: ["drywall", "trim_linear", "doors"],
+  exterior: ["siding", "trim_linear", "doors"],
+}
+
 export const DEFAULT_SURFACE_RATES: Record<SurfaceType, number> = {
   drywall: 150,
   siding: 120,

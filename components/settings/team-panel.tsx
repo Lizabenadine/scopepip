@@ -10,7 +10,7 @@ interface Person {
   id: string
   name: string
   email: string
-  role: "owner" | "project_manager"
+  role: "owner" | "project_manager" | "estimator"
 }
 
 export function TeamPanel() {
@@ -19,6 +19,7 @@ export function TeamPanel() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [staffRole, setStaffRole] = useState<"project_manager" | "estimator">("estimator")
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -47,7 +48,7 @@ export function TeamPanel() {
       const response = await fetch("/api/account/staff", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, role: staffRole }),
       })
       const result = (await response.json()) as { ok?: boolean; reason?: string; user?: { name: string; email: string; role: Person["role"] } }
       if (!response.ok || !result.ok || !result.user) {
@@ -58,7 +59,9 @@ export function TeamPanel() {
       setName("")
       setEmail("")
       setPassword("")
-      setNotice(`${result.user.name} can sign in as a project manager.`)
+      setNotice(
+        `${result.user.name} can sign in as ${result.user.role === "estimator" ? "an estimator" : "a project manager"}.`,
+      )
     } catch {
       setError("That login could not be added.")
     } finally {
@@ -70,12 +73,12 @@ export function TeamPanel() {
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="team-panel">
       <h2 className="text-lg font-semibold">People</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        A project manager shares this company&apos;s jobs and signs in with their own password. They do not see Clients. The role is not a switch on this browser. The Founding Plan includes 3 seats. An extra seat is $15.
+        The $49 plan includes 3 seats. You pick who uses them. Each person signs in with their own password. A project manager opens jobs and invoices. An estimator writes bids and does not open the rate card, dispatch, or invoices. The role is not a switch on this browser.
       </p>
       <ul className="mt-3 flex flex-col gap-1 text-sm">
         {people.map((person) => (
           <li key={person.id}>
-            {person.name} · {person.email} · {person.role === "owner" ? "Owner" : "Project manager"}
+            {person.name} · {person.email} · {person.role === "owner" ? "Owner" : person.role === "estimator" ? "Estimator" : "Project manager"}
           </li>
         ))}
       </ul>
@@ -89,13 +92,26 @@ export function TeamPanel() {
           <Input id="staff-email" data-testid="staff-email" type="email" value={email} onValueChange={setEmail} className="h-11" />
         </div>
         <div className="grid gap-1 sm:col-span-2">
+          <Label htmlFor="staff-role">Role</Label>
+          <select
+            id="staff-role"
+            data-testid="staff-role"
+            className="h-11 rounded-lg border border-input bg-transparent px-2"
+            value={staffRole}
+            onChange={(event) => setStaffRole(event.target.value === "project_manager" ? "project_manager" : "estimator")}
+          >
+            <option value="estimator">Estimator</option>
+            <option value="project_manager">Project manager</option>
+          </select>
+        </div>
+        <div className="grid gap-1 sm:col-span-2">
           <Label htmlFor="staff-password">Password</Label>
           <Input id="staff-password" data-testid="staff-password" type="password" value={password} onValueChange={setPassword} className="h-11" />
         </div>
         {error ? <p className="text-sm text-destructive sm:col-span-2">{error}</p> : null}
         {notice ? <p className="text-sm text-muted-foreground sm:col-span-2">{notice}</p> : null}
         <Button type="submit" data-testid="staff-submit" className="h-11 sm:col-span-2 sm:w-fit" disabled={pending}>
-          {pending ? "Saving" : "Add project manager"}
+          {pending ? "Saving" : "Add person"}
         </Button>
       </form>
     </section>

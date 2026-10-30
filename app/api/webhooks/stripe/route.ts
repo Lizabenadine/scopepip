@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   try {
     await syncDeposit(parsed.estimateId, parsed.receipt)
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Supabase did not record the deposit."
+    const message = error instanceof Error ? error.message : "The hosted book did not record the deposit."
     return Response.json({ error: message }, { status: 502 })
   }
 

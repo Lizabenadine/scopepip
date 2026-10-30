@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({
       connected: false,
-      detail: "QuickBooks could not be reached.",
+      detail: "The books could not be reached.",
       invoices: [],
     })
   }

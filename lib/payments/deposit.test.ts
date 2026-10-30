@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createSeedState } from "../data/seed.ts"
 import { applyDeposit } from "./apply-deposit.ts"
-import { clampDepositPercent, depositAmount, depositCents, receiptFromPaymentIntent } from "./deposit.ts"
+import { balanceAfterDeposit, clampDepositPercent, depositAmount, depositCents, receiptFromPaymentIntent } from "./deposit.ts"
 
 describe("depositAmount", () => {
   it("charges the entered percent of the job and rounds to cents", () => {
@@ -15,6 +15,8 @@ describe("depositAmount", () => {
     assert.equal(depositAmount(1000, 10), 100)
     assert.equal(depositAmount(1000, 12.5), 125)
     assert.equal(depositAmount(1000, 50), 500)
+    assert.equal(balanceAfterDeposit(1207.5, 30), 845.25)
+    assert.equal(balanceAfterDeposit(1000, 100), 0)
   })
 })
 

@@ -3,9 +3,11 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { useTypedNumber } from "@/hooks/use-typed-number"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
 import { AreaEditor } from "@/components/estimator/area-editor"
+import { FinishedHours } from "@/components/estimator/finished-hours"
 import { HourlyRateBuildButton } from "@/components/estimator/hourly-rate-build"
 import { EstimateActivityLog } from "@/components/estimator/activity"
 import { EstimateVersions } from "@/components/estimator/versions"
@@ -35,6 +37,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
+import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
+import { flushBook, useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
@@ -44,7 +48,7 @@ import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
-import { clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
+import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
 import type { LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
@@ -58,6 +62,8 @@ export function Estimator({
 }) {
   const router = useRouter()
   const estimator = useEstimator(mode, estimateId)
+  const { session, stages, workOrders, sendSubcontractorOffer, placeOnColumn } = useScope()
+  const estimatorLogin = session?.role === "estimator"
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const [explainOpen, setExplainOpen] = useState(false)
@@ -123,6 +129,57 @@ export function Estimator({
     if (saved && mode === "new") router.push(`/estimates/${saved.id}`)
   }
 
+  const sendEstimate = async () => {
+    const email = draft.clientEmail.trim()
+    if (!email.includes("@") || /\s/.test(email)) {
+      setStatus("Add the client's email. They accept the estimate from the link in that email.")
+      return
+    }
+    const saved = persist()
+    if (!saved) return
+    const sentStage = stages.find((item) => item.slug === "estimate_sent")
+    const hold =
+      !sentStage ||
+      draft.clientStatus === "accepted" ||
+      stage?.slug === "scheduled" ||
+      stage?.slug === "completed" ||
+      stage?.id === sentStage.id
+    if (!hold && sentStage) {
+      moveStage(saved.id, sentStage.id)
+      patch({
+        id: saved.id,
+        clientId: saved.clientId,
+        stageId: sentStage.id,
+        clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
+      })
+    }
+    if (mode === "new") router.push(`/estimates/${saved.id}`)
+    await flushBook()
+    try {
+      const response = await fetch(`/api/proposals/${saved.id}/email`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const body = (await response.json().catch(() => null)) as { detail?: string; reason?: string; delivery?: string } | null
+      if (!response.ok) {
+        setStatus(body?.reason || "The estimate could not be emailed.")
+        return
+      }
+      if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
+        placeOnColumn(saved.id, "proposal_sent")
+      }
+      const link = `${window.location.origin}/p/${saved.publicToken}`
+      if (body?.delivery === "sent") {
+        setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
+        return
+      }
+      setStatus(`${body?.detail ?? "The link is ready."} They accept here: ${link}`)
+    } catch {
+      setStatus("The estimate could not be emailed.")
+    }
+  }
+
   const onAdvance = () => {
     if (disabled || !next) return
     const saved = persist()
@@ -158,6 +215,11 @@ export function Estimator({
               Proposal
             </Link>
           ) : null}
+          {draft.id ? (
+            <Link href={`/estimates/${draft.id}/store-list`} data-testid="store-list-link" className="font-medium text-primary">
+              {say("Store list")}
+            </Link>
+          ) : null}
           {draft.id ? <EstimateVersions versions={versions} onRestore={restoreVersion} /> : null}
           {draft.id ? <EstimateActivityLog entries={activity} /> : null}
           {draft.id ? <PhotoGallery estimateId={draft.id} /> : null}
@@ -186,8 +248,8 @@ export function Estimator({
             </h1>
             <p className="text-sm text-muted-foreground">
               {language === "es"
-                ? "Elija Interior, Exterior o Gabinetes. Las plantillas y las superficies siguen ese tipo, y cada tipo puede usar su propia tarifa por hora."
-                : "Pick Interior, Exterior, or Cabinets. Templates and surfaces follow that type, and each type can use its own hourly rate."}
+                ? "Elija Interior, Exterior o Gabinetes. Plantillas incluye un trabajo interior y un trabajo exterior, y cada tipo puede usar su propia tarifa por hora."
+                : "Pick Interior, Exterior, or Cabinets. Templates includes an interior job and an exterior job, and each type can use its own hourly rate."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2" data-testid="estimate-kind">
@@ -219,10 +281,42 @@ export function Estimator({
             clients={clients}
             name={draft.clientName}
             clientId={draft.clientId}
-            onChange={(nextClient) =>
-              patch({ clientName: nextClient.name, clientId: nextClient.clientId })
-            }
+            onChange={(nextClient) => {
+              const picked = clients.find((client) => client.id === nextClient.clientId)
+              patch({
+                clientName: nextClient.name,
+                clientId: nextClient.clientId,
+                ...(picked ? { clientEmail: picked.email } : {}),
+              })
+            }}
           />
+          <div className="grid gap-2" data-testid="client-email-field">
+            <Label htmlFor="client-email">Client email</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                id="client-email"
+                data-testid="client-email"
+                value={draft.clientEmail}
+                inputMode="email"
+                autoComplete="email"
+                placeholder="name@email.com"
+                className="h-11 sm:max-w-sm"
+                onValueChange={(clientEmail) => patch({ clientEmail })}
+              />
+              <button
+                type="button"
+                data-testid="send-estimate"
+                className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                disabled={disabled}
+                onClick={() => void sendEstimate()}
+              >
+                Send estimate
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Sending emails the proposal and puts this job in Estimate Sent. The client opens the email and accepts from the link.
+            </p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="job-title">Job</Label>
@@ -259,11 +353,12 @@ export function Estimator({
             }}
             areaNames={areaNames}
             onAreaNames={setAreaNames}
-            onChange={(areas, title, lineItems, rates) => {
+            onChange={(areas, title, lineItems, rates, kind) => {
               const added = areas.length > draft.areas.length ? areas.slice(draft.areas.length) : []
               patch({
                 areas,
                 rates: rates ?? withCurrentRates(draft.rates, productionRates, added),
+                ...(kind ? { estimateKind: kind, settings: selectEstimateKind(draft.settings, kind) } : {}),
                 ...(lineItems && lineItems.length > 0 ? { lineItems: [...draft.lineItems, ...lineItems] } : {}),
                 ...(title && draft.title.trim().length === 0 ? { title } : {}),
               })
@@ -271,6 +366,15 @@ export function Estimator({
             onGroups={(areaGroups) => patch({ areaGroups })}
             onDuplicate={(areas) => patch({ areas })}
           />
+          {stage?.slug === "completed" && draft.id ? (
+            <FinishedHours
+              estimateId={draft.id}
+              areas={draft.areas}
+              pricedAreas={quote.areas}
+              rates={draft.rates}
+              language={language}
+            />
+          ) : null}
           <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
               Line items
@@ -402,7 +506,7 @@ export function Estimator({
                 ) : null}
                 {line.pending ? (
                   <p className="mt-2 text-sm text-muted-foreground" data-testid={`pending-note-${line.id}`}>
-                    Off the invoice until the customer signs. A negative price becomes a QuickBooks credit.{" "}
+                    Off the invoice until the customer signs. A negative price becomes a credit.{" "}
                     {money(pendingAmount(line, draft.settings))} is waiting.
                   </p>
                 ) : null}
@@ -472,6 +576,7 @@ export function Estimator({
                     />
                   ) : null}
                 </div>
+                {estimatorLogin ? null : (
                 <div className="mt-4 max-w-full overflow-x-auto">
                   <table className="w-full min-w-[32rem] text-sm">
                     <thead className="bg-slate-800 text-left text-white">
@@ -559,6 +664,7 @@ export function Estimator({
                     + Add Materials
                   </button>
                 </div>
+                )}
               </div>
               )
             })}
@@ -578,6 +684,7 @@ export function Estimator({
             </div>
           </section>
           <section className="grid gap-3 sm:grid-cols-2">
+            {estimatorLogin ? null : (
             <div className="grid content-start gap-2">
               <NumberBox
                 label={`${ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"]} hourly rate`}
@@ -600,6 +707,7 @@ export function Estimator({
                 }
               />
             </div>
+            )}
             <NumberBox
               label="Tax %"
               value={draft.settings.taxPercent}
@@ -620,6 +728,8 @@ export function Estimator({
               />
               <p className="text-sm text-muted-foreground tabular-nums" data-testid="estimate-deposit-amount">
                 Deposit {moneyExact(depositAmount(quote.total, draft.settings.depositPercent ?? 30))}
+                {" · "}
+                Balance {moneyExact(balanceAfterDeposit(quote.total, draft.settings.depositPercent ?? 30))}
               </p>
             </div>
             <div className="grid gap-1">
@@ -708,6 +818,26 @@ export function Estimator({
               </p>
             ) : null}
           </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="estimate-subcontractor">
+            {draft.id ? (
+              <SendSubcontractor
+                offers={workOrders.find((order) => order.estimateId === draft.id)?.offers ?? []}
+                onSend={(name, email) => {
+                  const saved = persist()
+                  const id = saved?.id ?? draft.id
+                  if (!id) return { ok: false, reason: "Save the estimate before you send it." }
+                  return sendSubcontractorOffer(id, name, email)
+                }}
+              />
+            ) : (
+              <div>
+                <h3 className="text-sm font-bold">Send this job</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Save the estimate first. Then send it to a subcontractor. They are not here with you.
+                </p>
+              </div>
+            )}
+          </section>
           {previous && draft.id ? (
             <button
               type="button"
@@ -746,6 +876,7 @@ export function Estimator({
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
+              showCosts={!estimatorLogin}
             />
           }
         />
@@ -766,7 +897,7 @@ export function Estimator({
           <SheetHeader>
             <SheetTitle>How this price is built</SheetTitle>
             <SheetDescription>
-              Sales rate is the total divided by project hours.
+              {estimatorLogin ? "Hours and the price for this bid." : "Sales rate is the total divided by project hours."}
             </SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
@@ -775,6 +906,7 @@ export function Estimator({
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
+              showCosts={!estimatorLogin}
             />
           </div>
         </SheetContent>
@@ -903,25 +1035,18 @@ function NumberBox({
   hideLabel?: boolean
   allowNegative?: boolean
 }) {
-  const [draft, setDraft] = useState<string | null>(null)
+  const typed = useTypedNumber(value, onChange, allowNegative)
   return (
     <div className="grid gap-1">
       {hideLabel ? null : <Label>{label}</Label>}
       <Input
         aria-label={ariaLabel ?? label}
         inputMode="decimal"
-        value={draft ?? String(value)}
+        value={typed.value}
         className="h-11"
-        onFocus={() => setDraft(String(value))}
-        onBlur={() => setDraft(null)}
-        onValueChange={(next) => {
-          const negative = allowNegative && next.trim().startsWith("-")
-          const cleaned = next.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-          const shown = negative ? `-${cleaned}` : cleaned
-          setDraft(shown)
-          const parsed = cleaned === "" || cleaned === "." ? 0 : Number(shown)
-          onChange(Number.isFinite(parsed) ? parsed : 0)
-        }}
+        onFocus={typed.onFocus}
+        onBlur={typed.onBlur}
+        onValueChange={typed.onValueChange}
       />
     </div>
   )

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Plus, Receipt, Settings, X } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
-import { BrandLogo } from "@/components/brand/brand-logo"
+import { BrandLogo, LogoHeader } from "@/components/brand/brand-logo"
 import { buttonVariants } from "@/components/ui/button"
 import type { UserRole } from "@/lib/auth/role"
 import { useScope } from "@/lib/data/store"
@@ -15,7 +15,8 @@ import { homeForRole } from "@/lib/auth/role"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import type { FieldLanguage } from "@/lib/field/language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
-import { managerCanOpen, navigationSections, type OfficeSection } from "@/lib/shell/navigation"
+import { roleCanOpen } from "@/lib/auth/access"
+import { navigationSections, type OfficeSection } from "@/lib/shell/navigation"
 import { cn } from "@/lib/utils"
 
 const SECTION_ICONS = {
@@ -36,7 +37,9 @@ function navIsActive(pathname: string, href: string): boolean {
 }
 
 function roleLabel(role: UserRole, language: FieldLanguage): string {
-  return officeLabel(role === "project_manager" ? "Project manager" : "Owner", language)
+  if (role === "project_manager") return officeLabel("Project manager", language)
+  if (role === "estimator") return officeLabel("Estimator", language)
+  return officeLabel("Owner", language)
 }
 
 async function signOut() {
@@ -46,11 +49,14 @@ async function signOut() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { notice, dismissNotice, ready, session } = useScope()
   const { copy, language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const sections = navigationSections(session?.role ?? "owner")
-  const managerLimited = session?.role === "project_manager" && !managerCanOpen(pathname)
+  const publicOffer = pathname.startsWith("/w/")
+  const managerLimited = session?.role === "project_manager" && !publicOffer && !roleCanOpen(session.role, pathname)
+  const estimatorLimited = session?.role === "estimator" && !publicOffer && !roleCanOpen(session.role, pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [sectionPath, setSectionPath] = useState(pathname)
   if (pathname !== sectionPath) {
@@ -68,13 +74,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
+    pathname.startsWith("/w/") ||
     pathname.endsWith("/pay") ||
-    pathname === "/request" ||
-    pathname.startsWith("/request/") ||
     pathname.startsWith("/book/") ||
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/verify-email"
+
+  useEffect(() => {
+    if (estimatorLimited) router.replace("/dashboard")
+  }, [estimatorLimited, router])
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
@@ -96,8 +105,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (marketingPage) return children
 
   if (publicProposal) {
+    const authPage = pathname === "/signup" || pathname === "/verify-email"
+    const authHeader = authPage || pathname === "/login"
     return (
-      <div className="min-h-dvh bg-background text-foreground">
+      <div className={authPage ? "min-h-dvh bg-[#0B0F17] text-white" : "min-h-dvh bg-background text-foreground"}>
+        {authHeader ? <LogoHeader /> : null}
         <main className="mx-auto w-full max-w-3xl px-4 py-6 pb-28 md:px-8 md:py-10">{children}</main>
       </div>
     )
@@ -108,6 +120,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!session) {
     return (
       <div className="min-h-dvh bg-background text-foreground">
+        <LogoHeader />
         <main className="mx-auto w-full max-w-md px-4 py-10">
           <AuthForm mode="login" />
         </main>
@@ -118,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <FollowUpRunner />
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-white/10 bg-[#02182F] px-4 py-3 text-white md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <BrandLogo href={homeForRole(session.role)} />
           <nav className="hidden min-w-0 items-center gap-0.5 md:flex" aria-label="Primary" data-nav-root="bar">
@@ -138,19 +151,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex shrink-0 items-center justify-end gap-3">
           <div className="hidden items-center gap-2 lg:flex">
-            <p className="text-sm text-slate-700" data-testid="signed-in-name">
+            <p className="text-sm text-white" data-testid="signed-in-name">
               {session.name}
             </p>
-            <p className="text-xs text-slate-500" data-testid="signed-in-role">
+            <p className="text-xs text-slate-300" data-testid="signed-in-role">
               {roleLabel(session.role, language)}
             </p>
           </div>
+          <Link
+            href="/help"
+            data-testid="nav-help"
+            aria-current={pathname === "/help" ? "page" : undefined}
+            className={cn(
+              "text-sm font-medium",
+              pathname === "/help" ? "text-white" : "text-slate-200 hover:text-white",
+            )}
+          >
+            {say("Help")}
+          </Link>
           <FieldLanguageSwitch />
-          <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-600 hover:text-slate-900" onClick={() => void signOut()}>
+          <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-200 hover:text-white" onClick={() => void signOut()}>
             {say("Sign out")}
           </button>
           {crewCopy ? (
-            <p className="hidden text-xs text-slate-500 xl:block">{copy.crewCopy}</p>
+            <p className="hidden text-xs text-slate-300 xl:block">{copy.crewCopy}</p>
           ) : null}
           {session.role === "project_manager" ? null : (
             <Link href="/estimate" className={cn(buttonVariants({ size: "lg" }), "h-9 shrink-0")}>
@@ -181,6 +205,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <h1 className="text-xl font-semibold">{say("This login stays on the job")}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {say("A project manager can open progress jobs, work orders, and invoices.")}
+              </p>
+            </div>
+          ) : estimatorLimited ? (
+            <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
+              <h1 className="text-xl font-semibold">{say("This login stays on the bid")}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {say("An estimator writes the bid and does not open dispatch, invoices, or the rate card.")}
               </p>
             </div>
           ) : (
@@ -257,7 +288,7 @@ function SectionControl({
       placement === "bar"
         ? cn(
             "shrink-0 rounded-lg px-2.5 py-2 text-sm font-medium",
-            active ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+            active ? "bg-white/15 text-white" : "text-slate-200 hover:bg-white/10 hover:text-white",
           )
         : cn(
             "flex flex-1 flex-col items-center justify-center gap-1 text-xs font-medium",
@@ -291,8 +322,8 @@ function SectionControl({
             : "flex w-full flex-col items-center justify-center gap-1 text-xs font-medium",
           placement === "bar"
             ? active || open
-              ? "bg-slate-100 text-slate-900"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-white/15 text-white"
+              : "text-slate-200 hover:bg-white/10 hover:text-white"
             : active || open
               ? "text-primary"
               : "text-muted-foreground",

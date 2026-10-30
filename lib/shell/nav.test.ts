@@ -5,6 +5,7 @@ import { listPaymentRows } from "../payments/ledger.ts"
 import { calculateEstimate } from "../estimate/calculate.ts"
 import { listActiveJobs } from "../work-orders/active.ts"
 import { listProposals } from "../proposals/catalog.ts"
+import { bookForEstimator, roleCanOpen } from "../auth/access.ts"
 import { navigationSections } from "./navigation.ts"
 import type { Estimate } from "../types.ts"
 
@@ -43,6 +44,33 @@ describe("office nav data", () => {
       "Work Orders",
     ])
     assert.equal(manager.find((section) => section.name === "Invoices")?.href, "/payments")
+    const estimator = navigationSections("estimator")
+    assert.deepEqual(estimator.find((section) => section.name === "Jobs")?.links.map((link) => link.name), [
+      "Work Orders",
+    ])
+    assert.equal(roleCanOpen("estimator", "/work-orders/est-lena"), true)
+    assert.equal(roleCanOpen("estimator", "/dispatch"), false)
+    assert.equal(roleCanOpen("project_manager", "/work-orders"), true)
+    assert.equal(roleCanOpen("estimator", "/help"), true)
+    assert.equal(roleCanOpen("project_manager", "/help"), true)
+  })
+
+  it("lets an estimator change the work order notes and leaves the crew assignment alone", () => {
+    const state = createSeedState()
+    const order = state.workOrders.find((item) => item.estimateId === "est-lena")
+    assert.ok(order)
+    const next = {
+      ...state,
+      workOrders: state.workOrders.map((item) =>
+        item.estimateId === "est-lena"
+          ? { ...item, prepNotes: "Keep the closet shelves.", assignedCrewId: "crew-other", status: "complete" as const }
+          : item,
+      ),
+    }
+    const saved = bookForEstimator(state, next, "estimator-1").workOrders.find((item) => item.estimateId === "est-lena")
+    assert.equal(saved?.prepNotes, "Keep the closet shelves.")
+    assert.equal(saved?.assignedCrewId, order.assignedCrewId)
+    assert.equal(saved?.status, "complete")
   })
 
   it("lists sent and accepted proposals", () => {

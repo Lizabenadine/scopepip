@@ -1,8 +1,13 @@
+import { BrandLogo } from "@/components/brand/brand-logo"
+
 export function SiteFooter() {
   return (
-    <footer className="border-t border-slate-800 bg-[#090D16] py-12 text-slate-400">
+    <footer className="border-t border-white/10 bg-[#02182F] py-12 text-slate-400">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-4 md:flex-row">
         <div className="text-sm">
+          <div className="mb-3">
+            <BrandLogo href="/" compact />
+          </div>
           <p>© {new Date().getFullYear()} Scopepipe. All rights reserved.</p>
           <p className="mt-1 text-slate-500">
             Support:{" "}

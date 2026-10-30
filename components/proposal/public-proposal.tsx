@@ -34,6 +34,7 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { writeFieldLanguage, type FieldLanguage } from "@/lib/field/language"
 import { translatePainting, paintingText } from "@/lib/field/terms"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
+import { ClientWorkOrder } from "@/components/proposal/client-work-order"
 
 interface ProposalPayload {
   estimate: Estimate
@@ -320,50 +321,18 @@ function ProposalDocument({
             Review your customized proposal, scope breakdown, and payment terms below.
           </p>
         </div>
-        {sectionByGroup(
-          quote.areas.filter((area) => area.surfaces.length > 0),
-          estimate.areaGroups,
-          (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
-        ).map((section) => (
-          <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
-            {section.groupName ? (
-              <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase" data-testid="proposal-group">
-                {say(section.groupName)}
-              </p>
-            ) : null}
-            {section.items.map((area) => {
-              const visible = area.surfaces.filter((surface) => !surface.hideFromCustomer)
-              return (
-                <div key={area.id} className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-lg font-semibold">{say(area.name)}</h3>
-                    <p className="font-display text-2xl text-price tabular-nums">{money(area.clientPrice)}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {area.areaType === "room"
-                      ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
-                      : `${area.lengthFt} × ${area.heightFt} ft`}
-                    {area.wallSqFt > 0 ? ` · ${say(`${area.wallSqFt} sq ft walls`)}` : ""}
-                  </p>
-                  <ul className="mt-3 flex flex-col gap-2">
-                    {visible.map((surface) => (
-                      <li key={surface.id} className="flex items-baseline justify-between gap-3 text-sm">
-                        <span>
-                          <span className="font-medium">{say(surface.clientLabel)}</span>
-                          {surface.showCoats && surface.coatCount > 0 ? ` · ${say(`${surface.coatCount} coats`)}` : ""}
-                          {surface.clientDescription ? (
-                            <span className="block text-muted-foreground">{say(surface.clientDescription)}</span>
-                          ) : null}
-                        </span>
-                        {surface.showPrice ? <span className="tabular-nums">{money(surface.price)}</span> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            })}
-          </div>
-        ))}
+        <ClientWorkOrder
+          companyName={companyName}
+          logoUrl={estimateSettings.logoUrl}
+          clientName={clientName}
+          jobAddress={estimate.jobAddress}
+          orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
+          sections={sectionByGroup(
+            quote.areas.filter((area) => area.surfaces.length > 0),
+            estimate.areaGroups,
+            (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
+          )}
+        />
       </section>
 
       {quote.lineItems.filter((line) => !optionalLines.some((item) => item.id === line.id)).length > 0 ? (

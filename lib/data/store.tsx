@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import type { LearnedPace } from "@/lib/estimate/learned-pace"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { DEFAULT_AREA_NAMES, type AreaName } from "@/lib/estimate/area-names"
 import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
@@ -25,6 +26,7 @@ import { syncChangeOrder } from "@/lib/change-orders/sync"
 import { applyAcceptance, type AcceptanceInput } from "@/lib/proposals/accept"
 import { syncAcceptance } from "@/lib/proposals/sync"
 import { createWorkOrder } from "@/lib/work-orders/defaults"
+import { createSubcontractorOffer, offerSendBlock } from "@/lib/work-orders/offers"
 import { subcontractorSignature } from "@/lib/work-orders/subcontractor"
 import { appendNote, recordStageChanges } from "@/lib/clients/activity"
 import { visitStartInstant } from "@/lib/appointments/visit"
@@ -35,6 +37,7 @@ import { applyProposalEvent } from "@/lib/proposals/opens"
 import type { ProposalEngagementEvent } from "@/lib/proposals/engagement"
 import { JOB_PIPELINE_STAGES, SALES_STAGES, type SalesStage } from "@/lib/types"
 import { applyInboundLead } from "@/lib/leads/apply"
+import { createOfficeLead, type LeadReach } from "@/lib/leads/office-lead"
 import type { InboundLead } from "@/lib/leads/types"
 import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
@@ -117,7 +120,7 @@ function markSyncNotice() {
   if (current.notice) return
   current = {
     ...current,
-    notice: "Saved on this account. Supabase did not take the latest estimate.",
+    notice: "Saved on this account. The hosted book did not take the latest estimate.",
   }
   emit()
 }
@@ -172,6 +175,17 @@ function withBookSubstrates(state: ScopeState): ScopeState {
   const productionRates = ensureSubstrateRates(state.productionRates)
   if (productionRates === state.productionRates) return state
   return { ...state, productionRates }
+}
+
+export function flushBook(): Promise<void> {
+  return new Promise((resolve) => {
+    const start = Date.now()
+    const tick = () => {
+      if ((!dirty && !saving) || Date.now() - start > 4000) resolve()
+      else setTimeout(tick, 40)
+    }
+    tick()
+  })
 }
 
 function persist(state: ScopeState) {
@@ -360,6 +374,9 @@ export interface ScopeApi {
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
+  learnedPaces: LearnedPace[]
+  rememberPace: (pace: LearnedPace) => void
+  forgetPace: (estimateId: string, areaId: string) => void
   savedTemplates: SavedEstimateTemplate[]
   saveEstimateTemplate: (template: SavedEstimateTemplate) => void
   deleteEstimateTemplate: (id: string) => void
@@ -373,6 +390,13 @@ export interface ScopeApi {
   holdFollowUp: (estimateId: string, minutes: number) => void
   receiveInbound: (inbound: InboundText) => { matched: boolean }
   receiveInboundLead: (lead: InboundLead) => { created: boolean }
+  createLead: (input: {
+    name: string
+    phone: string
+    email: string
+    address: string
+    reachedBy: LeadReach
+  }) => { ok: true; estimateId: string } | { ok: false; reason: string }
   receivePublicBooking: (booking: PublicBooking) => { matched: boolean }
   receiveProposalEvent: (event: ProposalEngagementEvent) => { matched: boolean }
   markZapierDelivered: (ids: string[]) => void
@@ -397,6 +421,11 @@ export interface ScopeApi {
     name: string,
     signedDate: string,
   ) => { ok: true } | { ok: false; reason: string }
+  sendSubcontractorOffer: (
+    estimateId: string,
+    name: string,
+    email: string,
+  ) => { ok: true; token: string; jobName: string } | { ok: false; reason: string }
   applyChangeOrder: (
     changeOrder: ChangeOrder,
     lineItems: LineItemInput[],
@@ -474,6 +503,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     workOrders: state.workOrders,
     crews: state.crews,
     productionRates: state.productionRates,
+    learnedPaces: state.learnedPaces ?? [],
     estimateSettings: state.estimateSettings,
     paymentMethods: state.paymentMethods,
     clientById: (id) => state.clients.find((client) => client.id === id),
@@ -501,7 +531,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
             id: clientId,
             name: draft.clientName.trim(),
             phone: "",
-            email: "",
+            email: draft.clientEmail.trim(),
             address: draft.jobAddress.trim(),
             notes: "",
             createdAt: now,
@@ -511,10 +541,11 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         ]
       } else {
         clients = clients.map((client) => {
-          if (client.id !== clientId || client.address || !draft.jobAddress.trim()) {
-            return client
-          }
-          return { ...client, address: draft.jobAddress.trim(), updatedAt: now }
+          if (client.id !== clientId) return client
+          const email = draft.clientEmail.trim() || client.email
+          const address = client.address || draft.jobAddress.trim()
+          if (email === client.email && address === client.address) return client
+          return { ...client, email, address, updatedAt: now }
         })
       }
 
@@ -568,6 +599,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         inboundLeadId: previous?.inboundLeadId ?? null,
         tags: previous?.tags ? [...previous.tags] : [],
         salesperson: previous?.salesperson ?? "",
+        estimatorId: previous?.estimatorId ?? (officeSession?.role === "estimator" ? officeSession.id : undefined),
         salesStage: previous?.salesStage ?? null,
         boardColumnId: previous?.boardColumnId ?? null,
         archived: previous?.archived,
@@ -596,7 +628,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         : [createWorkOrder(estimate), ...latest.workOrders]
 
       commitReconciled({ ...latest, clients, estimates, workOrders })
-      return { id, clientId }
+      return { id, clientId, publicToken: estimate.publicToken }
     },
     restoreEstimateVersion: (estimateId, versionId) => {
       const latest = getSnapshot().state
@@ -665,9 +697,11 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       const stage = latest.stages.find((item) => item.id === stageId)
       const estimates = latest.estimates.map((estimate) => {
         if (estimate.id !== id) return estimate
+        const sending = stage?.slug === "estimate_sent" && estimate.clientStatus === "draft"
         return {
           ...estimate,
           stageId,
+          clientStatus: sending ? "sent" : estimate.clientStatus,
           scheduledOn: scheduledOn === undefined ? estimate.scheduledOn : scheduledOn,
           updatedAt: new Date().toISOString(),
         }
@@ -874,6 +908,20 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       commit({ ...getSnapshot().state, estimateSettings })
       void saveCompanyProfile(estimateSettings).catch(() => undefined)
     },
+    rememberPace: (pace) => {
+      const latest = getSnapshot().state
+      const rest = (latest.learnedPaces ?? []).filter(
+        (item) => !(item.estimateId === pace.estimateId && item.areaId === pace.areaId),
+      )
+      commit({ ...latest, learnedPaces: [...rest, pace] })
+    },
+    forgetPace: (estimateId, areaId) => {
+      const latest = getSnapshot().state
+      const learnedPaces = (latest.learnedPaces ?? []).filter(
+        (item) => !(item.estimateId === estimateId && item.areaId === areaId),
+      )
+      commit({ ...latest, learnedPaces: learnedPaces.length > 0 ? learnedPaces : undefined })
+    },
     setCoatRate: (rateId, coats, value) => {
       if (!Number.isFinite(value) || value < 0 || !Number.isFinite(coats)) return
       const speed = Math.round(value * 1000) / 1000
@@ -964,6 +1012,13 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       commitReconciled(next)
       return { created: true }
     },
+    createLead: (input) => {
+      const latest = getSnapshot().state
+      const saved = createOfficeLead(latest, input)
+      if (!saved.ok) return saved
+      commitReconciled(saved.state)
+      return { ok: true, estimateId: saved.estimateId }
+    },
     receivePublicBooking: (booking) => {
       const latest = getSnapshot().state
       const next = applyPublicBooking(latest, booking, new Date().toISOString())
@@ -1028,7 +1083,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           .map((photo) => ({
             id: `companycam-${photo.id}`.slice(0, 80),
             estimateId: order.estimateId,
-            caption: "CompanyCam",
+            caption: "Job photo",
             tag: "in_progress" as const,
             linkKind: null,
             linkId: null,
@@ -1139,6 +1194,29 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           order.estimateId === estimateId ? { ...order, hourDisplay } : order,
         ),
       })
+    },
+    sendSubcontractorOffer: (estimateId, name, email) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return { ok: false, reason: "Save the estimate before you send it." }
+      const existing = latest.workOrders.find((item) => item.estimateId === estimateId)
+      const blocked = offerSendBlock(existing?.offers, email)
+      if (blocked) return { ok: false, reason: blocked }
+      const offer = createSubcontractorOffer({ name, email })
+      if (!offer) return { ok: false, reason: "Enter a name and an email with an @." }
+      const base = existing ?? createWorkOrder(estimate)
+      const nextOrder = {
+        ...base,
+        prepNotes: estimate.crewNote || estimate.notes || base.prepNotes,
+        prepNotesEs: estimate.crewNote.trim() ? estimate.crewNoteEs : estimate.notesEs,
+        offers: [...(base.offers ?? []), offer],
+      }
+      const workOrders = existing
+        ? latest.workOrders.map((item) => (item.estimateId === estimateId ? nextOrder : item))
+        : [nextOrder, ...latest.workOrders]
+      const client = latest.clients.find((item) => item.id === estimate.clientId)
+      commit({ ...latest, workOrders })
+      return { ok: true, token: offer.token, jobName: `${client?.name ?? "Client"} - ${estimate.title}` }
     },
     signSubcontractorCopy: (estimateId, name, signedDate) => {
       const signature = subcontractorSignature(name, signedDate)

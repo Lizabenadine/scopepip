@@ -109,7 +109,7 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
             Every column follows up on its own. A sent quote gets a note the next day, again at three days, and
             again at a week, each with the proposal link. Cold and warm leads use their own cadence, and a finished
             job asks for a review the next day. A reply or a booked visit stops a pursuit. Messages log on the deal
-            until Resend and Twilio keys are set.
+            until email and text sending are connected.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Tokens: {"{client}"} {"{company}"} {"{address}"} {"{visit}"} {"{job}"} {"{salesperson}"} {"{book}"}{" "}
@@ -261,12 +261,12 @@ function hoursFrom(value: string): number {
 
 function emailStatus(connected: boolean): string {
   return connected
-    ? "Email sends through Resend."
-    : "Email logs on the deal until Resend is saved on Integrations."
+    ? "Email sends."
+    : "Email logs on the deal until sending is saved on Integrations."
 }
 
 function textStatus(connected: boolean): string {
   return connected
-    ? "Texts send through Twilio."
-    : "Texts log on the deal until Twilio is saved on Integrations."
+    ? "Texts send."
+    : "Texts log on the deal until sending is saved on Integrations."
 }

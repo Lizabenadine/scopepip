@@ -3,10 +3,15 @@
 import Link from "next/link"
 import { useState } from "react"
 import { DealMenu } from "@/components/pipeline/deal-menu"
+import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
+import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { SCOPE_VERSION } from "@/lib/data/seed"
 import { useScope } from "@/lib/data/store"
-import { appointmentLabel } from "@/lib/appointments/visit"
+import { appointmentLabel, localVisitClock } from "@/lib/appointments/visit"
 import { describeFollowUp, visitDayOf } from "@/lib/follow-ups/schedule"
 import { latestInbound } from "@/lib/messages/thread"
 import { latestProposalOpen } from "@/lib/proposals/opens"
@@ -14,7 +19,7 @@ import { useClientNow } from "@/lib/browser/client-env"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobHeading } from "@/lib/field/copy"
 import { money } from "@/lib/format"
-import { DEAL_LABELS, invoiceStatus, jobStageOf, LEAD_SOURCE_LABELS, salesStageOf } from "@/lib/pipeline/board"
+import { DEAL_LABELS, invoiceStatus, jobStageOf, LEAD_SOURCE_LABELS, nextSalesStage, SALES_COLUMNS, salesStageOf } from "@/lib/pipeline/board"
 import { leadScore } from "@/lib/pipeline/score"
 import { suggestFollowUp } from "@/lib/pipeline/suggest"
 import { displayCompanyName } from "@/lib/brand/company"
@@ -39,6 +44,9 @@ export function DealCard({
   const { setEstimateTags } = scope
   const now = useClientNow() ?? 0
   const [labelsOpen, setLabelsOpen] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
+  const [contactNote, setContactNote] = useState("")
+  const [visitOpen, setVisitOpen] = useState(false)
   const [sendingSuggestion, setSendingSuggestion] = useState(false)
   const source = estimate.leadSource
   const tags = estimate.tags ?? []
@@ -67,6 +75,11 @@ export function DealCard({
   const replied = Boolean(replyOnDeal?.body.trim())
   const score = leadScore(estimate, client, replied)
   const stage = scope.stageById(estimate.stageId)
+  const salesStage = mode === "sales" ? salesStageOf(estimate) : null
+  const nextSales = salesStage ? nextSalesStage(salesStage) : null
+  const nextStep = nextSales
+    ? scope.columnLabels?.[nextSales]?.trim() || SALES_COLUMNS.find((column) => column.id === nextSales)?.label
+    : null
   const order = scope.workOrders.find((item) => item.estimateId === estimate.id)
   const suggestion = suggestFollowUp({
     estimate,
@@ -143,7 +156,46 @@ export function DealCard({
           <DealMenu estimate={estimate} clientName={clientName} mode={mode} />
         </div>
       </div>
+      {nextStep && salesStage === "estimate_scheduled" ? (
+        <Link
+          href={`/estimates/${estimate.id}`}
+          data-testid={`next-step-${estimate.id}`}
+          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
+          onClick={() => scope.advanceSalesStage(estimate.id)}
+        >
+          {nextStep}
+        </Link>
+      ) : null}
+      {nextStep && salesStage === "estimate_requested" ? (
+        <Link
+          href={`/proposal/${estimate.id}`}
+          data-testid={`next-step-${estimate.id}`}
+          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
+        >
+          {nextStep}
+        </Link>
+      ) : null}
+      {nextStep && salesStage !== "estimate_scheduled" && salesStage !== "estimate_requested" ? (
+        <button
+          type="button"
+          data-testid={`next-step-${estimate.id}`}
+          className="h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
+          onClick={() => {
+            if (salesStage === "cold") setContactOpen(true)
+            else if (salesStage === "warm") setVisitOpen(true)
+            else scope.advanceSalesStage(estimate.id)
+          }}
+        >
+          {nextStep}
+        </button>
+      ) : null}
+      {salesStage === "proposal_sent" ? (
+        <Link href={`/p/${estimate.publicToken}`} className="text-sm font-medium text-primary" data-testid={`homeowner-link-${estimate.id}`}>
+          Homeowner proposal
+        </Link>
+      ) : null}
       <p className="text-sm">{estimate.jobAddress || fieldJobHeading("No address yet", jobLanguage)}</p>
+      <NavigateToJobsite address={estimate.jobAddress} />
       {mode === "sales" && !limited ? (
         <Link href={`/book/${estimate.publicToken}`} className="text-xs font-medium text-primary" data-testid={`book-link-${estimate.id}`}>
           Booking page
@@ -243,6 +295,52 @@ export function DealCard({
           ))}
         </div>
       ) : null}
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Contacted</DialogTitle>
+            <DialogDescription>Write what you talked about. The card then moves to Contacted.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor={`contact-${estimate.id}`}>Conversation</Label>
+            <textarea
+              id={`contact-${estimate.id}`}
+              data-testid={`contact-note-${estimate.id}`}
+              value={contactNote}
+              onChange={(event) => setContactNote(event.target.value)}
+              rows={5}
+              className="min-h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              className="h-11"
+              disabled={!contactNote.trim()}
+              onClick={() => {
+                scope.addEstimateNote(estimate.id, contactNote)
+                scope.advanceSalesStage(estimate.id)
+                setContactNote("")
+                setContactOpen(false)
+              }}
+            >
+              Save and move to Contacted
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ScheduleDialog
+        open={visitOpen}
+        kind="visit"
+        clientName={clientName}
+        initialDate={estimate.estimateVisitOn ?? null}
+        initialTime={localVisitClock(estimate.estimateVisitAt)}
+        onOpenChange={setVisitOpen}
+        onConfirm={(date, time) => {
+          if (time) scope.scheduleSalesVisit(estimate.id, date, time)
+          setVisitOpen(false)
+        }}
+      />
     </article>
   )
 }
