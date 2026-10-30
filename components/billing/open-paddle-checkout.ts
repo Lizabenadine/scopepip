@@ -21,7 +21,7 @@ let initializedToken = ""
 export function openPaddleCheckout(checkout: PaddleCheckout): Promise<void> {
   return loadPaddle().then((paddle) => {
     if (initializedToken !== checkout.token) {
-      if (checkout.token.startsWith("test_")) paddle.Environment.set("sandbox")
+      paddle.Environment.set(checkout.token.startsWith("test_") ? "sandbox" : "production")
       paddle.Initialize({ token: checkout.token })
       initializedToken = checkout.token
     }
@@ -41,7 +41,7 @@ function loadPaddle(): Promise<PaddleClient> {
     const finish = () => {
       const paddle = (window as Window & { Paddle?: PaddleClient }).Paddle
       if (paddle) resolve(paddle)
-      else reject(new Error("Paddle did not load."))
+      else reject(new Error("Checkout did not load."))
     }
     if (existing) {
       finish()
@@ -52,7 +52,7 @@ function loadPaddle(): Promise<PaddleClient> {
     script.defer = true
     script.dataset.paddle = "true"
     script.onload = finish
-    script.onerror = () => reject(new Error("Paddle did not load."))
+    script.onerror = () => reject(new Error("Checkout did not load."))
     document.body.appendChild(script)
   })
   return ready

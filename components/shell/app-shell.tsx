@@ -68,15 +68,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/refunds" ||
-    pathname === "/guide" ||
     pathname === "/innova" ||
     pathname.startsWith("/innova/")
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
     pathname.endsWith("/pay") ||
-    pathname === "/request" ||
-    pathname.startsWith("/request/") ||
     pathname.startsWith("/book/") ||
     pathname === "/login" ||
     pathname === "/signup" ||
@@ -159,6 +156,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {roleLabel(session.role, language)}
             </p>
           </div>
+          <Link
+            href="/help"
+            data-testid="nav-help"
+            aria-current={pathname === "/help" ? "page" : undefined}
+            className={cn(
+              "text-sm font-medium",
+              pathname === "/help" ? "text-white" : "text-slate-200 hover:text-white",
+            )}
+          >
+            {say("Help")}
+          </Link>
           <FieldLanguageSwitch />
           <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-200 hover:text-white" onClick={() => void signOut()}>
             {say("Sign out")}

@@ -1,8 +1,8 @@
 import type { ScopeState } from "../data/seed.ts"
-import type { Estimate, EstimateSettings, ProductionRate } from "../types.ts"
+import type { Estimate, EstimateSettings, ProductionRate, SitePhoto, WorkOrder } from "../types.ts"
 import type { UserRole } from "./role.ts"
 
-const MANAGER_PREFIXES = ["/dispatch", "/work-orders", "/payments"]
+const MANAGER_PREFIXES = ["/dispatch", "/work-orders", "/payments", "/help"]
 
 const ESTIMATOR_PREFIXES = [
   "/dashboard",
@@ -15,6 +15,8 @@ const ESTIMATOR_PREFIXES = [
   "/proposal",
   "/follow-ups",
   "/inbox",
+  "/work-orders",
+  "/help",
 ]
 
 export function managerCanOpen(pathname: string): boolean {
@@ -30,6 +32,43 @@ export function roleCanOpen(role: UserRole, pathname: string): boolean {
   if (role === "owner") return true
   if (role === "project_manager") return managerCanOpen(pathname)
   return estimatorCanOpen(pathname)
+}
+
+function mergeEstimatorWorkOrders(previous: WorkOrder[], next: WorkOrder[]): WorkOrder[] {
+  const incoming = new Map(next.map((order) => [order.estimateId, order]))
+  const keptIds = new Set(previous.map((order) => order.estimateId))
+  const kept = previous.map((order) => {
+    const update = incoming.get(order.estimateId)
+    if (!update) return order
+    return {
+      ...order,
+      prepNotes: update.prepNotes,
+      prepNotesEs: update.prepNotesEs,
+      hourDisplay: update.hourDisplay,
+      exclusions: update.exclusions ?? order.exclusions,
+      photos: mergeSitePhotos(order.photos, update.photos),
+      status: update.status,
+      scheduledStartDate: update.scheduledStartDate,
+    }
+  })
+  for (const order of next) {
+    if (keptIds.has(order.estimateId)) continue
+    kept.push({
+      ...order,
+      assignedCrewId: null,
+      notifiedAt: null,
+      subSignature: undefined,
+      subSignedDate: undefined,
+      googleEventId: undefined,
+    })
+  }
+  return kept
+}
+
+function mergeSitePhotos(previous: SitePhoto[], next: SitePhoto[]): SitePhoto[] {
+  const seen = new Set(previous.map((photo) => photo.id))
+  const added = next.filter((photo) => !seen.has(photo.id))
+  return added.length > 0 ? [...previous, ...added] : previous
 }
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
@@ -75,7 +114,7 @@ function lockedRates(incoming: ProductionRate[], locked: ProductionRate[]): Prod
   })
 }
 
-/** An estimator can change the bid. The company rate card, costs, and crew assignments stay with the owner. */
+/** An estimator can change the bid and the work order notes. The company rate card, costs, and crew assignments stay with the owner. */
 export function bookForEstimator(previous: ScopeState, next: ScopeState, userId: string): ScopeState {
   return {
     ...next,
@@ -83,7 +122,7 @@ export function bookForEstimator(previous: ScopeState, next: ScopeState, userId:
     estimateSettings: previous.estimateSettings,
     learnedPaces: previous.learnedPaces,
     paymentMethods: previous.paymentMethods,
-    workOrders: previous.workOrders,
+    workOrders: mergeEstimatorWorkOrders(previous.workOrders, next.workOrders),
     estimates: next.estimates.map((estimate) => {
       const prior = previous.estimates.find((item) => item.id === estimate.id)
       const claim = !prior || scopeKey(prior) !== scopeKey(estimate)

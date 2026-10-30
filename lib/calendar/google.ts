@@ -14,7 +14,7 @@ export function googleCalendarConfigured(): boolean {
 
 export async function pushGoogleCalendar(events: CalendarEvent[]): Promise<GoogleSyncResult> {
   if (!googleCalendarConfigured()) {
-    return { connected: false, synced: 0, failed: 0, events: [], detail: "Google Calendar push is not connected." }
+    return { connected: false, synced: 0, failed: 0, events: [], detail: "Calendar push is not connected." }
   }
   try {
     const token = await accessToken()
@@ -35,10 +35,10 @@ export async function pushGoogleCalendar(events: CalendarEvent[]): Promise<Googl
       synced: saved.length,
       failed,
       events: saved,
-      detail: failed > 0 ? "Some Google Calendar events were rejected." : "Google Calendar updated.",
+      detail: failed > 0 ? "Some calendar events were rejected." : "Calendar updated.",
     }
   } catch {
-    return { connected: true, synced: 0, failed: events.length, events: [], detail: "Google Calendar could not be reached." }
+    return { connected: true, synced: 0, failed: events.length, events: [], detail: "The calendar could not be reached." }
   }
 }
 

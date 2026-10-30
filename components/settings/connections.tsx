@@ -18,7 +18,7 @@ export function Connections() {
   const [leadDetail, setLeadDetail] = useState("")
   const origin = usePageOrigin()
   const [token, setToken] = useState("")
-  const [companyCam, setCompanyCam] = useState("CompanyCam is not connected.")
+  const [companyCam, setCompanyCam] = useState("Job photos are not connected.")
   const [savingCam, setSavingCam] = useState(false)
   const creatingWebhook = useRef(false)
   const inboundToken = leadWebhookToken(scope.estimateSettings.leadWebhookToken)
@@ -39,10 +39,10 @@ export function Connections() {
       .then((response) => response.json())
       .then((payload: { connected?: boolean; last4?: string }) => {
         if (cancelled) return
-        setCompanyCam(payload.connected ? `CompanyCam connected · token ending ${payload.last4}` : "CompanyCam is not connected.")
+        setCompanyCam(payload.connected ? `Job photos connected · token ending ${payload.last4}` : "Job photos are not connected.")
       })
       .catch(() => {
-        if (!cancelled) setCompanyCam("CompanyCam is not connected.")
+        if (!cancelled) setCompanyCam("Job photos are not connected.")
       })
     return () => {
       cancelled = true
@@ -52,7 +52,7 @@ export function Connections() {
   function saveZapier() {
     const url = zapierTarget(webhook)
     if (webhook.trim() && !url) {
-      setZapierDetail("Zapier needs an https webhook URL.")
+      setZapierDetail("The hook needs an https address.")
       return
     }
     scope.updateEstimateSettings({
@@ -60,13 +60,13 @@ export function Connections() {
       zapierWebhookUrl: url ?? "",
       zapierSince: url ? new Date().toISOString() : scope.estimateSettings.zapierSince,
     })
-    setZapierDetail(url ? "Zapier hook saved. New leads, visits, opens, acceptances, jobs, and deposits will post there." : "Zapier hook cleared.")
+    setZapierDetail(url ? "Hook saved. New leads, visits, opens, acceptances, jobs, and deposits will post there." : "Hook cleared.")
   }
 
   async function sendTest() {
     const url = zapierTarget(webhook)
     if (!url) {
-      setZapierDetail("Zapier needs an https webhook URL.")
+      setZapierDetail("The hook needs an https address.")
       return
     }
     const response = await fetch("/api/zapier/dispatch", {
@@ -87,7 +87,7 @@ export function Connections() {
     })
     const payload = (await response.json()) as { ok?: boolean; reason?: string; results?: { delivery: string }[] }
     const delivery = payload.results?.[0]?.delivery
-    setZapierDetail(payload.reason || (delivery === "sent" ? "Zapier accepted the test." : "Zapier did not accept the test."))
+    setZapierDetail(payload.reason || (delivery === "sent" ? "The hook accepted the test." : "The hook did not accept the test."))
   }
 
   async function saveCompanyCam() {
@@ -100,9 +100,9 @@ export function Connections() {
       })
       const payload = (await response.json()) as { connected?: boolean; last4?: string }
       setToken("")
-      setCompanyCam(payload.connected ? `CompanyCam connected · token ending ${payload.last4}` : "CompanyCam is not connected.")
+      setCompanyCam(payload.connected ? `Job photos connected · token ending ${payload.last4}` : "Job photos are not connected.")
     } catch {
-      setCompanyCam("CompanyCam could not be saved.")
+      setCompanyCam("Job photos could not be saved.")
     } finally {
       setSavingCam(false)
     }
@@ -114,7 +114,7 @@ export function Connections() {
       await navigator.clipboard.writeText(inboundUrl)
       setLeadDetail("Webhook address copied.")
     } catch {
-      setLeadDetail("Copy the address above into Zapier.")
+      setLeadDetail("Copy the address above.")
     }
   }
 
@@ -123,7 +123,7 @@ export function Connections() {
       <div>
         <h2 className="text-lg font-semibold">Lead webhook</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Paste this address into Zapier, your website, or another lead source. A post with a name and a phone or email opens a card immediately. Use source when you know it: thumbtack, angi, yelp, facebook, google, or referral.
+          Paste this address into your website or the place leads come from. A post with a name and a phone or email opens a card immediately.
         </p>
         <p className="mt-3 break-all font-mono text-sm" data-testid="lead-webhook-url">
           {inboundUrl || "Preparing the webhook address."}
@@ -134,9 +134,9 @@ export function Connections() {
         {leadDetail ? <p className="mt-2 text-sm">{leadDetail}</p> : null}
       </div>
       <div>
-        <h2 className="text-lg font-semibold">Zapier triggers</h2>
+        <h2 className="text-lg font-semibold">Outbound hooks</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Paste a Catch Hook URL. ScopePipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
+          Paste a hook address. Scopepipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
         </p>
         <div className="mt-3 grid gap-2">
           <Label htmlFor="zapierWebhook">Webhook URL</Label>
@@ -144,7 +144,7 @@ export function Connections() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" className="h-11" data-testid="zapier-save" onClick={saveZapier}>
-            Save Zapier hook
+            Save hook
           </Button>
           <Button type="button" variant="outline" className="h-11" data-testid="zapier-test" onClick={() => void sendTest()}>
             Send test
@@ -155,9 +155,9 @@ export function Connections() {
       <OutboundHooks />
       <SendingKeys />
       <div>
-        <h2 className="text-lg font-semibold">CompanyCam</h2>
+        <h2 className="text-lg font-semibold">Job photos</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          A token pulls projects and photos onto the work order. A CompanyCam link stored on the job is not this connection.
+          A token pulls projects and photos onto the work order. A photo link stored on the job is separate.
         </p>
         <p className="mt-2 text-sm" data-testid="companycam-status">{companyCam}</p>
         <div className="mt-3 grid gap-2">
@@ -173,7 +173,7 @@ export function Connections() {
           />
         </div>
         <Button type="button" className="mt-3 h-11" data-testid="companycam-save" disabled={savingCam} onClick={() => void saveCompanyCam()}>
-          {savingCam ? "Saving..." : "Save CompanyCam token"}
+          {savingCam ? "Saving..." : "Save photo token"}
         </Button>
       </div>
     </section>

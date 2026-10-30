@@ -105,11 +105,6 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             </div>
             {progressOnly ? null : (
             <div className="flex gap-4">
-              {kind === "sales" ? (
-                <Link href={scope.session ? `/request/${scope.session.companySlug}` : "/signup"} data-testid="website-form" className="text-sm font-medium text-primary hover:underline">
-                  {say("Website form")}
-                </Link>
-              ) : null}
               <Link href="/follow-ups" className="text-sm font-medium text-primary hover:underline">
                 {say("Follow-ups")}
               </Link>

@@ -212,26 +212,26 @@ export function SubcontractorWorkOrder({
         )}
       </section>
 
-      <section className="space-y-6 rounded-2xl border-2 border-slate-900 bg-slate-900 p-6 text-white shadow-md sm:p-8">
+      <section className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm sm:p-8">
         <div>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold">{copy.signOff}</h2>
-            <span className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] font-bold tracking-wider text-slate-300 uppercase">
+            <span className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold tracking-wider text-slate-600 uppercase">
               {copy.subCopy}
             </span>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-slate-500">
             {copy.signOffBody}
           </p>
         </div>
         {signed ? (
           <div
-            className="space-y-1 rounded-xl border border-emerald-500/40 bg-emerald-950/80 p-4 text-xs text-emerald-200"
+            className="space-y-1 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-950"
             data-testid="subcontractor-signed"
           >
-            <p className="font-bold text-emerald-400">{copy.acceptedSigned}</p>
+            <p className="font-bold text-emerald-800">{copy.acceptedSigned}</p>
             <p>
-              {copy.signedBy}: <span className="font-serif text-sm text-white">{order.subSignature}</span>
+              {copy.signedBy}: <span className="font-serif text-sm text-slate-950">{order.subSignature}</span>
               {order.subSignedDate ? ` on ${order.subSignedDate}` : ""}
             </p>
           </div>
@@ -239,7 +239,7 @@ export function SubcontractorWorkOrder({
           <form onSubmit={handleSubSign} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="sm:col-span-2">
-                <label htmlFor="subcontractor-name" className="mb-1 block text-xs font-semibold text-slate-300">
+                <label htmlFor="subcontractor-name" className="mb-1 block text-xs font-semibold text-slate-700">
                   {copy.printedName}
                 </label>
                 <input
@@ -250,11 +250,11 @@ export function SubcontractorWorkOrder({
                   placeholder={copy.crewLeadName}
                   value={subName}
                   onChange={(event) => setSubName(event.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 font-serif text-base text-white focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-serif text-base text-slate-950 focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="subcontractor-date" className="mb-1 block text-xs font-semibold text-slate-300">
+                <label htmlFor="subcontractor-date" className="mb-1 block text-xs font-semibold text-slate-700">
                   {copy.date}
                 </label>
                 <input
@@ -264,7 +264,7 @@ export function SubcontractorWorkOrder({
                   required
                   value={subDate}
                   onChange={(event) => setSubDate(event.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-950 focus:border-blue-500 focus:outline-none"
                 />
               </div>
             </div>

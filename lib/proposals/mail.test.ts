@@ -47,7 +47,7 @@ describe("proposalMail", () => {
       clientName: "José Ortiz",
       clientEmail: "jose@example.com",
       language: "es",
-      companyName: "PB Painting",
+      companyName: "ScopePipe",
       paymentMethods: state.paymentMethods,
       origin: "https://office.example",
     })
@@ -70,7 +70,7 @@ describe("proposalMail", () => {
       clientName: "Alex",
       clientEmail: "",
       language: "en",
-      companyName: "PB Painting",
+      companyName: "ScopePipe",
       paymentMethods: state.paymentMethods,
       origin: "https://office.example",
     })
@@ -93,7 +93,7 @@ describe("proposalMail", () => {
       pdf: new TextEncoder().encode("%PDF-1.4\n"),
     })
     assert.equal(result.delivery, "logged")
-    assert.match(result.detail, /Add Resend on Integrations/)
+    assert.match(result.detail, /Add the email key on Integrations/)
     if (previous.resend === undefined) delete process.env.RESEND_API_KEY
     else process.env.RESEND_API_KEY = previous.resend
     if (previous.from === undefined) delete process.env.FOLLOW_UP_FROM_EMAIL

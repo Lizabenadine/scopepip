@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     const record = body && typeof body === "object" ? (body as { url?: unknown; events?: unknown }) : {}
     const url = zapierTarget(typeof record.url === "string" ? record.url : "")
-    if (!url) return Response.json({ ok: false, reason: "Zapier needs an https webhook URL." }, { status: 400 })
+    if (!url) return Response.json({ ok: false, reason: "The hook needs an https address." }, { status: 400 })
     const events = Array.isArray(record.events) ? record.events.filter(isEvent).slice(0, 20) : []
     const results: { id: string; delivery: "sent" | "failed" }[] = []
     for (const event of events) {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     }
     return Response.json({ ok: true, results })
   } catch {
-    return Response.json({ ok: false, reason: "Zapier could not be reached." })
+    return Response.json({ ok: false, reason: "The hook could not be reached." })
   }
 }
 

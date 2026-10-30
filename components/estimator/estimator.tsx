@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { useTypedNumber } from "@/hooks/use-typed-number"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
 import { AreaEditor } from "@/components/estimator/area-editor"
@@ -420,7 +421,7 @@ export function Estimator({
                 ) : null}
                 {line.pending ? (
                   <p className="mt-2 text-sm text-muted-foreground" data-testid={`pending-note-${line.id}`}>
-                    Off the invoice until the customer signs. A negative price becomes a QuickBooks credit.{" "}
+                    Off the invoice until the customer signs. A negative price becomes a credit.{" "}
                     {money(pendingAmount(line, draft.settings))} is waiting.
                   </p>
                 ) : null}
@@ -927,25 +928,18 @@ function NumberBox({
   hideLabel?: boolean
   allowNegative?: boolean
 }) {
-  const [draft, setDraft] = useState<string | null>(null)
+  const typed = useTypedNumber(value, onChange, allowNegative)
   return (
     <div className="grid gap-1">
       {hideLabel ? null : <Label>{label}</Label>}
       <Input
         aria-label={ariaLabel ?? label}
         inputMode="decimal"
-        value={draft ?? String(value)}
+        value={typed.value}
         className="h-11"
-        onFocus={() => setDraft(String(value))}
-        onBlur={() => setDraft(null)}
-        onValueChange={(next) => {
-          const negative = allowNegative && next.trim().startsWith("-")
-          const cleaned = next.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-          const shown = negative ? `-${cleaned}` : cleaned
-          setDraft(shown)
-          const parsed = cleaned === "" || cleaned === "." ? 0 : Number(shown)
-          onChange(Number.isFinite(parsed) ? parsed : 0)
-        }}
+        onFocus={typed.onFocus}
+        onBlur={typed.onBlur}
+        onValueChange={typed.onValueChange}
       />
     </div>
   )

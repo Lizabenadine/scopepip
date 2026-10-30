@@ -67,9 +67,9 @@ export function QuickBooksSync() {
         .filter((credit) => credit.delivery === "synced" && credit.quickbooksCreditId)
         .map((credit) => ({ estimateId: credit.estimateId, creditId: credit.creditId, quickbooksCreditId: credit.quickbooksCreditId! }))
       if (appliedCredits.length > 0) scope.applyQuickBooksCredits(appliedCredits)
-      setDetail(payload.detail || (payload.connected ? "QuickBooks did not accept the invoices." : "QuickBooks is not connected."))
+      setDetail(payload.detail || (payload.connected ? "The books did not accept the invoices." : "The books are not connected."))
     } catch {
-      setDetail("QuickBooks could not be reached.")
+      setDetail("The books could not be reached.")
     } finally {
       setSending(false)
     }
@@ -79,9 +79,9 @@ export function QuickBooksSync() {
 
   return (
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="quickbooks-sync">
-      <h2 className="text-lg font-semibold">QuickBooks</h2>
+      <h2 className="text-lg font-semibold">Invoice sync</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Accepted invoices sync to QuickBooks Online when the company is connected. Nothing is marked synced until QuickBooks accepts it.
+        Accepted invoices sync to the books when the company is connected. Nothing is marked synced until the books accept them.
       </p>
       <Button type="button" className="mt-3 h-11" data-testid="quickbooks-send" disabled={sending || rows.length === 0} onClick={() => void sync()}>
         {sending ? "Syncing..." : "Sync invoices"}

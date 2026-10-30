@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTypedNumber } from "@/hooks/use-typed-number"
 import { useScope } from "@/lib/data/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,16 +10,19 @@ import { moneyExact } from "@/lib/format"
 import { depositAmount } from "@/lib/payments/deposit"
 import {
   DEFAULT_SURFACE_RATES,
+  JOB_SIDES,
   SURFACE_LABELS,
-  SURFACE_TYPES,
   SURFACE_UNITS,
+  SURFACES_FOR_SIDE,
   laborPaymentSchedule,
+  type JobSide,
   type PaymentMilestone,
   type SurfaceType,
 } from "@/lib/payments/schedule"
 
 interface SurfaceEntry {
   id: string
+  side: JobSide
   surfaceType: SurfaceType
   quantity: number
   coats: number
@@ -26,8 +30,8 @@ interface SurfaceEntry {
 }
 
 const STARTING_SURFACES: SurfaceEntry[] = [
-  { id: "surface-drywall", surfaceType: "drywall", quantity: 1200, coats: 2, productionRate: 150 },
-  { id: "surface-trim", surfaceType: "trim_linear", quantity: 250, coats: 2, productionRate: 80 },
+  { id: "surface-walls", side: "interior", surfaceType: "drywall", quantity: 1200, coats: 2, productionRate: 150 },
+  { id: "surface-siding", side: "exterior", surfaceType: "siding", quantity: 500, coats: 2, productionRate: 120 },
 ]
 
 export function LaborSchedule() {
@@ -38,6 +42,10 @@ export function LaborSchedule() {
   const [milestones, setMilestones] = useState<PaymentMilestone[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const deposit = useTypedNumber(depositPercent, (next) => {
+    setDepositPercent(Math.min(100, Math.max(0, next)))
+    setMilestones([])
+  })
 
   if (session?.role === "estimator") return null
 
@@ -99,22 +107,21 @@ export function LaborSchedule() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Labor payment schedule</h2>
           <p className="text-sm text-muted-foreground">
-            Hours are quantity times coats, divided by the production rate. The proposal total above still comes from the rooms.
+            Each row is interior or exterior. Hours are quantity times coats, divided by the production rate. The proposal total above still comes from the rooms.
           </p>
         </div>
         <div className="flex gap-3">
           <div className="grid w-28 gap-1">
             <Label htmlFor="depositPercent">Deposit %</Label>
-            <input
+            <Input
               id="depositPercent"
-              type="number"
-              value={depositPercent}
+              inputMode="decimal"
+              value={deposit.value}
               data-testid="labor-deposit-percent"
-              onChange={(e) => {
-                setDepositPercent(Number(e.target.value))
-                setMilestones([])
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-11"
+              onFocus={deposit.onFocus}
+              onBlur={deposit.onBlur}
+              onValueChange={deposit.onValueChange}
             />
             <p className="text-xs text-muted-foreground tabular-nums" data-testid="labor-deposit-amount">
               {moneyExact(depositDue)}
@@ -144,8 +151,28 @@ export function LaborSchedule() {
           return (
             <div
               key={surface.id}
-              className="grid gap-3 rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,0.7fr))_minmax(0,0.9fr)_auto] md:items-end"
+              className="grid gap-3 rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_repeat(2,minmax(0,0.6fr))_minmax(0,0.8fr)_auto] md:items-end"
             >
+              <div className="grid gap-1">
+                <Label htmlFor={`${surface.id}-side`}>Interior or exterior</Label>
+                <select
+                  id={`${surface.id}-side`}
+                  value={surface.side}
+                  data-testid={`surface-side-${surface.id}`}
+                  className="h-11 rounded-lg border border-input bg-transparent px-2"
+                  onChange={(event) => {
+                    const side = event.target.value
+                    if (!(JOB_SIDES as readonly string[]).includes(side)) return
+                    const nextSide = side as JobSide
+                    const choices = SURFACES_FOR_SIDE[nextSide]
+                    const surfaceType = choices.includes(surface.surfaceType) ? surface.surfaceType : choices[0]
+                    updateSurface(surface.id, { side: nextSide, surfaceType })
+                  }}
+                >
+                  <option value="interior">Interior</option>
+                  <option value="exterior">Exterior</option>
+                </select>
+              </div>
               <div className="grid gap-1">
                 <Label htmlFor={`${surface.id}-type`}>Surface</Label>
                 <select
@@ -154,11 +181,11 @@ export function LaborSchedule() {
                   className="h-11 rounded-lg border border-input bg-transparent px-2"
                   onChange={(event) => {
                     const value = event.target.value
-                    if (!(SURFACE_TYPES as readonly string[]).includes(value)) return
+                    if (!SURFACES_FOR_SIDE[surface.side].includes(value as SurfaceType)) return
                     updateSurface(surface.id, { surfaceType: value as SurfaceType })
                   }}
                 >
-                  {SURFACE_TYPES.map((type) => (
+                  {SURFACES_FOR_SIDE[surface.side].map((type) => (
                     <option key={type} value={type}>
                       {SURFACE_LABELS[type]} ({SURFACE_UNITS[type]})
                     </option>
@@ -219,6 +246,7 @@ export function LaborSchedule() {
             ...current,
             {
               id: crypto.randomUUID(),
+              side: "exterior",
               surfaceType: "siding",
               quantity: 500,
               coats: 2,

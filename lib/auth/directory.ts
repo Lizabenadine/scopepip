@@ -17,6 +17,7 @@ import { postProposalMessage } from "../proposals/chat.ts"
 import { applyDecline } from "../proposals/decline.ts"
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { isSubscriptionStatus, trialEndsAt, type SubscriptionStatus } from "../billing/access.ts"
+import { matchCompanySlug, slugifyCompanyName } from "./company-slug.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
 import { roleSignInReason, type UserRole } from "./role.ts"
@@ -273,18 +274,8 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
-function slugify(name: string): string {
-  const base = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40)
-  return base || "company"
-}
-
 function uniqueSlug(name: string, companies: StoredCompany[]): string {
-  const base = slugify(name)
+  const base = slugifyCompanyName(name)
   if (!companies.some((company) => company.slug === base)) return base
   let index = 2
   while (companies.some((company) => company.slug === `${base}-${index}`)) index += 1
@@ -490,7 +481,7 @@ export async function writeCompanyBook(
 }
 
 export async function companyBySlug(slug: string): Promise<{ name: string; slug: string; id: string } | null> {
-  const company = (await readAccounts()).companies.find((item) => item.slug === slug)
+  const company = matchCompanySlug((await readAccounts()).companies, slug)
   if (!company) return null
   return { name: company.name, slug: company.slug, id: company.id }
 }

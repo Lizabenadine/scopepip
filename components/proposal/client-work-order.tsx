@@ -31,35 +31,35 @@ export function ClientWorkOrder({
     : ""
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-slate-100 shadow-2xl md:p-8 print:border-slate-300 print:bg-white print:text-slate-900 print:shadow-none">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-6 print:border-slate-200">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm md:p-8 print:shadow-none">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <CompanyMark
             name={companyName}
             logoUrl={logoUrl}
-            className="text-2xl font-bold tracking-tight text-white print:text-slate-950"
+            className="text-2xl font-bold tracking-tight text-slate-950"
             imageClassName="h-9"
             testId="client-work-order-brand"
           />
-          <p className="mt-1 text-xs text-slate-400 print:text-slate-500">
+          <p className="mt-1 text-xs text-slate-500">
             {spanish ? "Orden de trabajo para el cliente" : "Work order for the client"}
           </p>
         </div>
         <div className="text-right">
-          <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold tracking-wider text-cyan-400 uppercase">
+          <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold tracking-wider text-cyan-800 uppercase">
             {spanish ? "Orden de Trabajo" : "Work Order"}
           </span>
-          <p className="mt-2 text-sm font-semibold text-slate-200 print:text-slate-800">#{orderNumber}</p>
+          <p className="mt-2 text-sm font-semibold text-slate-800">#{orderNumber}</p>
         </div>
       </div>
 
-      <div className="my-6 flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900/80 p-4 print:border-slate-200 print:bg-slate-50">
+      <div className="my-6 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
         <div>
-          <h3 className="text-xs font-semibold tracking-wider text-slate-400 uppercase print:text-slate-500">
+          <h3 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
             {spanish ? "Dirección del Trabajo" : "Jobsite Address"}
           </h3>
-          <p className="text-sm font-medium text-white print:text-slate-950">{clientName}</p>
-          {address ? <p className="text-sm text-slate-300 print:text-slate-700">{address}</p> : null}
+          <p className="text-sm font-medium text-slate-950">{clientName}</p>
+          {address ? <p className="text-sm text-slate-700">{address}</p> : null}
         </div>
         {mapsUrl ? (
           <a
@@ -81,7 +81,7 @@ export function ClientWorkOrder({
         {sections.map((section) => (
           <div key={section.groupId ?? "ungrouped"} className="space-y-4">
             {section.groupName ? (
-              <h2 className="text-xs font-semibold tracking-wider text-slate-400 uppercase" data-testid="proposal-group">
+              <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase" data-testid="proposal-group">
                 {say(section.groupName)}
               </h2>
             ) : null}
@@ -95,41 +95,41 @@ export function ClientWorkOrder({
                 .filter(Boolean)
                 .join(". ")
               return (
-                <section key={area.id} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5 print:border-slate-200 print:bg-white">
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-800/60 pb-3 print:border-slate-200">
-                    <h4 className="text-base font-bold text-cyan-400">{say(area.name)}</h4>
-                    <span className="text-sm font-semibold text-white print:text-slate-950">{money(area.clientPrice)}</span>
+                <section key={area.id} className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                    <h4 className="text-base font-bold text-cyan-800">{say(area.name)}</h4>
+                    <span className="text-sm font-semibold text-slate-950">{money(area.clientPrice)}</span>
                   </div>
-                  <p className="text-xs text-slate-400 print:text-slate-500">{size}</p>
+                  <p className="text-xs text-slate-500">{size}</p>
                   {[area.colorName, area.colorCode, area.sheen].filter(Boolean).length > 0 ? (
-                    <p className="text-sm text-slate-200 print:text-slate-800" data-testid="room-color">
+                    <p className="text-sm text-slate-800" data-testid="room-color">
                       {[area.colorName, area.colorCode, area.sheen].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {surfaces.map((surface) => (
-                      <div key={surface.id} className="rounded-lg border border-slate-800/50 bg-slate-950/60 p-3 print:border-slate-200 print:bg-slate-50">
-                        <div className="mb-1 flex justify-between gap-3 text-xs text-slate-400 print:text-slate-500">
+                      <div key={surface.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="mb-1 flex justify-between gap-3 text-xs text-slate-500">
                           <span>{say(surface.clientLabel)}</span>
                           {surface.showCoats && surface.coatCount > 0 ? (
-                            <span className="font-semibold text-cyan-400">{say(`${surface.coatCount} coats`)}</span>
+                            <span className="font-semibold text-cyan-700">{say(`${surface.coatCount} coats`)}</span>
                           ) : null}
                         </div>
                         {surface.productName === "Prep" ? null : (
-                          <p className="text-sm font-semibold text-white print:text-slate-950">{say(surface.productName)}</p>
+                          <p className="text-sm font-semibold text-slate-950">{say(surface.productName)}</p>
                         )}
                         {surface.clientDescription ? (
-                          <p className="mt-1 text-xs text-slate-400 print:text-slate-600">{say(surface.clientDescription)}</p>
+                          <p className="mt-1 text-xs text-slate-600">{say(surface.clientDescription)}</p>
                         ) : null}
                         {surface.showPrice ? (
-                          <p className="mt-2 text-xs font-semibold text-slate-200 print:text-slate-800">{money(surface.price)}</p>
+                          <p className="mt-2 text-xs font-semibold text-slate-800">{money(surface.price)}</p>
                         ) : null}
                       </div>
                     ))}
                   </div>
                   {prep ? (
-                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200/90 print:border-amber-300 print:bg-amber-50 print:text-amber-950">
-                      <span className="mb-1 block font-bold tracking-wider text-amber-400 uppercase print:text-amber-800">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                      <span className="mb-1 block font-bold tracking-wider text-amber-800 uppercase">
                         {spanish ? "Instrucciones de Preparación" : "Prep Instructions"}
                       </span>
                       {say(prep)}

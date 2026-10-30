@@ -5,7 +5,6 @@ import type { InboundLeadSource } from "@/lib/types"
 export const runtime = "nodejs"
 
 const SOURCES: Record<string, InboundLeadSource> = {
-  website: "website",
   thumbtack: "thumbtack",
   angi: "angi",
   "google-lsa": "google_lsa",

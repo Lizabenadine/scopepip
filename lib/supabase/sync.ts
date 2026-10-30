@@ -356,7 +356,7 @@ async function postEstimate(input: EstimateSyncInput): Promise<void> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ payload, workOrder: input.workOrder ?? null }),
   })
-  if (!response.ok) throw new Error("Supabase did not take this estimate.")
+  if (!response.ok) throw new Error("The hosted book did not take this estimate.")
 }
 
 export function syncSavedEstimate(input: EstimateSyncInput): Promise<void> {
@@ -369,7 +369,7 @@ export function deleteSyncedEstimate(companyId: string, estimateId: string): Pro
   return lane(`${companyId}:${estimateId}`, async () => {
     const remoteId = await stableRemoteId(companyId, "estimate", estimateId)
     const response = await fetch(`/api/sync?estimateId=${encodeURIComponent(remoteId)}`, { method: "DELETE" })
-    if (!response.ok) throw new Error("Supabase did not remove this estimate.")
+    if (!response.ok) throw new Error("The hosted book did not remove this estimate.")
   })
 }
 

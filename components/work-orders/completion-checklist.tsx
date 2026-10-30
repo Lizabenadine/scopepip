@@ -9,9 +9,11 @@ import type { ChecklistItem } from "@/lib/types"
 export function CompletionChecklist({
   items,
   onToggle,
+  readOnly = false,
 }: {
   items: ChecklistItem[]
   onToggle: (id: string) => void
+  readOnly?: boolean
 }) {
   const { copy, language } = useFieldLanguage()
   const done = items.filter((item) => item.done).length
@@ -29,31 +31,51 @@ export function CompletionChecklist({
       <ul className="flex flex-col gap-2">
         {items.map((item) => (
           <li key={item.id}>
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={item.done}
-              onClick={() => onToggle(item.id)}
-              className={cn(
-                "flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left border border-slate-200 bg-white shadow-sm",
-                item.done ? "bg-muted text-muted-foreground" : "bg-card",
-              )}
-            >
-              <span
+            {readOnly ? (
+              <div
                 className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-foreground/20",
-                  item.done && "bg-primary text-primary-foreground ring-primary",
+                  "flex min-h-12 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm",
+                  item.done && "bg-muted text-muted-foreground",
                 )}
               >
-                {item.done ? <Check className="size-4" /> : null}
-              </span>
-              <span className={cn("text-sm", item.done && "line-through")}>
-                {translatePainting(copy.checklistLabel(item.label), language)}
-              </span>
-            </button>
+                <CheckMark done={item.done} />
+                <span className={cn("text-sm", item.done && "line-through")}>
+                  {translatePainting(copy.checklistLabel(item.label), language)}
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={item.done}
+                onClick={() => onToggle(item.id)}
+                className={cn(
+                  "flex min-h-12 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm",
+                  item.done ? "bg-muted text-muted-foreground" : "bg-card",
+                )}
+              >
+                <CheckMark done={item.done} />
+                <span className={cn("text-sm", item.done && "line-through")}>
+                  {translatePainting(copy.checklistLabel(item.label), language)}
+                </span>
+              </button>
+            )}
           </li>
         ))}
       </ul>
     </section>
+  )
+}
+
+function CheckMark({ done }: { done: boolean }) {
+  return (
+    <span
+      className={cn(
+        "flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-foreground/20",
+        done && "bg-primary text-primary-foreground ring-primary",
+      )}
+    >
+      {done ? <Check className="size-4" /> : null}
+    </span>
   )
 }

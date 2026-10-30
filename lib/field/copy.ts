@@ -129,6 +129,7 @@ export type FieldCopy = {
   workOrdersTitle: string
   acceptedEmpty: string
   acceptedCount: (count: number) => string
+  checkWork: string
   noActiveJobs: string
   status: Record<"unscheduled" | "scheduled" | "in_progress" | "complete", string>
   crewSheetWaits: string
@@ -262,6 +263,7 @@ const english: FieldCopy = {
   workOrdersTitle: "Work Orders",
   acceptedEmpty: "Accepted work shows up here.",
   acceptedCount: (count) => `${count} accepted ${count === 1 ? "job" : "jobs"}`,
+  checkWork: "Open a job and check the work.",
   noActiveJobs: "No active jobs yet.",
   status: {
     unscheduled: "Unscheduled",
@@ -298,8 +300,8 @@ const english: FieldCopy = {
   phone: "Phone",
   salesRep: "Sales Rep",
   generated: "Generated",
-  jobPhotos: "Job photos and site documentation: view progress and prep photos in CompanyCam.",
-  openCompanyCam: "Open CompanyCam",
+  jobPhotos: "Job photos and site documentation: view progress and prep photos.",
+  openCompanyCam: "Open job photos",
   colors: "Paint colors and finishes",
   fromEstimate: "From the estimate",
   noPaint: "No paint products on this estimate.",
@@ -368,12 +370,12 @@ const english: FieldCopy = {
   signAndApply: "Sign and apply",
   changeError: "Add the scope, the amount, and the client's signature.",
   changeFailed: "Could not apply the change order.",
-  companyCam: "CompanyCam sync",
+  companyCam: "Job photos",
   companyCamLinked: "Pulls the matching project and its photos. The saved link on this job is separate.",
   companyCamUnlinked: "Pulls the matching project and its photos. A saved link is not this sync.",
   lastSync: "Last sync",
   syncing: "Syncing...",
-  syncCompanyCam: "Sync CompanyCam",
+  syncCompanyCam: "Sync job photos",
   sitePhotos: "Site photos",
   noSitePhotos: "No site photos yet. Take one before you start, and another when the room is done.",
   tag: "Tag",
@@ -407,6 +409,7 @@ const spanish: FieldCopy = {
   workOrdersTitle: "Órdenes de trabajo",
   acceptedEmpty: "El trabajo aceptado aparece aquí.",
   acceptedCount: (count) => `${count} ${count === 1 ? "trabajo aceptado" : "trabajos aceptados"}`,
+  checkWork: "Abre un trabajo y revisa la lista.",
   noActiveJobs: "Todavía no hay trabajos activos.",
   status: {
     unscheduled: "Sin programar",
@@ -443,8 +446,8 @@ const spanish: FieldCopy = {
   phone: "Teléfono",
   salesRep: "Vendedor",
   generated: "Generada",
-  jobPhotos: "Fotos del trabajo y del sitio: ve el avance y la preparación en CompanyCam.",
-  openCompanyCam: "Abrir CompanyCam",
+  jobPhotos: "Fotos del trabajo y del sitio: ve el avance y la preparación.",
+  openCompanyCam: "Abrir fotos del trabajo",
   colors: "Colores y acabados",
   fromEstimate: "Del estimado",
   noPaint: "Este estimado no tiene productos de pintura.",
@@ -513,12 +516,12 @@ const spanish: FieldCopy = {
   signAndApply: "Firmar y aplicar",
   changeError: "Agrega el alcance, el monto y la firma del cliente.",
   changeFailed: "No se pudo aplicar la orden de cambio.",
-  companyCam: "Sincronizar CompanyCam",
+  companyCam: "Fotos del trabajo",
   companyCamLinked: "Trae el proyecto que coincide y sus fotos. El enlace guardado de este trabajo es aparte.",
   companyCamUnlinked: "Trae el proyecto que coincide y sus fotos. Un enlace guardado no es esta sincronización.",
   lastSync: "Última sincronización",
   syncing: "Sincronizando...",
-  syncCompanyCam: "Sincronizar CompanyCam",
+  syncCompanyCam: "Sincronizar fotos",
   sitePhotos: "Fotos del sitio",
   noSitePhotos: "Todavía no hay fotos. Toma una antes de empezar y otra cuando el cuarto esté listo.",
   tag: "Etiqueta",

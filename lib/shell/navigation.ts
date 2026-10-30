@@ -27,6 +27,11 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
         ],
       },
       {
+        name: "Jobs",
+        short: "Jobs",
+        links: [{ name: "Work Orders", href: "/work-orders" }],
+      },
+      {
         name: "Daily",
         short: "Daily",
         links: [

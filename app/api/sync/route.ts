@@ -9,10 +9,10 @@ export async function GET(request: Request) {
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   try {
     const cloud = await readCloud(session.companyId)
-    if (!cloud) return Response.json({ reason: "Supabase is not configured." }, { status: 503 })
+    if (!cloud) return Response.json({ reason: "The hosted book is not configured." }, { status: 503 })
     return Response.json(cloud)
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "Supabase could not be read."
+    const reason = error instanceof Error ? error.message : "The hosted book could not be read."
     return Response.json({ reason }, { status: 502 })
   }
 }
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     await writeCloudEstimate(session.companyId, body.payload, body.workOrder ?? null)
     return Response.json({ ok: true })
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "Supabase did not take this estimate."
+    const reason = error instanceof Error ? error.message : "The hosted book did not take this estimate."
     return Response.json({ reason }, { status: 502 })
   }
 }
@@ -45,7 +45,7 @@ export async function DELETE(request: Request) {
     await deleteCloudEstimate(session.companyId, estimateId)
     return Response.json({ ok: true })
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "Supabase did not remove this estimate."
+    const reason = error instanceof Error ? error.message : "The hosted book did not remove this estimate."
     return Response.json({ reason }, { status: 502 })
   }
 }

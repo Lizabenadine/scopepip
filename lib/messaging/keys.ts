@@ -106,22 +106,22 @@ export function saveSendKeys(patch: Partial<SendKeys>): { ok: true } | { ok: fal
   const next: SendKeys = { ...current }
   if (patch.resendKey !== undefined) {
     const key = patch.resendKey.trim()
-    if (key && key.length < 8) return { ok: false, reason: "The Resend key is too short." }
+    if (key && key.length < 8) return { ok: false, reason: "The email key is too short." }
     next.resendKey = key || current.resendKey
   }
   if (patch.resendFrom !== undefined) {
     const from = patch.resendFrom.trim()
-    if (from && !from.includes("@")) return { ok: false, reason: "Resend needs a from email." }
+    if (from && !from.includes("@")) return { ok: false, reason: "Email needs a from address." }
     next.resendFrom = from
   }
   if (patch.twilioSid !== undefined) {
     const sid = patch.twilioSid.trim()
-    if (sid && !sid.startsWith("AC")) return { ok: false, reason: "The Twilio account SID starts with AC." }
+    if (sid && !sid.startsWith("AC")) return { ok: false, reason: "The text account id starts with AC." }
     next.twilioSid = sid || current.twilioSid
   }
   if (patch.twilioToken !== undefined) {
     const token = patch.twilioToken.trim()
-    if (token && token.length < 8) return { ok: false, reason: "The Twilio token is too short." }
+    if (token && token.length < 8) return { ok: false, reason: "The text token is too short." }
     next.twilioToken = token || current.twilioToken
   }
   if (patch.twilioFrom !== undefined) {
@@ -129,22 +129,22 @@ export function saveSendKeys(patch: Partial<SendKeys>): { ok: true } | { ok: fal
   }
   if (patch.supabaseSecret !== undefined) {
     const secret = patch.supabaseSecret.trim()
-    if (secret && secret.length < 20) return { ok: false, reason: "The Supabase service key is too short." }
+    if (secret && secret.length < 20) return { ok: false, reason: "The database service key is too short." }
     next.supabaseSecret = secret || current.supabaseSecret
   }
   if (patch.stripeSecret !== undefined) {
     const secret = patch.stripeSecret.trim()
-    if (secret && !secret.startsWith("sk_")) return { ok: false, reason: "The Stripe secret key starts with sk_." }
+    if (secret && !secret.startsWith("sk_")) return { ok: false, reason: "The card secret key starts with sk_." }
     next.stripeSecret = secret || current.stripeSecret
   }
   if (patch.stripePublishable !== undefined) {
     const key = patch.stripePublishable.trim()
-    if (key && !key.startsWith("pk_")) return { ok: false, reason: "The Stripe publishable key starts with pk_." }
+    if (key && !key.startsWith("pk_")) return { ok: false, reason: "The card publishable key starts with pk_." }
     next.stripePublishable = key || current.stripePublishable
   }
   if (patch.stripeWebhookSecret !== undefined) {
     const secret = patch.stripeWebhookSecret.trim()
-    if (secret && !secret.startsWith("whsec_")) return { ok: false, reason: "The Stripe webhook secret starts with whsec_." }
+    if (secret && !secret.startsWith("whsec_")) return { ok: false, reason: "The card webhook secret starts with whsec_." }
     next.stripeWebhookSecret = secret || current.stripeWebhookSecret
   }
   if (patch.cronSecret !== undefined) {

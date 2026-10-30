@@ -118,7 +118,7 @@ function markSyncNotice() {
   if (current.notice) return
   current = {
     ...current,
-    notice: "Saved on this account. Supabase did not take the latest estimate.",
+    notice: "Saved on this account. The hosted book did not take the latest estimate.",
   }
   emit()
 }
@@ -1048,7 +1048,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           .map((photo) => ({
             id: `companycam-${photo.id}`.slice(0, 80),
             estimateId: order.estimateId,
-            caption: "CompanyCam",
+            caption: "Job photo",
             tag: "in_progress" as const,
             linkKind: null,
             linkId: null,

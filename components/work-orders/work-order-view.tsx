@@ -23,6 +23,7 @@ export function WorkOrderView({ id }: { id: string }) {
   const { estimateSettings, session } = useScope()
   const { copy, language } = useFieldLanguage()
   const limited = session?.role === "project_manager"
+  const estimator = session?.role === "estimator"
   const hourOptions: { id: WorkOrder["hourDisplay"]; label: string }[] = [
     { id: "all", label: copy.showAllHours },
     { id: "hide-item", label: copy.hideItemHours },
@@ -51,8 +52,8 @@ export function WorkOrderView({ id }: { id: string }) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center">
         <h1 className="text-xl font-semibold">{copy.missingOrder}</h1>
-        <Link href={limited ? "/work-orders" : "/"} className="mt-4 inline-block text-sm font-medium text-primary">
-          {limited ? copy.backToWorkOrders : copy.backToJobs}
+        <Link href={limited || estimator ? "/work-orders" : "/"} className="mt-4 inline-block text-sm font-medium text-primary">
+          {limited || estimator ? copy.backToWorkOrders : copy.backToJobs}
         </Link>
       </div>
     )
@@ -64,11 +65,16 @@ export function WorkOrderView({ id }: { id: string }) {
   return (
     <article data-testid="crew-sheet" className="mx-auto flex max-w-2xl flex-col gap-6 pb-8 md:max-w-5xl">
       <div className="flex items-center justify-between gap-3">
-        <Link href={limited ? "/work-orders" : "/"} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+        <Link href={limited || estimator ? "/work-orders" : "/"} className="inline-flex items-center gap-1 text-sm text-muted-foreground">
           <ChevronLeft className="size-4" />
-          {limited ? copy.workOrders : copy.jobs}
+          {limited || estimator ? copy.workOrders : copy.jobs}
         </Link>
         <div className="flex items-center gap-3">
+          {estimator ? (
+            <Link href={`/estimates/${id}`} className="text-sm font-medium text-primary">
+              {officeLabel("Estimate", language)}
+            </Link>
+          ) : null}
           <Link href={`/estimates/${id}/store-list`} className="text-sm font-medium text-primary">
             {officeLabel("Store list", language)}
           </Link>
@@ -115,7 +121,7 @@ export function WorkOrderView({ id }: { id: string }) {
       />
       <PendingSign estimateId={id} />
       <OnSiteChangeOrder estimateId={id} />
-      <CompletionChecklist items={sheet.checklist} onToggle={crew.toggleChecklist} />
+      <CompletionChecklist items={sheet.checklist} onToggle={crew.toggleChecklist} readOnly={estimator} />
       <CompanyCamSync estimateId={id} />
       <PhotoCapture estimateId={id} />
     </article>

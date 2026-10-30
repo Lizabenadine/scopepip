@@ -10,7 +10,7 @@ export async function syncQuickBooks(invoices: QuickBooksInvoiceDraft[]): Promis
   if (!quickBooksConfigured()) {
     return {
       connected: false,
-      detail: "QuickBooks is not connected. Add QUICKBOOKS_CLIENT_ID, QUICKBOOKS_CLIENT_SECRET, QUICKBOOKS_REFRESH_TOKEN, and QUICKBOOKS_REALM_ID.",
+      detail: "The books are not connected. Add the bookkeeping keys on the host.",
       invoices: invoices.map((invoice) => ({ estimateId: invoice.estimateId, delivery: "skipped" })),
     }
   }
@@ -40,11 +40,11 @@ export async function syncQuickBooks(invoices: QuickBooksInvoiceDraft[]): Promis
       }
     }
     const synced = results.filter((row) => row.delivery === "synced").length
-    return { connected: true, detail: synced > 0 ? `Synced ${synced} invoices.` : "QuickBooks did not accept the invoices.", invoices: results }
+    return { connected: true, detail: synced > 0 ? `Synced ${synced} invoices.` : "The books did not accept the invoices.", invoices: results }
   } catch {
     return {
       connected: true,
-      detail: "QuickBooks could not be reached.",
+      detail: "The books could not be reached.",
       invoices: invoices.map((invoice) => ({ estimateId: invoice.estimateId, delivery: "failed" })),
     }
   }
@@ -168,11 +168,11 @@ export async function syncQuickBooksCredits(credits: QuickBooksCreditDraft[]): P
       }
     }
     const synced = results.filter((row) => row.delivery === "synced").length
-    return { credits: results, detail: synced > 0 ? `Synced ${synced} credits.` : "QuickBooks did not accept the credits." }
+    return { credits: results, detail: synced > 0 ? `Synced ${synced} credits.` : "The books did not accept the credits." }
   } catch {
     return {
       credits: credits.map((credit) => ({ estimateId: credit.estimateId, creditId: credit.creditId, delivery: "failed" })),
-      detail: "QuickBooks could not be reached.",
+      detail: "The books could not be reached.",
     }
   }
 }

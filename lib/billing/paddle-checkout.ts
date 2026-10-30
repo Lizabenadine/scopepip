@@ -30,7 +30,7 @@ export function paddleCheckoutFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): PaddleCheckout | null {
   return paddleCheckout({
-    token: env.PADDLE_CLIENT_TOKEN || "",
+    token: env.PADDLE_CLIENT_TOKEN || env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "",
     priceId: env.PADDLE_PRICE_ID || "",
     email: input.email,
     userId: input.userId,

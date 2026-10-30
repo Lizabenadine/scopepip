@@ -8,7 +8,7 @@ import { moneyExact } from "@/lib/format"
 import { listActiveJobs } from "@/lib/work-orders/active"
 
 export function ActiveJobs() {
-  const { ready, estimates, workOrders, stages, clients, quoteEstimate } = useScope()
+  const { ready, estimates, workOrders, stages, clients, quoteEstimate, session } = useScope()
   const { copy } = useFieldLanguage()
   const jobs = listActiveJobs(estimates, workOrders, stages, clients)
 
@@ -22,7 +22,7 @@ export function ActiveJobs() {
         <div>
         <h1 className="text-2xl font-semibold tracking-tight">{copy.workOrdersTitle}</h1>
         <p className="text-sm text-muted-foreground">
-          {jobs.length === 0 ? copy.acceptedEmpty : copy.acceptedCount(jobs.length)}
+          {jobs.length === 0 ? copy.acceptedEmpty : copy.checkWork}
         </p>
         </div>
         <FieldLanguageSwitch />
@@ -35,7 +35,7 @@ export function ActiveJobs() {
         <ul className="flex flex-col gap-3">
           {jobs.map((job) => {
             const estimate = estimates.find((item) => item.id === job.id)
-            const total = estimate ? quoteEstimate(estimate).total : 0
+            const total = estimate && session?.role !== "estimator" ? quoteEstimate(estimate).total : null
             return (
               <li key={job.id}>
                 <Link
@@ -51,7 +51,12 @@ export function ActiveJobs() {
                   </span>
                   <span className="flex items-center justify-between gap-4 sm:justify-end">
                     <span className="text-sm text-muted-foreground">{copy.status[job.status]}</span>
-                    <span className="font-medium tabular-nums">{moneyExact(total)}</span>
+                    {job.checklistTotal > 0 ? (
+                      <span className="text-sm tabular-nums text-muted-foreground">
+                        {copy.checklistProgress(job.checklistDone, job.checklistTotal)}
+                      </span>
+                    ) : null}
+                    {total === null ? null : <span className="font-medium tabular-nums">{moneyExact(total)}</span>}
                   </span>
                 </Link>
               </li>

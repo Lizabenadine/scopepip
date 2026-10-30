@@ -1,209 +1,253 @@
 import type { ReactNode } from "react"
-import { LogoHeader } from "@/components/brand/brand-logo"
 import { PrintGuideButton } from "@/components/marketing/print-guide-button"
 
 const CONTENTS = [
-  { id: "getting-started", title: "Getting started" },
-  { id: "creating-estimates", title: "Writing an estimate" },
-  { id: "client-work-order", title: "Work order for the client" },
-  { id: "store-list", title: "Store list" },
-  { id: "crew-language", title: "English or Spanish on the crew sheet" },
-  { id: "finished-hours", title: "Hours from a finished job" },
-  { id: "invoices", title: "Invoices" },
+  { id: "quick-start", number: "01", title: "Quick Start & Setup" },
+  { id: "estimating", number: "02", title: "Estimating & Proposal Sign-Off" },
+  { id: "two-sheets", number: "03", title: "The Client Sheet and the Crew Sheet" },
+  { id: "schedule", number: "04", title: "From Accepted to On the Schedule" },
+  { id: "field-logistics", number: "05", title: "Field Logistics & Store Lists" },
+  { id: "follow-ups", number: "06", title: "Follow-ups" },
+  { id: "invoices", number: "07", title: "Invoices and the Deposit" },
+  { id: "actuals", number: "08", title: "Actuals Tracking & Adaptive Rate Cards" },
+] as const
+
+const ROLES = [
+  {
+    name: "Owner",
+    body: "Full access. The owner opens the dashboard, sales, jobs, invoices, settings, the rate card, and the hours on a finished job.",
+  },
+  {
+    name: "Estimator",
+    body: "Sales and take-offs. An estimator writes the bid, sets color and sheen, opens the store list, and can change the notes on the work order. Margins, unit costs, the rate card, company financials, and crew dispatch stay hidden.",
+  },
+  {
+    name: "Project manager",
+    body: "Work orders and logistics. A project manager signs in to the work order list, checks each job, and opens progress jobs and invoices. The crew uses the printed sheet. That sheet leaves prices, costs, and margins off.",
+  },
 ] as const
 
 export function UserGuide() {
   return (
-    <div className="min-h-dvh bg-[#0B0F17] text-slate-300 print:bg-white print:text-slate-900">
+    <div className="text-slate-700 print:text-slate-900">
       <style>{PRINT_PAGE}</style>
-      <LogoHeader>
+      <div className="mb-6 flex justify-end print:hidden">
         <PrintGuideButton />
-      </LogoHeader>
-      <div className="mx-auto max-w-[820px] px-4 py-8 print:max-w-none print:p-0">
-        <article className="bg-white px-6 py-10 shadow-[0_12px_40px_rgba(15,23,42,0.08)] sm:px-12 sm:py-14 print:shadow-none">
+      </div>
+      <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-12 print:block">
+        <GuideNav />
+        <article>
           <header className="border-b border-slate-200 pb-8">
-            <p className="text-xs font-bold tracking-[0.18em] text-cyan-700 uppercase">Scopepipe</p>
-            <h1 className="mt-3 font-display text-4xl tracking-tight text-slate-950">User Guide</h1>
-            <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
-              Open the company, price a job, hand the client a filled work order, print the store list, and use a
-              finished room’s hours on the next room of that size.
+            <p className="text-xs font-semibold tracking-[0.18em] text-cyan-700 uppercase">Scopepipe</p>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950">Help</h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+              Set up the company, price each room, lock the color and sheen, hand the paint counter a buy list, and use a finished room’s hours on the next room of that size.
             </p>
           </header>
-          <nav aria-label="Contents" className="mt-8">
-            <h2 className="text-xs font-bold tracking-[0.16em] text-slate-400 uppercase">Contents</h2>
-            <ol className="mt-3 grid gap-2 sm:grid-cols-2">
-              {CONTENTS.map((item, index) => (
-                <li key={item.id}>
-                  <a href={`#${item.id}`} className="flex gap-3 rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium hover:border-slate-300">
-                    <span className="text-slate-400">{index + 1}</span>
-                    <span>{item.title}</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
-          <GuideSection id="getting-started" number="01" title="Getting started">
+          <GuideSection id="quick-start" number="01" title="Quick Start & Setup">
             <Step
               n="1"
               title="Start the company"
-              body="On the home page, choose Start 14-Day Free Trial. That opens signup for the company login. The trial is 14 days and does not ask for a card. After the trial, the plan is $49 a month."
+              body="On the home page, choose Start 14-Day Free Trial. The trial is 14 days and does not ask for a card. After the trial, the plan is $49 a month and includes 3 seats. The owner is one of them."
             />
             <Step
               n="2"
-              title="Sign in as the owner"
-              body="The person who creates the company is the owner. Sign in with that email and password. The owner sees the dashboard, sales, jobs, and settings."
+              title="Put the company on the paperwork"
+              body="Open Settings, then Company. Enter the company name, the business phone, and the email proposals should come from. That name shows on proposals, crew sheets, and invoices."
             />
             <Step
               n="3"
-              title="Put the company name on the paperwork"
-              body="Open Settings and enter the company name, the business phone, and the email proposals should come from. That name shows on proposals, crew sheets, and invoices."
+              title="Set the rate card"
+              body="Open Settings, then App, and find Time-based rates. A rate is how far the crew gets in an hour at a comfortable speed for that coat count. Walls start at the default speed. Change a coat speed when the crew works faster or slower than that default."
             />
             <Step
               n="4"
-              title="Add the other people"
-              body="Under People, add the others who should see the jobs. They sign in with their own password and can open jobs, work orders, and invoices. The $49 plan has 3 seats. The owner is one of them. You pick who uses the other two."
+              title="Name the paint lines"
+              body="The card starts as Wall paint, Ceiling paint, Trim paint, and Cabinet paint. Rename a line to the product you buy. A Sherwin-Williams, Benjamin Moore, or Dunn-Edwards name is what the store list and the crew sheet print."
             />
+            <h3 className="pt-2 text-lg font-semibold text-slate-950">Who can sign in</h3>
+            <ul className="grid gap-3">
+              {ROLES.map((role) => (
+                <li key={role.name} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <h3 className="font-semibold text-slate-950">{role.name}</h3>
+                  <p className="mt-1 text-sm leading-6">{role.body}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm leading-6">
+              Under People, on the Company tab, the owner adds the other two seats and picks the role. Each person signs in with their own password.
+            </p>
+            <p className="text-sm leading-6">
+              Email, texts, card payments, and job photos connect from Settings. Each one needs its own key.
+            </p>
           </GuideSection>
-          <GuideSection id="creating-estimates" number="02" title="Writing an estimate">
+          <GuideSection id="estimating" number="02" title="Estimating & Proposal Sign-Off">
             <Step
               n="1"
-              title="Open the estimator"
-              body="Choose New estimate, or open Sales and then Estimator."
+              title="Open a take-off"
+              body="Choose New estimate, or open Sales and then Estimator. Name the job, choose the client, and type the address."
             />
             <Step
               n="2"
-              title="Name the job"
-              body="Give the job a title, choose the client, and type the address."
+              title="Measure the rooms"
+              body="Add each room with its length, width, and height. Mark the walls, ceiling, and trim, and set the coats. Count the windows and the doors. The price changes as you add rooms."
             />
+            <Tip>One door is one side of the door and the frame. Count both sides when the crew paints both. A single count is the bid that comes out light.</Tip>
             <Step
               n="3"
-              title="Add the rooms"
-              body="Add each room with its length, width, and height. Mark the walls, ceiling, and trim, and set the coats. Count the windows and the doors. One door is one side of the door and the frame. The price changes as you add rooms."
+              title="Lock color and sheen"
+              body="On each room, enter the color name, the color code, and the sheen. Those specs sit on the proposal the client signs, and they copy onto the crew packet. A room left blank is the one the crew has to guess."
             />
             <Step
               n="4"
               title="Add a line that is not a room"
-              body="A repair or a set of shelves can be its own line. You can put a photo or a video on that line. The customer sees it on the proposal."
+              body="A repair or a set of shelves is a line item. Under Line items, choose Hourly Rate, Quantity, or Custom, then name the line. Photo on the proposal and Video on the proposal attach to that line. Save the estimate before adding a video. The customer plays it on the proposal."
             />
             <Step
               n="5"
-              title="Save"
-              body="On a new estimate, choose Save to Lead. If the job is already in the book, choose Save."
-            />
-            <Step
-              n="6"
               title="Send the proposal"
-              body="Open the proposal for that job. PDF downloads the file. Email proposal sends the link and the PDF when the client has an email. The customer opens the link, accepts, and signs."
+              body="Save, then open Proposal. PDF downloads the file. Email proposal sends the link and the PDF when the client has an email. The customer opens the link, accepts, and signs."
             />
+            <Tip>Sign the color and sheen with the client before the first coat. The signed room is the spec the crew paints.</Tip>
           </GuideSection>
-          <GuideSection id="client-work-order" number="03" title="Work order for the client">
-            <p className="text-sm leading-6 text-slate-600">
-              The proposal includes a work order for the client. It is filled from the estimate. The crew sheet is a
-              different page, and that page leaves the price off.
-            </p>
+          <GuideSection id="two-sheets" number="03" title="The Client Sheet and the Crew Sheet">
             <Step
               n="1"
-              title="Open the proposal"
-              body="On the estimate, choose Proposal. The same work order is on the link the customer opens."
+              title="The sheet the client sees"
+              body="Open the proposal. The page includes a card titled Work order for the client. It shows the company, the client, the address, each room, the product, the coats, the color, and the price for that room. The same card is on the link the customer opens."
             />
             <Step
               n="2"
-              title="What the client sees"
-              body="The company name, the client, the address, each room, the product, the coats, and the price for that room. Prep notes show when the room has them."
+              title="The sheet the crew prints"
+              body="The crew sheet is a different page. Open Jobs, then Work Orders, and open the job. That sheet lists the rooms, the surfaces, the color, and the notes. It does not list prices, costs, or margins. The project manager signs in to that list and checks each job. The estimator can open the same sheet and change the notes."
             />
+            <Tip>Print the client card from the proposal. Print the crew sheet from Work Orders. They are not the same page.</Tip>
           </GuideSection>
-          <GuideSection id="store-list" number="04" title="Store list">
-            <p className="text-sm leading-6 text-slate-600">
-              The store list is the paint to buy. It names the product, the gallons, and the rooms. It does not list
-              prices.
-            </p>
+          <GuideSection id="schedule" number="04" title="From Accepted to On the Schedule">
             <Step
               n="1"
-              title="Open the list"
-              body="On the estimate, choose Store list. The work order has the same link."
+              title="Put a day on the job"
+              body="After the client accepts, open the job and choose Move forward. When the next column is scheduled, Schedule job asks for the day on site. You can change that day from the estimate."
             />
             <Step
               n="2"
-              title="Read the gallons"
-              body="Each product shows the gallons the estimate counted and the gallons to buy, rounded up to the next whole gallon. Under that are the rooms that use it."
+              title="Name the crew lead"
+              body="Open Jobs, then Dispatch & Map, then Crew board. On that job, pick the crew lead. The owner or the project manager does this. An estimator does not open dispatch."
             />
             <Step
               n="3"
-              title="Print it"
-              body="Print and hand it to the paint store or the crew before anyone drives."
+              title="Open the crew sheet"
+              body="The crew sheet is there once the job has a day. Open Jobs, then Work Orders, and open the job."
             />
           </GuideSection>
-          <GuideSection id="crew-language" number="05" title="English or Spanish on the crew sheet">
-            <p className="text-sm leading-6 text-slate-600">
-              The crew sheet is the work order. It lists the rooms, the surfaces, and the notes. It does not list
-              prices, costs, or margins.
-            </p>
+          <GuideSection id="field-logistics" number="05" title="Field Logistics & Store Lists">
             <Step
               n="1"
-              title="Open the sheet"
-              body="Open Jobs, then Work Orders, and open the job. The sheet is there once the job is scheduled."
+              title="Open the store list"
+              body="On the estimate, choose Store list. The same link is on the work order. The list is one page: the product, the gallons, and the rooms that use it."
             />
             <Step
               n="2"
-              title="Pick the language"
-              body="At the top of the sheet, choose English or Español. The labels and the notes switch. The work orders list has the same switch."
+              title="Buy whole gallons"
+              body="Each product shows the gallons the estimate counted and the gallons to buy, rounded up to the next whole gallon. Prep and surfaces with no paint are left off. Prices are left off."
             />
             <Step
               n="3"
-              title="Print it"
-              body="Print uses the language on the screen. Scopepipe remembers that choice for this login, so the next sheet opens the same way."
+              title="Hand it to the counter or the crew lead"
+              body="Print the list before anyone drives. The paint counter sees what to pull. The crew lead sees which rooms use which product."
             />
-            <p className="text-sm leading-6 text-slate-600">
-              If a client is set to Español, that client’s proposal and follow-ups go out in Spanish. The switch on the
-              crew sheet is only for the crew.
-            </p>
+            <Step
+              n="4"
+              title="Switch the crew sheet"
+              body="Open Jobs, then Work Orders, and open the job. At the top of the sheet, choose English or Español. The labels and the notes switch. Print uses the language on the screen. Scopepipe remembers that choice for this login."
+            />
+            <Tip>Keep prices hidden on crew sheets. The sheet lists the rooms, the surfaces, the color, and the notes. It does not list prices, costs, or margins.</Tip>
           </GuideSection>
-          <GuideSection id="finished-hours" number="06" title="Hours from a finished job">
-            <p className="text-sm leading-6 text-slate-600">
-              After a job, the owner can enter the hours a room actually took. The next room of that same size uses
-              that speed. This job’s price stays as it was.
-            </p>
+          <GuideSection id="follow-ups" number="06" title="Follow-ups">
             <Step
               n="1"
-              title="Open the finished job"
-              body="Move the job to Completed, then open the estimate. The hours block is under the rooms. A project manager does not see it."
+              title="Open the sequences"
+              body="Open Daily, then Follow-ups. Every column follows up on its own. A sent quote gets a note the next day, again at three days, and again at a week, each with the proposal link."
             />
             <Step
               n="2"
-              title="Enter the hours"
-              body="The screen shows the hours the estimate used. Type the hours that room took, then choose Save this speed. Walls, ceilings, trim, and counted items on the next room of that size use the new speed."
+              title="Turn a sequence on"
+              body="Check Send this sequence on the ones you want, then choose Save sequences. Cold and warm leads use their own cadence. A finished job asks for a review the next day. A reply or a booked visit stops a pursuit."
             />
             <Step
               n="3"
-              title="Leave other sizes alone"
-              body="A room with different dimensions stays on the rate card. Choose Use the rate card again if the hours were wrong. The next room of that size goes back to the default speed."
+              title="Where the messages go"
+              body="Until email and text sending are connected, the messages stay on the deal. A client set to Español receives the built-in note in Spanish."
             />
           </GuideSection>
-          <GuideSection id="invoices" number="07" title="Invoices">
+          <GuideSection id="invoices" number="07" title="Invoices and the Deposit">
             <Step
               n="1"
-              title="Accept the job"
+              title="When an invoice appears"
               body="An accepted job shows up as an invoice. A job with a deposit recorded does too."
             />
             <Step
               n="2"
-              title="Open Invoices & Payments"
-              body="Open Documents, then Invoices & Payments. Each card is one invoice, with the number, the client, the job, and a badge: Paid, Deposit paid, or Due."
+              title="Open the list"
+              body="Open Documents, then Invoices & Payments. Each card shows the invoice number, the client, the job, and a badge: Paid, Deposit paid, or Due."
             />
             <Step
               n="3"
-              title="Read the items"
-              body="The items are the rooms and the extra lines, with the quantity and the coats. Under that are the subtotal, any tax, discount, deposit, or credit, and the balance due."
+              title="Read the balance"
+              body="The items are the rooms and the extra lines. Under that are the subtotal, any tax, discount, deposit, or credit, and the balance due. The customer accepts the proposal before that payment."
+            />
+          </GuideSection>
+          <GuideSection id="actuals" number="08" title="Actuals Tracking & Adaptive Rate Cards">
+            <Step
+              n="1"
+              title="Open the finished job"
+              body="Move the job to Completed, then open the estimate. Hours from this job sits under the rooms. The owner enters them. An estimator and a project manager do not see that block."
             />
             <Step
-              n="4"
-              title="Print, or take the deposit"
-              body="Print prints the invoices. If a balance is still open, open that invoice to take the deposit. The customer accepts the proposal before that payment."
+              n="2"
+              title="Enter the hours"
+              body="The screen shows the hours the estimate used. Type the hours that room took, then choose Save this speed. This job’s price stays as it was."
             />
+            <Step
+              n="3"
+              title="The next room of that size"
+              body="The next bedroom with the same length, width, and height uses that speed for walls, ceilings, trim, and counted items. A room with different dimensions stays on the rate card. Choose Use the rate card again if the hours were wrong."
+            />
+            <Tip>A slower room lowers square feet per hour. Primer speed stays on the rate card. Only the finish coats on that room size change.</Tip>
           </GuideSection>
         </article>
       </div>
     </div>
+  )
+}
+
+function GuideNav() {
+  return (
+    <>
+      <details className="rounded-2xl border border-slate-200 bg-white print:hidden lg:hidden">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-950">On this page</summary>
+        <ContentsList />
+      </details>
+      <nav aria-label="On this page" className="sticky top-4 hidden lg:block print:hidden">
+        <p className="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">On this page</p>
+        <ContentsList />
+      </nav>
+    </>
+  )
+}
+
+function ContentsList() {
+  return (
+    <ol className="mt-3 flex flex-col gap-1 px-2 pb-3 lg:px-0 lg:pb-0">
+      {CONTENTS.map((item) => (
+        <li key={item.id}>
+          <a href={`#${item.id}`} className="flex gap-3 rounded-xl px-2 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-950">
+            <span className="text-cyan-700">{item.number}</span>
+            <span>{item.title}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -219,10 +263,10 @@ function GuideSection({
   children: ReactNode
 }) {
   return (
-    <section id={id} className="mt-12 break-inside-avoid border-t border-slate-200 pt-8">
-      <p className="text-xs font-bold tracking-[0.16em] text-cyan-700 uppercase">{number}</p>
+    <section id={id} className="mt-12 scroll-mt-24 border-t border-slate-200 pt-8">
+      <p className="text-xs font-semibold tracking-[0.16em] text-cyan-700 uppercase">{number}</p>
       <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
-      <div className="mt-5 flex flex-col gap-4">{children}</div>
+      <div className="mt-6 flex flex-col gap-4">{children}</div>
     </section>
   )
 }
@@ -230,14 +274,21 @@ function GuideSection({
 function Step({ n, title, body }: { n: string; title: string; body: string }) {
   return (
     <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3">
-      <span className="flex size-8 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
-        {n}
-      </span>
+      <span className="flex size-8 items-center justify-center rounded-full bg-cyan-400 text-sm font-semibold text-slate-950">{n}</span>
       <div>
         <h3 className="font-semibold text-slate-950">{title}</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+        <p className="mt-1 text-sm leading-6">{body}</p>
       </div>
     </div>
+  )
+}
+
+function Tip({ children }: { children: ReactNode }) {
+  return (
+    <aside className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm leading-6 text-slate-800">
+      <p className="text-xs font-semibold tracking-[0.14em] text-cyan-800 uppercase">Pro tip</p>
+      <p className="mt-1">{children}</p>
+    </aside>
   )
 }
 

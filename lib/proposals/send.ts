@@ -18,7 +18,7 @@ export async function sendProposalEmail(input: {
   if (!keys.resendKey || !keys.resendFrom.includes("@")) {
     return {
       delivery: "logged",
-      detail: "The proposal link and PDF are ready. Add Resend on Integrations before they reach the inbox.",
+      detail: "The proposal link and PDF are ready. Add the email key on Integrations before they reach the inbox.",
     }
   }
   try {

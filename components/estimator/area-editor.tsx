@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTypedNumber } from "@/hooks/use-typed-number"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
 import { OneOffRateForm } from "@/components/estimator/one-off-rate"
 import { TemplatePicker } from "@/components/estimator/template-picker"
@@ -806,15 +807,18 @@ function NumberField({
   value: number
   onChange: (value: number) => void
 }) {
+  const typed = useTypedNumber(value, onChange)
   return (
     <div className="grid gap-1">
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
         inputMode="decimal"
-        value={String(value)}
+        value={typed.value}
         className="h-11"
-        onValueChange={(next) => onChange(Number(next.replace(/[^0-9.]/g, "")) || 0)}
+        onFocus={typed.onFocus}
+        onBlur={typed.onBlur}
+        onValueChange={typed.onValueChange}
       />
     </div>
   )

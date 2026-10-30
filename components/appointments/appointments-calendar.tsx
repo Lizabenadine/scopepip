@@ -41,7 +41,7 @@ function serverToday(): null {
 }
 
 export function AppointmentsCalendar() {
-  const { ready, estimates, clients } = useScope()
+  const { ready, estimates, clients, workOrders } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const [mode, setMode] = useState<CalendarMode>("month")
@@ -58,7 +58,7 @@ export function AppointmentsCalendar() {
     )
   }
 
-  const appointments = listSalesAppointments(estimates, clients)
+  const appointments = listSalesAppointments(estimates, clients, workOrders)
   const today = isoDate(todayDate ?? current)
   const days = mode === "month" ? monthGrid(current).map((day) => day.iso) : weekDays(current)
   const lastVisible = days[days.length - 1] ?? ""
@@ -127,7 +127,7 @@ export function AppointmentsCalendar() {
           data-testid="appointments-empty"
           className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground"
         >
-          No estimate visits booked. Book a day and start time from the sales pipeline.
+          No visits or scheduled jobs yet. Book a visit from the sales pipeline, or put a day on a job.
         </p>
       ) : null}
       {mode === "week" ? (
@@ -252,14 +252,20 @@ function MonthGrid({
 
 function AppointmentBlock({ appointment }: { appointment: SalesAppointment }) {
   const time = visitTimeLabel(appointment.visitStartInstant)
+  const kind = appointment.kind === "job" ? "Job" : "Visit"
   return (
     <Link
-      href={`/estimates/${appointment.estimateId}`}
-      data-testid={`appointment-${appointment.estimateId}`}
-      className="block rounded-lg bg-[#efe9dc] px-2 py-1 text-left text-xs font-medium text-foreground"
+      href={appointment.kind === "job" ? `/work-orders/${appointment.estimateId}` : `/estimates/${appointment.estimateId}`}
+      data-testid={`appointment-${appointment.kind}-${appointment.estimateId}`}
+      className={cn(
+        "block rounded-lg px-2 py-1 text-left text-xs font-medium text-foreground",
+        appointment.kind === "job" ? "bg-cyan-50" : "bg-[#efe9dc]",
+      )}
     >
       <span className="block truncate">
-        {time ? `${time} · ` : ""}
+        {kind}
+        {time ? ` · ${time}` : ""}
+        {" · "}
         {appointment.clientName}
       </span>
       {appointment.jobAddress ? <span className="block truncate font-normal">{appointment.jobAddress}</span> : null}

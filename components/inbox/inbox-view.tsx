@@ -78,7 +78,7 @@ export function InboxView() {
       </div>
       <p className="text-xs text-muted-foreground">
         {businessPhone ? `Customers text ${businessPhone}.` : "Save the number customers should text."} Texts log on the
-        thread until Twilio is connected. A carrier reply posts to /api/messages/inbound.
+        thread until texting is connected.
       </p>
       <div className="grid gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
         <aside className={client ? "hidden flex-col gap-2 md:flex" : "flex flex-col gap-2"}>

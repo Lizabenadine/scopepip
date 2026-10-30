@@ -32,6 +32,24 @@ const COLUMNS = [
   },
 ] as const
 
+const OPERATIONS = [
+  {
+    title: "Lock In Colors Before the First Coat",
+    subheadline: "Stop paid callbacks and mid-job disputes.",
+    body: "Force color and sheen acceptance room-by-room right on the customer proposal. When the client signs, exact specs automatically transfer to the crew packet—eliminating \"Not Specified\" guesswork and costly repaints.",
+  },
+  {
+    title: "From Estimate to Paint Counter in 1 Click",
+    subheadline: "A price quote is easy to copy. A room-mapped buy list is not.",
+    body: "Automatically convert room square footage into precise gallon requirements grouped by surface type and rounded to whole buy quantities. Hand the crew or paint counter a single, price-free buy list with complete room mapping.",
+  },
+  {
+    title: "Stop Losing Money on Rooms You Priced Too Fast",
+    subheadline: "Turn completed jobs into pricing intelligence.",
+    body: "Log actual labor hours after job completion to refine your estimating database. Scopepipe adapts future estimates to your crew's actual production speeds, protecting your profit margins on every future bid.",
+  },
+] as const
+
 const FEATURES = [
   {
     icon: Video,
@@ -51,9 +69,21 @@ const FEATURES = [
 ] as const
 
 const STEPS = [
-  { step: "01", title: "Price the rooms", body: "Length, width, and height. Walls, trim, and cabinets go in the same estimate." },
-  { step: "02", title: "Send it", body: "The customer gets the link, the PDF, and the videos on the lines." },
-  { step: "03", title: "Print the crew sheet", body: "English or Spanish. The scope is on the sheet. The price is not." },
+  {
+    step: "01",
+    title: "Take-Off & Color Sign-Off",
+    body: "Enter the room size and the surfaces. Lock the color and sheen on each room before the client signs the proposal.",
+  },
+  {
+    step: "02",
+    title: "Generate Store Buy List & Dispatch",
+    body: "One page for the paint counter or the crew lead. Gallons round up to whole cans, each product stays mapped to its rooms, and the price stays off.",
+  },
+  {
+    step: "03",
+    title: "Log Hours & Refine Speeds",
+    body: "After the job, enter the hours it took. The next room of that size uses that speed on the next bid.",
+  },
 ] as const
 
 export function LandingPage() {
@@ -63,16 +93,19 @@ export function LandingPage() {
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 py-2 md:px-6">
           <BrandLogo href="/" />
           <nav className="hidden items-center gap-6 text-sm text-slate-300 lg:flex" aria-label="Page">
-            {NAV.map((item) => (
-              <a key={item.href} href={item.href} className="hover:text-white">
-                {item.label}
-              </a>
-            ))}
+            {NAV.map((item) =>
+              item.href.startsWith("/") ? (
+                <Link key={item.href} href={item.href} className="hover:text-white">
+                  {item.label}
+                </Link>
+              ) : (
+                <a key={item.href} href={item.href} className="hover:text-white">
+                  {item.label}
+                </a>
+              ),
+            )}
           </nav>
           <div className="flex items-center gap-4">
-            <Link href="/guide" className="hidden text-sm font-medium text-slate-300 transition-colors hover:text-white lg:inline">
-              User Guide
-            </Link>
             <Link href="/login" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
               Sign In
             </Link>
@@ -85,14 +118,17 @@ export function LandingPage() {
           </div>
         </div>
         <nav className="flex gap-4 overflow-x-auto px-4 pb-3 text-sm text-slate-300 lg:hidden" aria-label="Page">
-          {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="shrink-0 hover:text-white">
-              {item.label}
-            </a>
-          ))}
-          <Link href="/guide" className="shrink-0 hover:text-white">
-            User Guide
-          </Link>
+          {NAV.map((item) =>
+            item.href.startsWith("/") ? (
+              <Link key={item.href} href={item.href} className="shrink-0 hover:text-white">
+                {item.label}
+              </Link>
+            ) : (
+              <a key={item.href} href={item.href} className="shrink-0 hover:text-white">
+                {item.label}
+              </a>
+            ),
+          )}
         </nav>
       </header>
 
@@ -119,7 +155,10 @@ export function LandingPage() {
               Scopepipe is $49 a month. You price the rooms, the customer opens the proposal and can play a short video
               on that line, and the crew gets the sheet in English or Spanish.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <p className="mx-auto mt-8 max-w-3xl text-sm leading-6 text-slate-200">
+              Room-by-Room Color Sign-off • Automated Paint Counter Buy Lists • Adaptive Rate Cards
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-6 py-3 text-base font-semibold text-slate-950 shadow-[0_0_40px_rgba(34,211,238,0.45)] hover:bg-cyan-300"
@@ -192,6 +231,15 @@ export function LandingPage() {
 
         <section id="features" className="scroll-mt-24 px-4 py-20 md:px-6">
           <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-3">
+            {OPERATIONS.map((feature) => (
+              <article key={feature.title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h2 className="text-xl font-semibold tracking-tight text-balance">{feature.title}</h2>
+                <p className="mt-3 text-sm font-medium text-cyan-200">{feature.subheadline}</p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">{feature.body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mx-auto mt-4 grid max-w-6xl gap-4 md:grid-cols-3">
             {FEATURES.map((feature) => (
               <article key={feature.title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
                 <feature.icon className="size-5 text-cyan-300" aria-hidden="true" />
@@ -202,15 +250,15 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="scroll-mt-24 px-4 py-8 md:px-6">
+        <section id="how-it-works" className="scroll-mt-24 px-4 py-20 md:px-6">
           <div className="mx-auto max-w-6xl">
-            <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
+            <h2 className="text-3xl font-bold tracking-tight">How Scopepipe works</h2>
             <ol className="mt-8 grid gap-4 md:grid-cols-3">
               {STEPS.map((item) => (
-                <li key={item.step} className="rounded-2xl border border-white/10 bg-[#0B0F17] p-6">
-                  <p className="text-sm font-medium text-cyan-300">{item.step}</p>
-                  <h3 className="mt-3 text-lg font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm text-slate-300">{item.body}</p>
+                <li key={item.step} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                  <p className="text-3xl font-semibold tracking-tight text-cyan-300">{item.step}</p>
+                  <h3 className="mt-4 text-xl font-semibold tracking-tight">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-300">{item.body}</p>
                 </li>
               ))}
             </ol>

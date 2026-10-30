@@ -27,6 +27,8 @@ export function BrandLogo({
       <img
         src="/logo.png?v=2"
         alt="Scopepipe"
+        width={208}
+        height={56}
         className={
           compact
             ? "h-10 w-auto max-w-[10.5rem] object-contain object-left"

@@ -75,6 +75,15 @@ describe("sales appointments", () => {
     assert.equal(wade?.visitStartInstant, null)
     assert.equal(appointmentsOnDay(appointments, "2026-10-21").length, 1)
     assert.equal(appointments.some((appointment) => appointment.estimateId === "est-cole"), false)
+    const onTheCalendar = listSalesAppointments(state.estimates, state.clients, state.workOrders)
+    assert.deepEqual(
+      onTheCalendar.filter((appointment) => appointment.kind === "job").map((appointment) => [appointment.estimateId, appointment.visitDay]),
+      [
+        ["est-jim", "2026-09-18"],
+        ["est-rosa", "2026-10-02"],
+        ["est-lena", "2026-10-08"],
+      ],
+    )
     assert.equal(appointments.some((appointment) => appointment.estimateId === "est-lena"), false)
     const jobs = dispatchJobs({ ...state, estimates })
     assert.equal(jobsOnDate(jobs, "2026-10-21").some((job) => job.estimateId === "est-maya"), false)

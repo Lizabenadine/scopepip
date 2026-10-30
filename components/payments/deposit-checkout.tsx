@@ -244,7 +244,7 @@ export function DepositCheckout({ id }: { id: string }) {
           <DialogHeader>
             <DialogTitle>Pay deposit</DialogTitle>
             <DialogDescription>
-              {money(amount)} by card, Apple Pay, or Google Pay.
+              {money(amount)} by card or a phone wallet.
             </DialogDescription>
           </DialogHeader>
           {intent?.mode === "stripe" && intent.clientSecret && intent.publishableKey ? (
@@ -270,8 +270,8 @@ export function DepositCheckout({ id }: { id: string }) {
                 {(
                   [
                     ["card", "Credit card"],
-                    ["apple_pay", "Apple Pay"],
-                    ["google_pay", "Google Pay"],
+                    ["apple_pay", "Phone wallet"],
+                    ["google_pay", "Browser wallet"],
                   ] as const
                 ).map(([id, label]) => (
                   <button
@@ -337,7 +337,7 @@ export function DepositCheckout({ id }: { id: string }) {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Test {method === "apple_pay" ? "Apple Pay" : "Google Pay"} confirms this deposit without leaving the page.
+                  A test wallet confirms this deposit without leaving the page.
                 </p>
               )}
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -359,7 +359,7 @@ export function DepositCheckout({ id }: { id: string }) {
 }
 
 function methodLabel(method: DepositMethod): string {
-  if (method === "apple_pay") return "Apple Pay"
-  if (method === "google_pay") return "Google Pay"
+  if (method === "apple_pay") return "Phone wallet"
+  if (method === "google_pay") return "Browser wallet"
   return "Credit card"
 }

@@ -59,7 +59,7 @@ export function BillingScreen() {
             setOpening(true)
             setNote("")
             void openPaddleCheckout(paddle)
-              .catch(() => setNote("Paddle checkout could not open."))
+              .catch(() => setNote("Checkout could not open."))
               .finally(() => setOpening(false))
           }}
         >
@@ -67,7 +67,7 @@ export function BillingScreen() {
         </button>
         {billing && !paddle ? (
           <p className="text-sm text-muted-foreground">
-            Subscribe opens in Paddle after the client token and the $49 price are set.
+            Subscribe opens after the checkout token and the $49 price are set.
           </p>
         ) : null}
       </div>

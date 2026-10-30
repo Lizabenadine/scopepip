@@ -95,6 +95,11 @@ describe("Paddle checkout", () => {
     assert.equal(checkout?.token, "test_a1b2c3d4e5")
     assert.equal(checkout?.officeUserId, "office-1")
     assert.equal(paddleCheckoutFromEnv({ email: "ada@hale.test", userId: "office-1" }, {}), null)
+    const fromPublicName = paddleCheckoutFromEnv(
+      { email: "ada@hale.test", userId: "office-1" },
+      { NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_a1b2c3d4e5", PADDLE_PRICE_ID: "pri_01hfounding49" },
+    )
+    assert.equal(fromPublicName?.token, "live_a1b2c3d4e5")
   })
 })
 

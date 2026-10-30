@@ -21,9 +21,6 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="flex gap-6 text-sm">
-          <a href="/guide" className="transition-colors hover:text-white">
-            User Guide
-          </a>
           <a href="/terms" className="transition-colors hover:text-white">
             Terms of Service
           </a>
