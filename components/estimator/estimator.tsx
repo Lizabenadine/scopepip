@@ -196,8 +196,8 @@ export function Estimator({
             </h1>
             <p className="text-sm text-muted-foreground">
               {language === "es"
-                ? "Elija Interior, Exterior o Gabinetes. Las plantillas y las superficies siguen ese tipo, y cada tipo puede usar su propia tarifa por hora."
-                : "Pick Interior, Exterior, or Cabinets. Templates and surfaces follow that type, and each type can use its own hourly rate."}
+                ? "Elija Interior, Exterior o Gabinetes. Plantillas incluye un trabajo interior y un trabajo exterior, y cada tipo puede usar su propia tarifa por hora."
+                : "Pick Interior, Exterior, or Cabinets. Templates includes an interior job and an exterior job, and each type can use its own hourly rate."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2" data-testid="estimate-kind">
@@ -269,11 +269,12 @@ export function Estimator({
             }}
             areaNames={areaNames}
             onAreaNames={setAreaNames}
-            onChange={(areas, title, lineItems, rates) => {
+            onChange={(areas, title, lineItems, rates, kind) => {
               const added = areas.length > draft.areas.length ? areas.slice(draft.areas.length) : []
               patch({
                 areas,
                 rates: rates ?? withCurrentRates(draft.rates, productionRates, added),
+                ...(kind ? { estimateKind: kind, settings: selectEstimateKind(draft.settings, kind) } : {}),
                 ...(lineItems && lineItems.length > 0 ? { lineItems: [...draft.lineItems, ...lineItems] } : {}),
                 ...(title && draft.title.trim().length === 0 ? { title } : {}),
               })

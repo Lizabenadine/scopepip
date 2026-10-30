@@ -54,7 +54,13 @@ export function AreaEditor({
   onSaveTemplate: () => void
   areaNames: AreaName[]
   onAreaNames: (names: AreaName[]) => void
-  onChange: (areas: AreaInput[], title?: string, lineItems?: LineItemInput[], rates?: ProductionRate[]) => void
+  onChange: (
+    areas: AreaInput[],
+    title?: string,
+    lineItems?: LineItemInput[],
+    rates?: ProductionRate[],
+    kind?: EstimateKind,
+  ) => void
   onGroups: (groups: AreaGroup[]) => void
   onDuplicate: (areas: AreaInput[]) => void
 }) {
@@ -152,18 +158,17 @@ export function AreaEditor({
       />
       <TemplatePicker
         open={templatesOpen}
-        kind={kind}
         savedTemplates={savedTemplates}
         onDeleteSaved={onDeleteSaved}
         onOpenChange={setTemplatesOpen}
-        onAdd={(next, title, lineItems, groups) => {
-          onChange([...areas, ...next], title, lineItems)
+        onAdd={(next, title, lineItems, groups, nextKind) => {
+          onChange([...areas, ...next], title, lineItems, undefined, nextKind)
           if (groups && groups.length > 0) onGroups([...areaGroups, ...groups])
         }}
       />
       {areas.length === 0 && areaGroups.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-          Open Templates for a measured room. Area names are labels you keep and reorder. A blank room starts empty.
+          Open Templates for an interior or an exterior job. Area names are labels you keep and reorder. A blank room starts empty.
         </p>
       ) : null}
       {sections.map((section) => {
