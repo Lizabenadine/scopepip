@@ -1,12 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect } from "react"
 import { ChevronLeft } from "lucide-react"
 import { CompanyMark } from "@/components/brand/company-mark"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { CompletionChecklist } from "@/components/work-orders/completion-checklist"
 import { OnSiteChangeOrder } from "@/components/work-orders/on-site-change-order"
 import { PendingSign } from "@/components/work-orders/pending-sign"
+import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
 import { SubcontractorWorkOrder } from "@/components/work-orders/subcontractor-work-order"
 import { CompanyCamSync } from "@/components/work-orders/companycam-sync"
 import { ModernWorkOrder } from "@/components/work-orders/modern-work-order"
@@ -30,6 +32,15 @@ export function WorkOrderView({ id }: { id: string }) {
     { id: "hide-all", label: copy.hideAllHours },
   ]
   const brand = displayCompanyName(estimateSettings.companyName)
+  const waiting = crew.offers.some((offer) => offer.status === "sent")
+  useEffect(() => {
+    if (!waiting) return
+    const onShow = () => {
+      if (document.visibilityState === "visible") void crew.reloadBook()
+    }
+    document.addEventListener("visibilitychange", onShow)
+    return () => document.removeEventListener("visibilitychange", onShow)
+  }, [waiting, crew])
 
   if (!crew.ready) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
@@ -92,7 +103,7 @@ export function WorkOrderView({ id }: { id: string }) {
           spanishDescription={sheet.crewNoteEs}
           workerName={crew.crewName}
           setDescription={crew.setPrepNotes}
-          onSign={crew.signSubcontractor}
+          offersPanel={<SendSubcontractor offers={crew.offers} onSend={crew.sendOffer} />}
         />
       ) : null}
       {crew.crewName ? <p className="text-sm font-medium">{crew.crewName}</p> : null}

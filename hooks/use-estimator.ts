@@ -31,17 +31,18 @@ function readSession(id: string | null): EstimateDraft | null {
       return null
     }
     if (id && parsed.id !== id) return null
-    return parsed
+    return { ...parsed, clientEmail: parsed.clientEmail ?? "" }
   } catch {
     return null
   }
 }
 
-function fromEstimate(estimate: Estimate, clientName: string): EstimateDraft {
+function fromEstimate(estimate: Estimate, clientName: string, clientEmail: string): EstimateDraft {
   return {
     id: estimate.id,
     clientId: estimate.clientId,
     clientName,
+    clientEmail,
     stageId: estimate.stageId,
     title: estimate.title,
     jobAddress: estimate.jobAddress,
@@ -78,7 +79,7 @@ function buildInitialDraft(
     return {
       missing: false,
       draft: withSubstrateRates(
-        readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? ""),
+        readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? "", client?.email ?? ""),
         scope.productionRates,
       ),
     }
@@ -89,6 +90,7 @@ function buildInitialDraft(
     id: null,
     clientId: null,
     clientName: "",
+    clientEmail: "",
     stageId: lead?.id ?? scope.stages[0]?.id ?? "",
     title: "",
     jobAddress: "",
@@ -196,6 +198,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
       rates,
       id: saved.id,
       clientId: saved.clientId,
+      publicToken: saved.publicToken,
       createdAt: draft.createdAt ?? new Date().toISOString(),
     })
     setStatus("Saved")
@@ -210,7 +213,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
       return
     }
     sessionStorage.removeItem(draftKey(draft.id))
-    setDraft(fromEstimate(restored.estimate, draft.clientName))
+    setDraft(fromEstimate(restored.estimate, draft.clientName, draft.clientEmail))
     setStatus(restored.restored ? "Restored" : "This is already the current estimate.")
   }
 

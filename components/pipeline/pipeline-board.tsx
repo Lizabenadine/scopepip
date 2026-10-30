@@ -7,6 +7,7 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
 import { officeCount, officeLabel, officeSalesNote } from "@/lib/office/dashboard-copy"
 import { DealCard } from "@/components/pipeline/deal-card"
+import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SCOPE_VERSION } from "@/lib/data/seed"
@@ -113,9 +114,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
           </div>
           {progressOnly ? null : (
           <div className="flex flex-wrap items-center gap-2">
-            <Link href="/estimates/new" data-testid="new-lead" className={cn(buttonVariants(), "h-9")}>
-              {say("+ New Lead")}
-            </Link>
+            <NewLeadButton label={say("+ New Lead")} className={newLeadButtonClass()} />
             <Link
               href="/estimates/new"
               data-testid="new-proposal"

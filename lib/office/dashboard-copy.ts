@@ -39,6 +39,16 @@ const LABELS: Record<string, string> = {
   Export: "Exportar",
   "The book is empty. Price a room to start a lead.":
     "El libro está vacío. Cotiza un cuarto para empezar un prospecto.",
+  "A call or a text starts a new lead.": "Una llamada o un texto empieza un prospecto.",
+  "New lead": "Nuevo prospecto",
+  "Someone called or texted. Save their name and how to reach them.":
+    "Alguien llamó o escribió. Guarda el nombre y cómo contactarlo.",
+  "Customer name": "Nombre del cliente",
+  Phone: "Teléfono",
+  Address: "Dirección",
+  "Save lead": "Guardar prospecto",
+  Call: "Llamada",
+  Text: "Texto",
   "Deposit Paid / Scheduled": "Depósito pagado / Programado",
   Accepted: "Aceptado",
   Declined: "Rechazado",
@@ -106,14 +116,14 @@ const LABELS: Record<string, string> = {
 }
 
 const STAGES: Record<StageSlug, string> = {
-  lead: "Prospecto",
+  lead: "Nuevo prospecto",
   estimate_sent: "Estimado enviado",
   scheduled: "Programado",
   completed: "Terminado",
 }
 
 const EMPTY_STAGES: Record<StageSlug, string> = {
-  lead: "No hay visitas pendientes.",
+  lead: "Una llamada o un texto empieza aquí.",
   estimate_sent: "Nada está esperando aprobación.",
   scheduled: "No hay días en el calendario.",
   completed: "Los trabajos terminados llegan aquí.",
@@ -132,6 +142,7 @@ export function officeLabel(text: string, language: FieldLanguage): string {
 }
 
 export function officeStageName(slug: StageSlug, name: string, language: FieldLanguage): string {
+  if (slug === "lead") return language === "es" ? STAGES.lead : "New Lead"
   if (language === "en") return name
   return STAGES[slug] ?? name
 }
@@ -176,9 +187,9 @@ export function officeScheduleTitle(clientName: string, language: FieldLanguage)
 
 export function officeSalesNote(language: FieldLanguage): string {
   if (language === "en") {
-    return ". Incoming leads open a Cold Leads card and start that sequence."
+    return ". A call or a text opens a New lead. Move each job one step at a time."
   }
-  return ". Los prospectos que llegan abren una tarjeta de prospectos fríos y empiezan esa secuencia."
+  return ". Una llamada o un texto abre un nuevo prospecto. Mueva cada trabajo un paso a la vez."
 }
 
 export function officeCount(count: number, language: FieldLanguage): string {

@@ -24,7 +24,7 @@ describe("contact history", () => {
     const next = recordStageChanges(before, after, AT)
     const maya = next.estimates.find((estimate) => estimate.id === "est-maya")
     assert.equal(maya?.stageChanges?.length, 1)
-    assert.equal(maya?.stageChanges?.[0]?.label, "Moved to Warm Leads")
+    assert.equal(maya?.stageChanges?.[0]?.label, "Moved to Contacted")
     assert.equal(recordStageChanges(next, next, "2026-10-18T17:00:00.000Z"), next)
   })
 

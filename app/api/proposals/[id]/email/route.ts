@@ -17,11 +17,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const estimate = book?.state.estimates.find((item) => item.id === id)
   if (!book || !estimate) return Response.json({ ok: false, reason: "This proposal is not on file." }, { status: 404 })
   const client = book.state.clients.find((item) => item.id === estimate.clientId)
-  const origin = new URL(request.url).origin
+  const body = (await request.json().catch(() => null)) as { email?: unknown } | null
+  const posted = typeof body?.email === "string" ? body.email.trim() : ""
+  const originHeader = request.headers.get("origin")
+  const origin = originHeader?.replace(/\/$/, "") || new URL(request.url).origin
   const mail = proposalMail({
     estimate,
     clientName: client?.name ?? "",
-    clientEmail: client?.email ?? "",
+    clientEmail: posted.includes("@") ? posted : (client?.email ?? ""),
     language: client?.language === "es" ? "es" : "en",
     companyName: book.state.estimateSettings.companyName,
     paymentMethods: book.state.paymentMethods,

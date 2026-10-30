@@ -2,39 +2,39 @@ import type { FollowUpSequence, FollowUpStage, FollowUpStep } from "./types.ts"
 
 export const FOLLOW_UP_STAGE_COPY: Record<FollowUpStage, { label: string; cadence: string }> = {
   cold: {
-    label: "Cold Leads",
+    label: "New lead",
     cadence: "Fast. The first text goes out as soon as the lead is in this column, then again across the next few days.",
   },
   warm: {
-    label: "Warm Leads",
+    label: "Contacted",
     cadence: "Slow. A note every week or two for leads who are not ready.",
   },
   estimate_requested: {
-    label: "Estimate Requested",
+    label: "Estimate in progress",
     cadence: "Ask for a walkthrough time, then check again two days later.",
   },
   estimate_scheduled: {
-    label: "Estimate Scheduled",
+    label: "Estimate scheduled",
     cadence: "A reminder the day before the visit, and a text the morning of the visit.",
   },
   proposal_sent: {
-    label: "Proposal Sent",
+    label: "Proposal sent",
     cadence: "The quote follows up on its own: the next day, again at three days, and again at a week. Each note includes the proposal link.",
   },
   project_accepted: {
-    label: "Project Accepted",
+    label: "Accepted",
     cadence: "Confirm the job is on the books.",
   },
   project_scheduled: {
-    label: "Project Scheduled",
+    label: "Scheduled",
     cadence: "Remind the customer before the crew starts.",
   },
   project_in_progress: {
-    label: "Project In Progress",
+    label: "In production",
     cadence: "A check-in once the crew is on site.",
   },
   project_completed: {
-    label: "Project Completed",
+    label: "Completed",
     cadence: "Ask for a review after the job is done.",
   },
 }

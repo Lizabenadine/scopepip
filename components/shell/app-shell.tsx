@@ -54,8 +54,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { copy, language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const sections = navigationSections(session?.role ?? "owner")
-  const managerLimited = session?.role === "project_manager" && !roleCanOpen(session.role, pathname)
-  const estimatorLimited = session?.role === "estimator" && !roleCanOpen(session.role, pathname)
+  const publicOffer = pathname.startsWith("/w/")
+  const managerLimited = session?.role === "project_manager" && !publicOffer && !roleCanOpen(session.role, pathname)
+  const estimatorLimited = session?.role === "estimator" && !publicOffer && !roleCanOpen(session.role, pathname)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [sectionPath, setSectionPath] = useState(pathname)
   if (pathname !== sectionPath) {
@@ -73,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
+    pathname.startsWith("/w/") ||
     pathname.endsWith("/pay") ||
     pathname.startsWith("/book/") ||
     pathname === "/login" ||

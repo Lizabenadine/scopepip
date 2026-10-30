@@ -1,6 +1,7 @@
 "use client"
 
 import { EstimateCard } from "@/components/pipeline/estimate-card"
+import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
 import { EstimatorPerformance } from "@/components/pipeline/estimator-performance"
 import { useScope } from "@/lib/data/store"
 import { JobsExport } from "@/components/pipeline/jobs-export"
@@ -46,6 +47,7 @@ export function PipelineView() {
             {officeInView(visible.length, money(pipelineValue), language)}
           </p>
         </div>
+        <NewLeadButton label={say("New lead")} className={newLeadButtonClass()} />
       </div>
       <div className="flex items-center gap-2">
         <Input
@@ -86,7 +88,7 @@ export function PipelineView() {
         <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
           {query.trim()
             ? officeNoMatch(query.trim(), language)
-            : say("The book is empty. Price a room to start a lead.")}
+            : say("A call or a text starts a new lead.")}
         </p>
       ) : (
         <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">

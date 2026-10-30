@@ -185,6 +185,22 @@ export type FieldCopy = {
   crewLeadName: string
   date: string
   acceptSign: string
+  sendOffers: string
+  sendOffersBody: string
+  offerName: string
+  offerEmail: string
+  sendOffer: string
+  offerWaiting: string
+  offerAccepted: string
+  offerDeclined: string
+  copyOfferLink: string
+  sendNext: string
+  linkCopied: string
+  acceptJob: string
+  declineJob: string
+  passedJob: string
+  jobTaken: string
+  offerInvalid: string
   notSpecified: string
   dispatch: string
   dispatchSummary: (count: number) => string
@@ -325,6 +341,23 @@ const english: FieldCopy = {
   crewLeadName: "Crew lead name",
   date: "Date",
   acceptSign: "Accept and sign subcontractor copy",
+  sendOffers: "Send this job",
+  sendOffersBody:
+    "The subcontractor is not with you while you write the estimate. Send it to one person. If they pass, send it to the next one.",
+  offerName: "Subcontractor name",
+  offerEmail: "Email",
+  sendOffer: "Send work order",
+  offerWaiting: "Waiting",
+  offerAccepted: "Accepted",
+  offerDeclined: "Passed",
+  copyOfferLink: "Copy link",
+  sendNext: "Send it to the next person.",
+  linkCopied: "Link copied",
+  acceptJob: "Accept this job",
+  declineJob: "Pass on this job",
+  passedJob: "You passed on this job.",
+  jobTaken: "This job was already accepted.",
+  offerInvalid: "This work order link is not valid.",
   notSpecified: "Not specified",
   dispatch: "Dispatch",
   dispatchSummary: (count) =>
@@ -471,6 +504,23 @@ const spanish: FieldCopy = {
   crewLeadName: "Nombre del líder",
   date: "Fecha",
   acceptSign: "Aceptar y firmar la copia del subcontratista",
+  sendOffers: "Enviar este trabajo",
+  sendOffersBody:
+    "El subcontratista no está contigo mientras escribes el estimado. Envíalo a una persona. Si lo rechaza, envíaselo a la siguiente.",
+  offerName: "Nombre del subcontratista",
+  offerEmail: "Correo",
+  sendOffer: "Enviar orden de trabajo",
+  offerWaiting: "En espera",
+  offerAccepted: "Aceptada",
+  offerDeclined: "Rechazada",
+  copyOfferLink: "Copiar enlace",
+  sendNext: "Envíaselo a la siguiente persona.",
+  linkCopied: "Enlace copiado",
+  acceptJob: "Aceptar este trabajo",
+  declineJob: "Rechazar este trabajo",
+  passedJob: "Rechazaste este trabajo.",
+  jobTaken: "Este trabajo ya fue aceptado.",
+  offerInvalid: "Este enlace de la orden no es válido.",
   notSpecified: "Sin especificar",
   dispatch: "Despacho",
   dispatchSummary: (count) =>
@@ -547,17 +597,21 @@ const JOB_HEADINGS: Record<string, { label: string; empty: string }> = {
   "Project Scheduled": { label: "Proyecto programado", empty: "Nada está en el calendario." },
   "Project In Progress": { label: "Proyecto en proceso", empty: "Ninguna cuadrilla está en el sitio." },
   "Project Completed": { label: "Proyecto terminado", empty: "Los proyectos terminados llegan aquí." },
+  Accepted: { label: "Aceptado", empty: "Los trabajos aceptados llegan aquí." },
+  Scheduled: { label: "Programado", empty: "Todavía no hay fechas de inicio." },
+  "In production": { label: "En producción", empty: "Ninguna cuadrilla está en el sitio." },
+  Completed: { label: "Terminado", empty: "Los trabajos terminados llegan aquí." },
   "Jobs Pipeline": { label: "Trabajos", empty: "" },
   "Progress jobs": { label: "Trabajos en proceso", empty: "" },
   "Crew board": { label: "Tablero de cuadrilla", empty: "" },
   "No address yet": { label: "Todavía no hay dirección", empty: "" },
   "Not priced": { label: "Sin precio", empty: "" },
   "Sales Pipeline": { label: "Pipeline de ventas", empty: "" },
-  "Cold Leads": { label: "Prospectos fríos", empty: "No hay prospectos fríos en esta vista." },
-  "Warm Leads": { label: "Prospectos tibios", empty: "No hay prospectos tibios en esta vista." },
-  "Estimate Requested": { label: "Estimado solicitado", empty: "No hay solicitudes de estimado en esta vista." },
-  "Estimate Scheduled": { label: "Visita programada", empty: "No hay visitas agendadas." },
-  "Proposal Sent": { label: "Propuesta enviada", empty: "No hay propuestas afuera." },
+  "New lead": { label: "Nuevo prospecto", empty: "Una llamada o un texto empieza un prospecto." },
+  Contacted: { label: "Contactado", empty: "Todavía no hay conversaciones." },
+  "Estimate scheduled": { label: "Visita programada", empty: "No hay visitas agendadas." },
+  "Estimate in progress": { label: "Estimado en proceso", empty: "No se están midiendo cuartos." },
+  "Proposal sent": { label: "Propuesta enviada", empty: "Ninguna propuesta está esperando al cliente." },
 }
 
 export function fieldJobHeading(label: string, language: FieldLanguage): string {

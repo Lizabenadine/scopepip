@@ -15,7 +15,10 @@ import { applyDeposit } from "../payments/apply-deposit.ts"
 import { applyAcceptance, type AcceptanceInput } from "../proposals/accept.ts"
 import { postProposalMessage } from "../proposals/chat.ts"
 import { applyDecline } from "../proposals/decline.ts"
-import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
+import { toCrewSheet } from "../work-orders/crew-sheet.ts"
+import { answerSubcontractorOffer } from "../work-orders/offers.ts"
+import { toSubcontractorOrder, type WorkOrderData } from "../work-orders/subcontractor.ts"
+import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod, SubcontractorOffer, WorkOrder } from "../types.ts"
 import { isSubscriptionStatus, trialEndsAt, type SubscriptionStatus } from "../billing/access.ts"
 import { matchCompanySlug, slugifyCompanyName } from "./company-slug.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
@@ -641,6 +644,110 @@ export async function recordProposalMessage(
   const estimate = next.estimates.find((item) => item.id === found.estimate.id)
   if (!saved.ok || !estimate) return { ok: false, reason: "The message could not be saved. Try again." }
   return { ok: true, estimate: forCustomer(estimate) }
+}
+
+export interface PublicWorkOrderOffer {
+  order: WorkOrderData
+  description: string
+  spanishDescription?: string
+  offerName: string
+  status: SubcontractorOffer["status"]
+  taken: boolean
+  logoUrl?: string | null
+}
+
+async function findByOffer(
+  token: string,
+): Promise<{ companyId: string; book: BookFile; order: WorkOrder; offer: SubcontractorOffer } | null> {
+  for (const row of await eachBook()) {
+    for (const order of row.book.state.workOrders) {
+      const offer = order.offers?.find((item) => item.token === token)
+      if (offer) return { companyId: row.companyId, book: row.book, order, offer }
+    }
+  }
+  return null
+}
+
+function offerPacket(state: ScopeState, order: WorkOrder, offer: SubcontractorOffer): PublicWorkOrderOffer | null {
+  const estimate = state.estimates.find((item) => item.id === order.estimateId)
+  if (!estimate) return null
+  const client = state.clients.find((item) => item.id === estimate.clientId)
+  const sheet = toCrewSheet(estimate, client, order)
+  const packet = toSubcontractorOrder({
+    sheet,
+    jobId: estimate.id,
+    dateGenerated: order.notifiedAt ?? estimate.updatedAt,
+    companyName: state.estimateSettings.companyName?.trim() || "ScopePipe",
+    companyAddress: "",
+    companyPhone: state.estimateSettings.businessPhone?.trim() ?? "",
+    salespersonName: estimate.salesperson ?? "",
+    salespersonEmail: state.estimateSettings.companyEmail?.trim() ?? "",
+    companyCamUrl: order.companyCamProjectUrl || order.companyCamUrl,
+    exclusions: order.exclusions,
+    subSignature: offer.status === "accepted" ? order.subSignature : undefined,
+    subSignedDate: offer.status === "accepted" ? order.subSignedDate : undefined,
+  })
+  const taken =
+    offer.status !== "accepted" &&
+    (Boolean(order.subSignature) || (order.offers ?? []).some((item) => item.status === "accepted"))
+  return {
+    order: packet,
+    description: order.prepNotes,
+    spanishDescription: order.prepNotesEs,
+    offerName: offer.name,
+    status: offer.status,
+    taken,
+    logoUrl: state.estimateSettings.logoUrl,
+  }
+}
+
+export async function publicWorkOrderOffer(token: string): Promise<PublicWorkOrderOffer | null> {
+  const found = await findByOffer(token)
+  if (!found) return null
+  return offerPacket(found.book.state, found.order, found.offer)
+}
+
+export async function answerPublicWorkOrder(
+  token: string,
+  decision: "accept" | "decline",
+  answeredAt: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const found = await findByOffer(token)
+  if (!found) return { ok: false, reason: "This work order link is not valid." }
+  const applied = applyAnswer(found.book.state, found.order, token, decision, answeredAt)
+  if (!applied.ok) return applied
+  if (applied.order === found.order) return { ok: true }
+  const next = replaceOrder(found.book.state, applied.order)
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+  if (saved.ok) return { ok: true }
+  if (saved.reason !== "conflict" || !("state" in saved)) {
+    return { ok: false, reason: "This work order could not be saved. Try again." }
+  }
+  const fresh = saved.state.workOrders.find((item) => item.estimateId === found.order.estimateId)
+  if (!fresh) return { ok: false, reason: "This work order could not be saved. Try again." }
+  const retried = applyAnswer(saved.state, fresh, token, decision, answeredAt)
+  if (!retried.ok) return retried
+  const savedAgain = await writeCompanyBook(found.companyId, saved.revision, replaceOrder(saved.state, retried.order))
+  if (!savedAgain.ok) return { ok: false, reason: "This work order could not be saved. Try again." }
+  return { ok: true }
+}
+
+function applyAnswer(
+  state: ScopeState,
+  order: WorkOrder,
+  token: string,
+  decision: "accept" | "decline",
+  answeredAt: string,
+): { ok: true; order: WorkOrder } | { ok: false; reason: string } {
+  void state
+  return answerSubcontractorOffer(order, token, decision, answeredAt)
+}
+
+function replaceOrder(state: ScopeState, order: WorkOrder): ScopeState {
+  return {
+    ...state,
+    workOrders: state.workOrders.map((item) => (item.estimateId === order.estimateId ? order : item)),
+  }
 }
 
 export async function publicBooking(token: string): Promise<PublicBookingView | null> {

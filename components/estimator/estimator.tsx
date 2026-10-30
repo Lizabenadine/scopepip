@@ -37,7 +37,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
-import { useScope } from "@/lib/data/store"
+import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
+import { flushBook, useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
@@ -61,7 +62,7 @@ export function Estimator({
 }) {
   const router = useRouter()
   const estimator = useEstimator(mode, estimateId)
-  const { session } = useScope()
+  const { session, stages, workOrders, sendSubcontractorOffer, placeOnColumn } = useScope()
   const estimatorLogin = session?.role === "estimator"
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
@@ -126,6 +127,57 @@ export function Estimator({
     if (disabled) return
     const saved = persist()
     if (saved && mode === "new") router.push(`/estimates/${saved.id}`)
+  }
+
+  const sendEstimate = async () => {
+    const email = draft.clientEmail.trim()
+    if (!email.includes("@") || /\s/.test(email)) {
+      setStatus("Add the client's email. They accept the estimate from the link in that email.")
+      return
+    }
+    const saved = persist()
+    if (!saved) return
+    const sentStage = stages.find((item) => item.slug === "estimate_sent")
+    const hold =
+      !sentStage ||
+      draft.clientStatus === "accepted" ||
+      stage?.slug === "scheduled" ||
+      stage?.slug === "completed" ||
+      stage?.id === sentStage.id
+    if (!hold && sentStage) {
+      moveStage(saved.id, sentStage.id)
+      patch({
+        id: saved.id,
+        clientId: saved.clientId,
+        stageId: sentStage.id,
+        clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
+      })
+    }
+    if (mode === "new") router.push(`/estimates/${saved.id}`)
+    await flushBook()
+    try {
+      const response = await fetch(`/api/proposals/${saved.id}/email`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const body = (await response.json().catch(() => null)) as { detail?: string; reason?: string; delivery?: string } | null
+      if (!response.ok) {
+        setStatus(body?.reason || "The estimate could not be emailed.")
+        return
+      }
+      if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
+        placeOnColumn(saved.id, "proposal_sent")
+      }
+      const link = `${window.location.origin}/p/${saved.publicToken}`
+      if (body?.delivery === "sent") {
+        setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
+        return
+      }
+      setStatus(`${body?.detail ?? "The link is ready."} They accept here: ${link}`)
+    } catch {
+      setStatus("The estimate could not be emailed.")
+    }
   }
 
   const onAdvance = () => {
@@ -229,10 +281,42 @@ export function Estimator({
             clients={clients}
             name={draft.clientName}
             clientId={draft.clientId}
-            onChange={(nextClient) =>
-              patch({ clientName: nextClient.name, clientId: nextClient.clientId })
-            }
+            onChange={(nextClient) => {
+              const picked = clients.find((client) => client.id === nextClient.clientId)
+              patch({
+                clientName: nextClient.name,
+                clientId: nextClient.clientId,
+                ...(picked ? { clientEmail: picked.email } : {}),
+              })
+            }}
           />
+          <div className="grid gap-2" data-testid="client-email-field">
+            <Label htmlFor="client-email">Client email</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                id="client-email"
+                data-testid="client-email"
+                value={draft.clientEmail}
+                inputMode="email"
+                autoComplete="email"
+                placeholder="name@email.com"
+                className="h-11 sm:max-w-sm"
+                onValueChange={(clientEmail) => patch({ clientEmail })}
+              />
+              <button
+                type="button"
+                data-testid="send-estimate"
+                className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                disabled={disabled}
+                onClick={() => void sendEstimate()}
+              >
+                Send estimate
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Sending emails the proposal and puts this job in Estimate Sent. The client opens the email and accepts from the link.
+            </p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="job-title">Job</Label>
@@ -732,6 +816,26 @@ export function Estimator({
               </p>
             ) : null}
           </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="estimate-subcontractor">
+            {draft.id ? (
+              <SendSubcontractor
+                offers={workOrders.find((order) => order.estimateId === draft.id)?.offers ?? []}
+                onSend={(name, email) => {
+                  const saved = persist()
+                  const id = saved?.id ?? draft.id
+                  if (!id) return { ok: false, reason: "Save the estimate before you send it." }
+                  return sendSubcontractorOffer(id, name, email)
+                }}
+              />
+            ) : (
+              <div>
+                <h3 className="text-sm font-bold">Send this job</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Save the estimate first. Then send it to a subcontractor. They are not here with you.
+                </p>
+              </div>
+            )}
+          </section>
           {previous && draft.id ? (
             <button
               type="button"

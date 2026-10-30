@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent, type ReactNode } from "react"
 import { CompanyMark } from "@/components/brand/company-mark"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { translatePainting } from "@/lib/field/terms"
+import type { SubcontractorOfferStatus } from "@/lib/types"
 import type { WorkOrderData } from "@/lib/work-orders/subcontractor"
 
 export function SubcontractorWorkOrder({
@@ -14,6 +15,9 @@ export function SubcontractorWorkOrder({
   workerName,
   setDescription,
   onSign,
+  offersPanel,
+  readOnly = false,
+  remote,
 }: {
   order: WorkOrderData
   logoUrl?: string | null
@@ -21,7 +25,17 @@ export function SubcontractorWorkOrder({
   spanishDescription?: string
   workerName?: string | null
   setDescription: (description: string) => void
-  onSign: (name: string, signedDate: string) => void
+  onSign?: (name: string, signedDate: string) => void
+  offersPanel?: ReactNode
+  readOnly?: boolean
+  remote?: {
+    status: SubcontractorOfferStatus
+    taken: boolean
+    pending: boolean
+    error: string | null
+    onAccept: () => void
+    onDecline: () => void
+  }
 }) {
   const { copy, language } = useFieldLanguage()
   const say = (text: string) => translatePainting(text, language)
@@ -37,7 +51,7 @@ export function SubcontractorWorkOrder({
 
   const handleSubSign = (event: FormEvent) => {
     event.preventDefault()
-    if (!subName.trim()) return
+    if (!subName.trim() || !onSign) return
     onSign(subName, subDate)
   }
 
@@ -136,9 +150,10 @@ export function SubcontractorWorkOrder({
           data-testid="scope-description"
           placeholder={copy.scopePlaceholder}
           value={description}
+          readOnly={readOnly}
           onChange={(e) => setDescription(e.target.value)}
           rows={6}
-          className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500"
+          className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-900 focus:border-blue-500 focus:outline-none read-only:bg-slate-50"
         />
         {spanishDescription ? (
           <p className="text-sm text-slate-600" data-testid="prep-note-es">
@@ -224,7 +239,10 @@ export function SubcontractorWorkOrder({
             {copy.signOffBody}
           </p>
         </div>
-        {signed ? (
+        {offersPanel}
+        {remote ? (
+          <RemoteAnswer copy={copy} remote={remote} />
+        ) : signed ? (
           <div
             className="space-y-1 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-950"
             data-testid="subcontractor-signed"
@@ -235,7 +253,7 @@ export function SubcontractorWorkOrder({
               {order.subSignedDate ? ` on ${order.subSignedDate}` : ""}
             </p>
           </div>
-        ) : (
+        ) : onSign ? (
           <form onSubmit={handleSubSign} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="sm:col-span-2">
@@ -278,8 +296,58 @@ export function SubcontractorWorkOrder({
               </button>
             </div>
           </form>
-        )}
+        ) : null}
       </section>
+    </div>
+  )
+}
+
+function RemoteAnswer({
+  copy,
+  remote,
+}: {
+  copy: { acceptJob: string; declineJob: string; passedJob: string; jobTaken: string; acceptedSigned: string }
+  remote: {
+    status: SubcontractorOfferStatus
+    taken: boolean
+    pending: boolean
+    error: string | null
+    onAccept: () => void
+    onDecline: () => void
+  }
+}) {
+  if (remote.status === "accepted") {
+    return <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">{copy.acceptedSigned}</p>
+  }
+  if (remote.status === "declined") {
+    return <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">{copy.passedJob}</p>
+  }
+  if (remote.taken) {
+    return <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">{copy.jobTaken}</p>
+  }
+  return (
+    <div className="space-y-3">
+      {remote.error ? <p className="text-sm text-rose-700">{remote.error}</p> : null}
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          data-testid="offer-decline"
+          disabled={remote.pending}
+          onClick={remote.onDecline}
+          className="rounded-xl border border-slate-300 px-4 py-3 text-xs font-bold text-slate-700"
+        >
+          {copy.declineJob}
+        </button>
+        <button
+          type="button"
+          data-testid="offer-accept"
+          disabled={remote.pending}
+          onClick={remote.onAccept}
+          className="rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold text-white"
+        >
+          {copy.acceptJob}
+        </button>
+      </div>
     </div>
   )
 }
