@@ -48,7 +48,7 @@ import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
-import { clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
+import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
 import type { LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
@@ -728,6 +728,8 @@ export function Estimator({
               />
               <p className="text-sm text-muted-foreground tabular-nums" data-testid="estimate-deposit-amount">
                 Deposit {moneyExact(depositAmount(quote.total, draft.settings.depositPercent ?? 30))}
+                {" · "}
+                Balance {moneyExact(balanceAfterDeposit(quote.total, draft.settings.depositPercent ?? 30))}
               </p>
             </div>
             <div className="grid gap-1">

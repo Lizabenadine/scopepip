@@ -14,6 +14,12 @@ export function depositAmount(grandTotal: number, depositPercent: number): numbe
   return Math.round(depositAmount * 100) / 100
 }
 
+/** What the customer still owes after the deposit, from the proposal total. */
+export function balanceAfterDeposit(grandTotal: number, depositPercent: number): number {
+  const total = Number.isFinite(grandTotal) ? Math.max(0, grandTotal) : 0
+  return Math.round((total - depositAmount(total, depositPercent)) * 100) / 100
+}
+
 export function depositCents(total: number, percent: number): number {
   return Math.round(depositAmount(total, percent) * 100)
 }
