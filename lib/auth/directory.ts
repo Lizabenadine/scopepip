@@ -23,7 +23,7 @@ import { roleSignInReason, type UserRole } from "./role.ts"
 
 const FOUNDING_PLAN_SEATS = 3
 const FOUNDING_PLAN_SEAT_LIMIT =
-  "You have reached the 3-seat limit for the Founding Plan. Upgrade for additional seats."
+  "You have reached the 3 seats included for $49 a month."
 
 interface StoredUser {
   id: string
@@ -410,11 +410,18 @@ export async function addProjectManager(
   ownerId: string,
   input: { name: string; email: string; password: string },
 ): Promise<{ ok: true; user: OfficeSession } | { ok: false; reason: string }> {
+  return addStaff(ownerId, { ...input, role: "project_manager" })
+}
+
+export async function addStaff(
+  ownerId: string,
+  input: { name: string; email: string; password: string; role: "project_manager" | "estimator" },
+): Promise<{ ok: true; user: OfficeSession } | { ok: false; reason: string }> {
   const accounts = await readAccounts()
   const owner = accounts.users.find((item) => item.id === ownerId)
-  if (!owner || owner.role !== "owner") return { ok: false, reason: "Only the owner can add a project manager." }
+  if (!owner || owner.role !== "owner") return { ok: false, reason: "Only the owner can add a person." }
   const company = accounts.companies.find((item) => item.id === owner.companyId)
-  if (!company) return { ok: false, reason: "Only the owner can add a project manager." }
+  if (!company) return { ok: false, reason: "Only the owner can add a person." }
   const seats = accounts.users.filter((item) => item.companyId === company.id).length
   if (seats >= FOUNDING_PLAN_SEATS) {
     return { ok: false, reason: FOUNDING_PLAN_SEAT_LIMIT }
@@ -434,7 +441,7 @@ export async function addProjectManager(
     email,
     name,
     passwordHash: hashPassword(input.password),
-    role: "project_manager",
+    role: input.role,
     companyId: company.id,
     createdAt: new Date().toISOString(),
   }

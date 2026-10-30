@@ -6,6 +6,7 @@ const authSecret = "e2e-scopepipe-auth-secret"
 
 export default defineConfig({
   testDir: "tests",
+  testIgnore: "**/live/**",
   fullyParallel: false,
   workers: 1,
   timeout: 90_000,

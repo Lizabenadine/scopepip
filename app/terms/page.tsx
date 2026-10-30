@@ -17,16 +17,16 @@ export default function TermsPage() {
       </LegalSection>
       <LegalSection heading="Accounts">
         <p>
-          The person who creates the company login is the owner. The owner can add project managers who share that
-          company&apos;s jobs. The Founding Plan includes 3 seats. An extra seat is $15 per month. You are responsible for
-          the logins on your company and for the customer information you enter.
+          The person who creates the company login is the owner. The owner can add the other people who share that
+          company&apos;s jobs. The $49 plan includes 3 seats, and the company chooses who uses them. You are responsible
+          for the logins on your company and for the customer information you enter.
         </p>
       </LegalSection>
       <LegalSection heading="Price and trial">
         <p>
-          The Founding Plan is $49 per month after a 14-day free trial. The trial does not require a credit card. When
-          a paid subscription starts, the plan and any extra seats are billed monthly in advance through the checkout
-          provider. Taxes may be added at checkout.
+          The plan is $49 per month for 3 seats after a 14-day free trial. The trial does not require a credit card.
+          When a paid subscription starts, it is billed monthly in advance through the checkout provider. Taxes may be
+          added at checkout.
         </p>
       </LegalSection>
       <LegalSection heading="Your content">

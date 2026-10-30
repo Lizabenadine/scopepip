@@ -1,6 +1,8 @@
 "use client"
 
 import { EstimateCard } from "@/components/pipeline/estimate-card"
+import { EstimatorPerformance } from "@/components/pipeline/estimator-performance"
+import { useScope } from "@/lib/data/store"
 import { JobsExport } from "@/components/pipeline/jobs-export"
 import { Input } from "@/components/ui/input"
 import { useFieldLanguage } from "@/hooks/use-field-language"
@@ -19,8 +21,11 @@ import { cn } from "@/lib/utils"
 export function PipelineView() {
   const { ready, ordered, visible, pipelineValue, query, setQuery, filter, setFilter } =
     usePipeline()
+  const { session } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
+
+  if (session?.role === "estimator") return <EstimatorPerformance />
 
   if (!ready) {
     return (

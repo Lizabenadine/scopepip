@@ -416,6 +416,47 @@ function AreaCard({
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-color`}>Color</Label>
+          <Input
+            id={`${area.id}-color`}
+            data-testid={`color-name-${area.id}`}
+            value={area.colorName ?? ""}
+            placeholder="Agreeable Gray"
+            className="h-11"
+            onValueChange={(colorName) => onChange({ ...area, colorName })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-color-code`}>Color code</Label>
+          <Input
+            id={`${area.id}-color-code`}
+            data-testid={`color-code-${area.id}`}
+            value={area.colorCode ?? ""}
+            placeholder="SW 7029"
+            className="h-11"
+            onValueChange={(colorCode) => onChange({ ...area, colorCode })}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-sheen`}>Sheen</Label>
+          <select
+            id={`${area.id}-sheen`}
+            data-testid={`sheen-${area.id}`}
+            className="h-11 rounded-lg border border-input bg-transparent px-2"
+            value={area.sheen ?? ""}
+            onChange={(event) => onChange({ ...area, sheen: event.target.value })}
+          >
+            <option value="">Not specified</option>
+            <option value="Flat">Flat</option>
+            <option value="Eggshell">Eggshell</option>
+            <option value="Satin">Satin</option>
+            <option value="Semi-gloss">Semi-gloss</option>
+            <option value="Gloss">Gloss</option>
+          </select>
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-1">
           <Label htmlFor={`${area.id}-prep`}>Prep intensity</Label>
           <select
             id={`${area.id}-prep`}

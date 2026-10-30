@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { LogoHeader } from "@/components/brand/brand-logo"
 import { SiteFooter } from "@/components/marketing/site-footer"
 
 export const metadata: Metadata = {
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
 export default function RefundPage() {
   return (
     <div className="min-h-dvh bg-[#0B0F17]">
-      <main className="mx-auto max-w-4xl px-6 py-16 text-slate-300">
+      <LogoHeader />
+      <main className="mx-auto max-w-4xl px-6 py-10 text-slate-300">
         <h1 className="mb-6 text-3xl font-bold text-white">Refund & Cancellation Policy</h1>
         <p className="mb-4 text-sm text-slate-400">Last updated: October 29, 2026</p>
 

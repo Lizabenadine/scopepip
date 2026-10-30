@@ -23,6 +23,7 @@ import type {
 } from "../types.ts"
 import { PAYMENT_METHODS } from "../defaults.ts"
 import type { AreaName } from "../estimate/area-names.ts"
+import type { LearnedPace } from "../estimate/learned-pace.ts"
 import type { SavedEstimateTemplate } from "../estimate/saved-templates.ts"
 
 export const SCOPE_VERSION = 9 as const
@@ -47,6 +48,8 @@ export interface ScopeState {
   savedTemplates?: SavedEstimateTemplate[]
   /** Reusable area labels. Missing uses the starter list. */
   areaNames?: AreaName[]
+  /** Speeds learned from finished rooms. The next room of that size uses them. */
+  learnedPaces?: LearnedPace[]
 }
 
 export const CREWS: CrewLead[] = [
@@ -486,6 +489,7 @@ export function isScopeState(value: unknown): value is ScopeState {
     typeof state.estimateSettings?.hourlyRate === "number" &&
     Array.isArray(state.paymentMethods) &&
     (state.savedTemplates === undefined || Array.isArray(state.savedTemplates)) &&
-    (state.areaNames === undefined || Array.isArray(state.areaNames))
+    (state.areaNames === undefined || Array.isArray(state.areaNames)) &&
+    (state.learnedPaces === undefined || Array.isArray(state.learnedPaces))
   )
 }

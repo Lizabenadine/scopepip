@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useState } from "react"
 import { DealMenu } from "@/components/pipeline/deal-menu"
+import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { Badge } from "@/components/ui/badge"
 import { SCOPE_VERSION } from "@/lib/data/seed"
 import { useScope } from "@/lib/data/store"
@@ -144,6 +145,7 @@ export function DealCard({
         </div>
       </div>
       <p className="text-sm">{estimate.jobAddress || fieldJobHeading("No address yet", jobLanguage)}</p>
+      <NavigateToJobsite address={estimate.jobAddress} />
       {mode === "sales" && !limited ? (
         <Link href={`/book/${estimate.publicToken}`} className="text-xs font-medium text-primary" data-testid={`book-link-${estimate.id}`}>
           Booking page

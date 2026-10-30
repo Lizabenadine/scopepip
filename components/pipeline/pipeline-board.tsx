@@ -257,7 +257,9 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                   <p className="text-[11px] font-medium tracking-wide text-muted-foreground">
                     {footerLabel}
                   </p>
-                  <p className="font-display text-2xl leading-none text-price tabular-nums">{moneyExact(column.total)}</p>
+                  <p className="font-display text-2xl leading-none text-price tabular-nums">
+                    {scope.session?.role === "estimator" ? column.cards.length : moneyExact(column.total)}
+                  </p>
                 </footer>
               </section>
             ))}

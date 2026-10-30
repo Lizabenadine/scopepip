@@ -1,4 +1,4 @@
-export const USER_ROLES = ["owner", "project_manager"] as const
+export const USER_ROLES = ["owner", "project_manager", "estimator"] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
 
@@ -6,7 +6,8 @@ const STORAGE_KEY = "scopepipe.userRole"
 
 export function readUserRole(): UserRole {
   if (typeof window === "undefined") return "owner"
-  return window.localStorage.getItem(STORAGE_KEY) === "project_manager" ? "project_manager" : "owner"
+  const value = window.localStorage.getItem(STORAGE_KEY)
+  return value && isUserRole(value) ? value : "owner"
 }
 
 export function writeUserRole(role: UserRole) {
@@ -22,5 +23,7 @@ export function homeForRole(role: UserRole): string {
 }
 
 export function roleSignInReason(role: UserRole): string {
-  return role === "project_manager" ? "That login is a project manager." : "That login is the owner."
+  if (role === "project_manager") return "That login is a project manager."
+  if (role === "estimator") return "That login is an estimator."
+  return "That login is the owner."
 }

@@ -1,14 +1,14 @@
-import Image from "next/image"
 import Link from "next/link"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { ArrowRight, Check, Mail, Paintbrush, Video } from "lucide-react"
 import { ProposalDemo } from "@/components/marketing/proposal-demo"
 import { SiteFooter } from "@/components/marketing/site-footer"
 
 const NAV = [
   { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How It Works" },
+  { href: "#how-it-works", label: "How it works" },
   { href: "#pricing", label: "Pricing" },
-  { href: "#proposal-demo", label: "Interactive Proposal Demo" },
+  { href: "#proposal-demo", label: "Sample proposal" },
 ] as const
 
 const COLUMNS = [
@@ -35,45 +35,33 @@ const COLUMNS = [
 const FEATURES = [
   {
     icon: Video,
-    title: "Interactive Proposals with Video Walkthroughs",
-    body: "Attach a short walkthrough to the line it belongs to. The customer plays it on the proposal, then accepts.",
+    title: "A video on the line",
+    body: "Film the wall, the trim, or the front of the house and attach it to that line. The customer plays it on the proposal.",
   },
   {
     icon: Paintbrush,
-    title: "Bilingual English/Spanish Crew Sheets",
-    body: "The same work order opens in English or Spanish. Prices stay off the crew sheet.",
+    title: "Crew sheets in English or Spanish",
+    body: "Same work order. The crew picks the language at the top. Prices, costs, and margins stay off the sheet.",
   },
   {
     icon: Mail,
-    title: "One-Click PDF & Email Link Delivery",
-    body: "Email the public proposal link with the PDF attached. The customer opens one link.",
+    title: "Email the proposal",
+    body: "Send the link with the PDF attached. The customer opens one page, then accepts and signs.",
   },
 ] as const
 
 const STEPS = [
-  { step: "01", title: "Price the rooms", body: "Wall area, trim, and cabinets land in one estimate." },
-  { step: "02", title: "Send the proposal", body: "The customer gets the link, the PDF, and the line videos." },
-  { step: "03", title: "Hand the crew a sheet", body: "English or Spanish, with the scope and no prices." },
+  { step: "01", title: "Price the rooms", body: "Length, width, and height. Walls, trim, and cabinets go in the same estimate." },
+  { step: "02", title: "Send it", body: "The customer gets the link, the PDF, and the videos on the lines." },
+  { step: "03", title: "Print the crew sheet", body: "English or Spanish. The scope is on the sheet. The price is not." },
 ] as const
 
 export function LandingPage() {
   return (
     <div className="min-h-dvh bg-[#0B0F17] text-white">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
-          <a href="#top" aria-label="Scopepipe" className="inline-flex items-center">
-            <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-              <Image
-                src="/logo.png"
-                alt="Scopepipe"
-                width={120}
-                height={32}
-                priority
-                className="h-7 w-auto object-contain"
-                style={{ width: "auto" }}
-              />
-            </div>
-          </a>
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#02182F]">
+        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 py-2 md:px-6">
+          <BrandLogo href="/" />
           <nav className="hidden items-center gap-6 text-sm text-slate-300 lg:flex" aria-label="Page">
             {NAV.map((item) => (
               <a key={item.href} href={item.href} className="hover:text-white">
@@ -82,6 +70,9 @@ export function LandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-4">
+            <Link href="/guide" className="hidden text-sm font-medium text-slate-300 transition-colors hover:text-white lg:inline">
+              User Guide
+            </Link>
             <Link href="/login" className="text-sm font-medium text-slate-300 transition-colors hover:text-white">
               Sign In
             </Link>
@@ -99,6 +90,9 @@ export function LandingPage() {
               {item.label}
             </a>
           ))}
+          <Link href="/guide" className="shrink-0 hover:text-white">
+            User Guide
+          </Link>
         </nav>
       </header>
 
@@ -116,14 +110,14 @@ export function LandingPage() {
                 <span className="size-6 rounded-full border border-[#0B0F17] bg-indigo-400" />
               </span>
               <span className="size-2 rounded-full bg-emerald-400" aria-hidden="true" />
-              Built for Professional Painting Contractors
+              For painting contractors
             </p>
             <h1 className="mx-auto mt-8 max-w-5xl text-5xl font-bold tracking-tight text-white md:text-7xl">
-              Close More Painting Deals. Stop Juggling Apps.
+              Write the estimate. Send the proposal. Hand the crew the sheet.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
-              Scopepipe combines fast estimating, interactive customer proposals with line-item video attachments, and
-              automatic bilingual crew sheets—all in one $49/mo platform.
+              Scopepipe is $49 a month. You price the rooms, the customer opens the proposal and can play a short video
+              on that line, and the crew gets the sheet in English or Spanish.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
@@ -140,7 +134,7 @@ export function LandingPage() {
                 View Sample Proposal
               </a>
             </div>
-            <p className="mt-4 text-sm text-slate-400">14-day free trial • No credit card required • Set up in 2 minutes</p>
+            <p className="mt-4 text-sm text-slate-400">14-day trial. No card to start.</p>
           </div>
 
           <div className="relative mx-auto mt-16 max-w-5xl">
@@ -210,7 +204,7 @@ export function LandingPage() {
 
         <section id="how-it-works" className="scroll-mt-24 px-4 py-8 md:px-6">
           <div className="mx-auto max-w-6xl">
-            <h2 className="text-3xl font-bold tracking-tight">How It Works</h2>
+            <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
             <ol className="mt-8 grid gap-4 md:grid-cols-3">
               {STEPS.map((item) => (
                 <li key={item.step} className="rounded-2xl border border-white/10 bg-[#0B0F17] p-6">
@@ -232,7 +226,7 @@ export function LandingPage() {
               $49<span className="text-xl font-medium text-slate-400">/mo</span>
             </p>
             <ul className="mt-6 space-y-2 text-sm text-slate-300">
-              {["Estimates, proposals, and crew sheets", "Line-item video on the proposal", "English and Spanish crew sheets"].map(
+              {["Estimates, proposals, and crew sheets", "A video on the proposal line", "English and Spanish crew sheets"].map(
                 (item) => (
                   <li key={item} className="flex items-center justify-center gap-2">
                     <Check className="size-4 text-cyan-300" aria-hidden="true" />
@@ -244,7 +238,7 @@ export function LandingPage() {
                 <svg className="h-5 w-5 shrink-0 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Up to 3 Team Seats Included (Owner, PM, Field Lead)
+                3 Team Seats. You pick who uses them.
               </li>
             </ul>
             <Link

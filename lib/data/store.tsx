@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import type { LearnedPace } from "@/lib/estimate/learned-pace"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { DEFAULT_AREA_NAMES, type AreaName } from "@/lib/estimate/area-names"
 import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
@@ -360,6 +361,9 @@ export interface ScopeApi {
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
+  learnedPaces: LearnedPace[]
+  rememberPace: (pace: LearnedPace) => void
+  forgetPace: (estimateId: string, areaId: string) => void
   savedTemplates: SavedEstimateTemplate[]
   saveEstimateTemplate: (template: SavedEstimateTemplate) => void
   deleteEstimateTemplate: (id: string) => void
@@ -474,6 +478,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     workOrders: state.workOrders,
     crews: state.crews,
     productionRates: state.productionRates,
+    learnedPaces: state.learnedPaces ?? [],
     estimateSettings: state.estimateSettings,
     paymentMethods: state.paymentMethods,
     clientById: (id) => state.clients.find((client) => client.id === id),
@@ -568,6 +573,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         inboundLeadId: previous?.inboundLeadId ?? null,
         tags: previous?.tags ? [...previous.tags] : [],
         salesperson: previous?.salesperson ?? "",
+        estimatorId: previous?.estimatorId ?? (officeSession?.role === "estimator" ? officeSession.id : undefined),
         salesStage: previous?.salesStage ?? null,
         boardColumnId: previous?.boardColumnId ?? null,
         archived: previous?.archived,
@@ -873,6 +879,20 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     updateEstimateSettings: (estimateSettings) => {
       commit({ ...getSnapshot().state, estimateSettings })
       void saveCompanyProfile(estimateSettings).catch(() => undefined)
+    },
+    rememberPace: (pace) => {
+      const latest = getSnapshot().state
+      const rest = (latest.learnedPaces ?? []).filter(
+        (item) => !(item.estimateId === pace.estimateId && item.areaId === pace.areaId),
+      )
+      commit({ ...latest, learnedPaces: [...rest, pace] })
+    },
+    forgetPace: (estimateId, areaId) => {
+      const latest = getSnapshot().state
+      const learnedPaces = (latest.learnedPaces ?? []).filter(
+        (item) => !(item.estimateId === estimateId && item.areaId === areaId),
+      )
+      commit({ ...latest, learnedPaces: learnedPaces.length > 0 ? learnedPaces : undefined })
     },
     setCoatRate: (rateId, coats, value) => {
       if (!Number.isFinite(value) || value < 0 || !Number.isFinite(coats)) return

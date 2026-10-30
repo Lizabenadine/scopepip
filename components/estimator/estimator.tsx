@@ -6,6 +6,7 @@ import { useState } from "react"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
 import { AreaEditor } from "@/components/estimator/area-editor"
+import { FinishedHours } from "@/components/estimator/finished-hours"
 import { HourlyRateBuildButton } from "@/components/estimator/hourly-rate-build"
 import { EstimateActivityLog } from "@/components/estimator/activity"
 import { EstimateVersions } from "@/components/estimator/versions"
@@ -35,6 +36,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
+import { useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
@@ -58,6 +60,8 @@ export function Estimator({
 }) {
   const router = useRouter()
   const estimator = useEstimator(mode, estimateId)
+  const { session } = useScope()
+  const estimatorLogin = session?.role === "estimator"
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const [explainOpen, setExplainOpen] = useState(false)
@@ -156,6 +160,11 @@ export function Estimator({
           {draft.id ? (
             <Link href={`/proposal/${draft.id}`} className="font-medium text-primary">
               Proposal
+            </Link>
+          ) : null}
+          {draft.id ? (
+            <Link href={`/estimates/${draft.id}/store-list`} data-testid="store-list-link" className="font-medium text-primary">
+              {say("Store list")}
             </Link>
           ) : null}
           {draft.id ? <EstimateVersions versions={versions} onRestore={restoreVersion} /> : null}
@@ -271,6 +280,15 @@ export function Estimator({
             onGroups={(areaGroups) => patch({ areaGroups })}
             onDuplicate={(areas) => patch({ areas })}
           />
+          {stage?.slug === "completed" && draft.id ? (
+            <FinishedHours
+              estimateId={draft.id}
+              areas={draft.areas}
+              pricedAreas={quote.areas}
+              rates={draft.rates}
+              language={language}
+            />
+          ) : null}
           <section className="flex min-w-0 flex-col gap-2">
             <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
               Line items
@@ -472,6 +490,7 @@ export function Estimator({
                     />
                   ) : null}
                 </div>
+                {estimatorLogin ? null : (
                 <div className="mt-4 max-w-full overflow-x-auto">
                   <table className="w-full min-w-[32rem] text-sm">
                     <thead className="bg-slate-800 text-left text-white">
@@ -559,6 +578,7 @@ export function Estimator({
                     + Add Materials
                   </button>
                 </div>
+                )}
               </div>
               )
             })}
@@ -578,6 +598,7 @@ export function Estimator({
             </div>
           </section>
           <section className="grid gap-3 sm:grid-cols-2">
+            {estimatorLogin ? null : (
             <div className="grid content-start gap-2">
               <NumberBox
                 label={`${ESTIMATE_KIND_LABEL[draft.estimateKind ?? "interior"]} hourly rate`}
@@ -600,6 +621,7 @@ export function Estimator({
                 }
               />
             </div>
+            )}
             <NumberBox
               label="Tax %"
               value={draft.settings.taxPercent}
@@ -746,6 +768,7 @@ export function Estimator({
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
+              showCosts={!estimatorLogin}
             />
           }
         />
@@ -766,7 +789,7 @@ export function Estimator({
           <SheetHeader>
             <SheetTitle>How this price is built</SheetTitle>
             <SheetDescription>
-              Sales rate is the total divided by project hours.
+              {estimatorLogin ? "Hours and the price for this bid." : "Sales rate is the total divided by project hours."}
             </SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-6">
@@ -775,6 +798,7 @@ export function Estimator({
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
+              showCosts={!estimatorLogin}
             />
           </div>
         </SheetContent>

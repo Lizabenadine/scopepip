@@ -127,7 +127,7 @@ describe("accounts", () => {
     if (!blocked.ok) {
       assert.equal(
         blocked.reason,
-        "You have reached the 3-seat limit for the Founding Plan. Upgrade for additional seats.",
+        "You have reached the 3 seats included for $49 a month.",
       )
     }
   })

@@ -9,11 +9,12 @@ import { OnSiteChangeOrder } from "@/components/work-orders/on-site-change-order
 import { PendingSign } from "@/components/work-orders/pending-sign"
 import { SubcontractorWorkOrder } from "@/components/work-orders/subcontractor-work-order"
 import { CompanyCamSync } from "@/components/work-orders/companycam-sync"
+import { ModernWorkOrder } from "@/components/work-orders/modern-work-order"
 import { PhotoCapture } from "@/components/photos/photo-capture"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
-import { translatePainting, paintingText } from "@/lib/field/terms"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { useWorkOrders } from "@/hooks/use-work-orders"
 import type { WorkOrder } from "@/lib/types"
 
@@ -21,7 +22,6 @@ export function WorkOrderView({ id }: { id: string }) {
   const crew = useWorkOrders(id)
   const { estimateSettings, session } = useScope()
   const { copy, language } = useFieldLanguage()
-  const say = (text: string) => translatePainting(text, language)
   const limited = session?.role === "project_manager"
   const hourOptions: { id: WorkOrder["hourDisplay"]; label: string }[] = [
     { id: "all", label: copy.showAllHours },
@@ -59,8 +59,7 @@ export function WorkOrderView({ id }: { id: string }) {
   }
 
   const sheet = crew.sheet
-  const showTotal = sheet.hourDisplay !== "hide-all"
-  const showItems = sheet.hourDisplay === "all"
+  const orderNumber = id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()
 
   return (
     <article data-testid="crew-sheet" className="mx-auto flex max-w-2xl flex-col gap-6 pb-8 md:max-w-5xl">
@@ -70,6 +69,9 @@ export function WorkOrderView({ id }: { id: string }) {
           {limited ? copy.workOrders : copy.jobs}
         </Link>
         <div className="flex items-center gap-3">
+          <Link href={`/estimates/${id}/store-list`} className="text-sm font-medium text-primary">
+            {officeLabel("Store list", language)}
+          </Link>
           <FieldLanguageSwitch />
           <button type="button" className="text-sm font-medium text-primary" onClick={() => window.print()}>
             Print
@@ -82,28 +84,12 @@ export function WorkOrderView({ id }: { id: string }) {
           logoUrl={estimateSettings.logoUrl}
           description={sheet.crewNote}
           spanishDescription={sheet.crewNoteEs}
+          workerName={crew.crewName}
           setDescription={crew.setPrepNotes}
           onSign={crew.signSubcontractor}
         />
       ) : null}
-      <header className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-        <CompanyMark name={brand} logoUrl={estimateSettings.logoUrl} className="font-display text-2xl text-primary" imageClassName="h-14" testId="crew-brand" />
-        <p className="mt-3 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{copy.crewProduction}</p>
-        {sheet.scheduledOn ? (
-          <p className="mt-2 text-sm font-medium">
-            {crew.onSite ? copy.onSiteNow : copy.onSite} {copy.jobDate(sheet.scheduledOn)}
-            {crew.crewName ? ` · ${crew.crewName}` : ""}
-          </p>
-        ) : crew.crewName ? (
-          <p className="mt-2 text-sm font-medium">{crew.crewName}</p>
-        ) : null}
-        {showTotal ? (
-          <div className="mt-3">
-            <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{copy.targetHours}</p>
-            <p className="font-display text-4xl leading-none tabular-nums">{copy.hours(sheet.allocatedHours)}</p>
-          </div>
-        ) : null}
-      </header>
+      {crew.crewName ? <p className="text-sm font-medium">{crew.crewName}</p> : null}
       <div className="flex flex-wrap gap-2">
         {hourOptions.map((option) => (
           <button
@@ -120,107 +106,13 @@ export function WorkOrderView({ id }: { id: string }) {
           </button>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {sheet.areas.map((area, index) => {
-          const showGroup = Boolean(area.groupName) && sheet.areas[index - 1]?.groupName !== area.groupName
-          return (
-            <div key={area.id} className="contents">
-              {showGroup ? (
-                <h2
-                  className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase md:col-span-2"
-                  data-testid="crew-group"
-                >
-                  {say(area.groupName ?? "")}
-                </h2>
-              ) : null}
-              <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-lg font-semibold">{say(area.name)}</h2>
-              {showItems ? (
-                <p className="tabular-nums">{copy.hours(area.allocatedHours)}</p>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">{say(area.dimensionLabel)}</p>
-            {area.prepNote ? (
-              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm">{say(area.prepNote)}</p>
-            ) : null}
-            <ul className="mt-3 flex flex-col gap-3">
-              {area.surfaces.map((surface) => (
-                <li key={surface.id}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="font-medium">{say(surface.internalLabel)}</p>
-                    {showItems ? (
-                      <p className="text-sm tabular-nums">{copy.hours(surface.allocatedHours)}</p>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{say(surface.quantityLabel)}</p>
-                  {surface.productName === "Prep" ? null : (
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">{copy.paintSpec} · </span>
-                      {say(surface.productName)}
-                      {surface.primerCoats > 0 ? `, ${copy.primer(surface.primerCoats)}` : ""}
-                      {surface.finishCoats > 0 ? `, ${copy.finish(surface.finishCoats)}` : ""}
-                      {surface.paintGallons > 0 ? `, ${copy.gallons(surface.paintGallons)}` : ""}
-                    </p>
-                  )}
-                  {surface.crewNote ? (
-                    <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm">{paintingText(surface.crewNote, undefined, language)}</p>
-                  ) : null}
-                </li>
-              ))}
-              </ul>
-            </section>
-            </div>
-          )
-        })}
-      </div>
-      {sheet.lineItems.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            {copy.lineItems}
-          </h2>
-          {sheet.lineItems.map((line) => (
-            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
-              <div className="flex justify-between gap-3">
-                <p className="font-medium">{paintingText(line.label, line.labelEs, language)}</p>
-                {showItems ? <p className="tabular-nums">{copy.hours(line.allocatedHours)}</p> : null}
-              </div>
-              {line.crewNote ? (
-                <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm">{paintingText(line.crewNote, line.crewNoteEs, language)}</p>
-              ) : null}
-            </div>
-          ))}
-        </section>
-      ) : null}
-      {sheet.pendingWork.length > 0 ? (
-        <section className="flex flex-col gap-2" data-testid="pending-work-list">
-          <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            {copy.pendingWork}
-          </h2>
-          {sheet.pendingWork.map((line) => (
-            <div key={line.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
-              <div className="flex justify-between gap-3">
-                <p className="font-medium">{paintingText(line.label, line.labelEs, language)}</p>
-                {showItems ? <p className="tabular-nums">{copy.hours(line.allocatedHours)}</p> : null}
-              </div>
-              {line.crewNote ? <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm">{paintingText(line.crewNote, line.crewNoteEs, language)}</p> : null}
-            </div>
-          ))}
-        </section>
-      ) : null}
-      {sheet.changeOrders.length > 0 ? (
-        <section className="flex flex-col gap-2" data-testid="change-order-list">
-          <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            {copy.approvedChanges}
-          </h2>
-          {sheet.changeOrders.map((order) => (
-            <div key={order.id} className="rounded-2xl bg-card px-4 py-3 border border-slate-200 bg-white shadow-sm">
-              <p className="font-medium">{say(order.description)}</p>
-              <p className="text-sm text-muted-foreground">{copy.signed} {copy.signedWhen(order.signedAt)}</p>
-            </div>
-          ))}
-        </section>
-      ) : null}
+      <ModernWorkOrder
+        sheet={sheet}
+        orderNumber={orderNumber}
+        companyName={brand}
+        logoUrl={estimateSettings.logoUrl}
+        workerName={crew.crewName}
+      />
       <PendingSign estimateId={id} />
       <OnSiteChangeOrder estimateId={id} />
       <CompletionChecklist items={sheet.checklist} onToggle={crew.toggleChecklist} />

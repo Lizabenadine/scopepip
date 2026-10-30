@@ -227,6 +227,9 @@ export interface SurfaceInput {
   itemCount: number
   quantityOverride: number | null
   hoursOverride?: number | null
+  /** Finish speed learned from a finished room of this size. Used when it matches the coat count. */
+  paceSpeed?: number
+  paceCoats?: number
   hideFromCustomer?: boolean
   crewNote: string
   primerCoats?: number
@@ -255,6 +258,10 @@ export interface AreaInput {
   accessFactor?: number
   /** Missing means the area is not in a group. */
   groupId?: string
+  /** Color the customer signs for this room. */
+  colorName?: string
+  colorCode?: string
+  sheen?: string
 }
 
 export interface LineMaterial {
@@ -485,6 +492,8 @@ export interface Estimate {
   inboundLeadId?: string | null
   tags?: string[]
   salesperson?: string
+  /** The login that owns sales credit for this bid. */
+  estimatorId?: string
   salesStage?: SalesStage | null
   /** When set, the card sits in that office column instead of the stage column. */
   boardColumnId?: string | null

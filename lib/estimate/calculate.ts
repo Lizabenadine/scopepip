@@ -1,3 +1,4 @@
+import { rateAtPace } from "./learned-pace.ts"
 import { linePhoto } from "./line-photo.ts"
 import { lineVideo } from "./line-video.ts"
 import type {
@@ -98,6 +99,9 @@ export interface PricedArea {
   prepLevel: PrepLevel
   accessFactor: number
   crewNote: string
+  colorName?: string
+  colorCode?: string
+  sheen?: string
   surfaces: PricedSurface[]
   allocatedHours: number
   price: number
@@ -377,7 +381,8 @@ function priceSurface(
   const primerCoats = Math.min(Math.round(nonNegative(surface.primerCoats ?? 0)), 6)
   const hourlyRate = rate.customHourlyRate ?? settings.hourlyRate
   const pricedByArea = rate.basis === "dollars_per_sqft" || rate.basis === "dollars_per_lnft" || rate.basis === "dollars_per_item"
-  const finish = finishCoats > 0 ? finishProduction(rate, quantity, finishCoats, pricedByArea) : null
+  const finishRate = pricedByArea ? rate : rateAtPace(rate, surface, finishCoats)
+  const finish = finishCoats > 0 ? finishProduction(finishRate, quantity, finishCoats, pricedByArea) : null
   const finishSpeed = finish?.labelSpeed ?? null
   const typed = typedHours(surface)
   let rawHours = 0
@@ -563,6 +568,9 @@ export function calculateEstimate(input: ScopeInput): EstimateQuote {
       prepLevel: area.prepLevel ?? "none",
       accessFactor: accessFactorOf(area),
       crewNote: area.crewNote,
+      colorName: area.colorName?.trim() || undefined,
+      colorCode: area.colorCode?.trim() || undefined,
+      sheen: area.sheen?.trim() || undefined,
       surfaces,
       allocatedHours: surfaces.reduce((sum, surface) => sum + surface.allocatedHours, 0),
       price: cents(surfaces.reduce((sum, surface) => sum + surface.price, 0)),

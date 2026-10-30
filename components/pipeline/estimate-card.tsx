@@ -6,6 +6,7 @@ import { useState } from "react"
 import { buttonVariants } from "@/components/ui/button"
 import { Button } from "@/components/ui/button"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
+import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { money } from "@/lib/format"
@@ -71,6 +72,7 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
         </p>
       </div>
       <p className="text-sm">{estimate.jobAddress || say("No address yet")}</p>
+      <NavigateToJobsite address={estimate.jobAddress} />
       <p className="text-sm text-muted-foreground">{officeAreas(estimate.areas.map((area) => area.name), language)}</p>
       {estimate.scheduledOn ? (
         <p className="text-sm font-medium">{officeOnSite(estimate.scheduledOn, language)}</p>

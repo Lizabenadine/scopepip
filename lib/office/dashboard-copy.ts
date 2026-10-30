@@ -70,6 +70,24 @@ const LABELS: Record<string, string> = {
   Cabinets: "Gabinetes",
   Estimate: "Estimado",
   "Work order": "Orden de trabajo",
+  "Store list": "Lista para la tienda",
+  "Hours from this job": "Horas de este trabajo",
+  "This job's price stays. The next room of this size uses this speed.":
+    "El precio de este trabajo se queda. El próximo cuarto de este tamaño usa esta velocidad.",
+  "Estimated hours": "Horas estimadas",
+  "Hours this room took": "Horas que tomó este cuarto",
+  "Save this speed": "Guardar esta velocidad",
+  "Use the rate card again": "Usar la tarifa otra vez",
+  "Enter the hours this room took.": "Escriba las horas que tomó este cuarto.",
+  "This room has no estimated hours to compare.": "Este cuarto no tiene horas estimadas para comparar.",
+  "This room has no timed surfaces to learn from.": "Este cuarto no tiene superficies con tiempo para aprender.",
+  "This login stays on the bid": "Este acceso se queda en la cotización",
+  "An estimator writes the bid and does not open dispatch, invoices, or the rate card.":
+    "Un estimador escribe la cotización y no abre el despacho, las facturas ni la tarifa.",
+  "Bids sent": "Cotizaciones enviadas",
+  "Win rate": "Tasa de cierre",
+  "Your follow-ups": "Sus seguimientos",
+  "No bids in your name yet.": "Todavía no hay cotizaciones a su nombre.",
   Company: "Empresa",
   Brand: "Marca",
   Email: "Correo",
@@ -158,9 +176,9 @@ export function officeScheduleTitle(clientName: string, language: FieldLanguage)
 
 export function officeSalesNote(language: FieldLanguage): string {
   if (language === "en") {
-    return ". The website form, Thumbtack, Angi, Google Local Services, and Facebook open a Cold Leads card and start that sequence."
+    return ". Incoming leads open a Cold Leads card and start that sequence."
   }
-  return ". El formulario del sitio, Thumbtack, Angi, Google Local Services y Facebook abren una tarjeta de prospectos fríos y empiezan esa secuencia."
+  return ". Los prospectos que llegan abren una tarjeta de prospectos fríos y empiezan esa secuencia."
 }
 
 export function officeCount(count: number, language: FieldLanguage): string {

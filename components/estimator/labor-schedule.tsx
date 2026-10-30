@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useScope } from "@/lib/data/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,12 +31,15 @@ const STARTING_SURFACES: SurfaceEntry[] = [
 ]
 
 export function LaborSchedule() {
+  const { session } = useScope()
   const [hourlyRate, setHourlyRate] = useState("65")
   const [depositPercent, setDepositPercent] = useState<number>(30)
   const [surfaces, setSurfaces] = useState<SurfaceEntry[]>(STARTING_SURFACES)
   const [milestones, setMilestones] = useState<PaymentMilestone[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  if (session?.role === "estimator") return null
 
   const rate = numberFrom(hourlyRate)
   const split = milestoneSplit(depositPercent)

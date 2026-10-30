@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { CompanyMark } from "@/components/brand/company-mark"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { translatePainting } from "@/lib/field/terms"
@@ -11,6 +11,7 @@ export function SubcontractorWorkOrder({
   logoUrl,
   description,
   spanishDescription,
+  workerName,
   setDescription,
   onSign,
 }: {
@@ -18,12 +19,18 @@ export function SubcontractorWorkOrder({
   logoUrl?: string | null
   description: string
   spanishDescription?: string
+  workerName?: string | null
   setDescription: (description: string) => void
   onSign: (name: string, signedDate: string) => void
 }) {
   const { copy, language } = useFieldLanguage()
   const say = (text: string) => translatePainting(text, language)
-  const [subName, setSubName] = useState("")
+  const [subName, setSubName] = useState(workerName?.trim() ?? "")
+  useEffect(() => {
+    const name = workerName?.trim()
+    if (!name) return
+    setSubName((current) => current || name)
+  }, [workerName])
   const [subDate, setSubDate] = useState(new Date().toISOString().split("T")[0])
   const signed = Boolean(order.subSignature)
   const brands = [...new Set(order.colorSpecs.map((spec) => spec.brand).filter(Boolean))]
