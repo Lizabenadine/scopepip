@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { withApprovedScope } from "@/lib/estimate/versions"
 import type { LearnedPace } from "@/lib/estimate/learned-pace"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { DEFAULT_AREA_NAMES, type AreaName } from "@/lib/estimate/area-names"
@@ -343,7 +344,7 @@ export interface ScopeApi {
   clientById: (id: string) => Client | undefined
   stageById: (id: string) => PipelineStage | undefined
   quoteEstimate: (estimate: Estimate) => EstimateQuote
-  saveEstimate: (draft: EstimateDraft) => { id: string; clientId: string }
+  saveEstimate: (draft: EstimateDraft) => { id: string; clientId: string; publicToken: string }
   restoreEstimateVersion: (
     estimateId: string,
     versionId: string,
@@ -508,14 +509,16 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     paymentMethods: state.paymentMethods,
     clientById: (id) => state.clients.find((client) => client.id === id),
     stageById: (id) => state.stages.find((stage) => stage.id === id),
-    quoteEstimate: (estimate) =>
-      calculateEstimate({
-        areas: estimate.areas,
-        lineItems: estimate.lineItems,
-        rates: quoteRates(estimate.rates, state.productionRates, estimate.areas),
-        settings: estimate.settings,
+    quoteEstimate: (estimate) => {
+      const source = withApprovedScope(estimate)
+      return calculateEstimate({
+        areas: source.areas,
+        lineItems: source.lineItems,
+        rates: quoteRates(source.rates, state.productionRates, source.areas),
+        settings: source.settings,
         paymentMethods: state.paymentMethods,
-      }),
+      })
+    },
     saveEstimate: (draft) => {
       const latest = getSnapshot().state
       const id = draft.id ?? crypto.randomUUID()

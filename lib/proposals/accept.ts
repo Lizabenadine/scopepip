@@ -1,4 +1,5 @@
 import type { ScopeState } from "../data/seed.ts"
+import { lockApprovedScope } from "../estimate/versions.ts"
 import type { ClientSignature, Estimate } from "../types.ts"
 import { createWorkOrder } from "../work-orders/defaults.ts"
 
@@ -37,17 +38,20 @@ export function applyAcceptance(
     signedAt: input.signedAt,
     selectedLineIds: input.selectedLineIds,
   }
-  const updated: Estimate = {
-    ...estimate,
-    clientStatus: "accepted",
-    acceptedAt: input.signedAt,
-    declinedAt: null,
-    signature,
-    updatedAt: input.signedAt,
-    lineItems: estimate.lineItems.map((item) =>
-      item.optional ? { ...item, selected: selected.has(item.id) } : item,
-    ),
-  }
+  const updated: Estimate = lockApprovedScope(
+    {
+      ...estimate,
+      clientStatus: "accepted",
+      acceptedAt: input.signedAt,
+      declinedAt: null,
+      signature,
+      updatedAt: input.signedAt,
+      lineItems: estimate.lineItems.map((item) =>
+        item.optional ? { ...item, selected: selected.has(item.id) } : item,
+      ),
+    },
+    input.signedAt,
+  )
   const estimates = state.estimates.map((item) => (item.id === updated.id ? updated : item))
   const workOrders = state.workOrders.some((order) => order.estimateId === updated.id)
     ? state.workOrders

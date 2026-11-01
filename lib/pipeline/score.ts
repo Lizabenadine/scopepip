@@ -2,6 +2,8 @@ import type { Client, Estimate, LeadSource } from "../types.ts"
 import { salesStageOf } from "./board.ts"
 
 const SOURCE_POINTS: Record<LeadSource, number> = {
+  phone: 12,
+  text: 12,
   referral: 15,
   google: 12,
   website: 12,

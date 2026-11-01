@@ -21,7 +21,7 @@ describe("depositAmount", () => {
 })
 
 describe("applyDeposit", () => {
-  it("records the receipt, schedules the job, and opens a work order", () => {
+  it("records the receipt and leaves the start date for the crew board", () => {
     const state = createSeedState()
     const accepted = {
       ...state,
@@ -43,10 +43,13 @@ describe("applyDeposit", () => {
     if (!result.ok) return
     const estimate = result.state.estimates.find((item) => item.id === "est-ortiz")
     assert.equal(estimate?.paymentStatus, "deposit_paid")
-    assert.equal(estimate?.stageId, "stage-scheduled")
-    assert.equal(estimate?.scheduledOn, "2026-10-02")
+    assert.equal(estimate?.stageId, "stage-sent")
+    assert.equal(estimate?.scheduledOn, null)
     assert.equal(estimate?.depositReceipt?.amount, 362.25)
-    assert.equal(result.state.workOrders.some((order) => order.estimateId === "est-ortiz"), true)
+    const order = result.state.workOrders.find((item) => item.estimateId === "est-ortiz")
+    assert.ok(order)
+    assert.equal(order?.status, "unscheduled")
+    assert.equal(order?.scheduledStartDate, null)
   })
 
   it("reads a succeeded PaymentIntent into a receipt", () => {

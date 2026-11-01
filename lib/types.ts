@@ -446,6 +446,8 @@ export interface EstimateVersion {
   crewNote: string
   notesEs?: string
   crewNoteEs?: string
+  /** The scope the customer signed. The proposal and the crew sheet keep this copy. */
+  approved?: boolean
 }
 
 export interface Client {

@@ -62,7 +62,7 @@ export function Estimator({
 }) {
   const router = useRouter()
   const estimator = useEstimator(mode, estimateId)
-  const { session, stages, workOrders, sendSubcontractorOffer, placeOnColumn } = useScope()
+  const { session, stages, estimates, workOrders, sendSubcontractorOffer, placeOnColumn } = useScope()
   const estimatorLogin = session?.role === "estimator"
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
@@ -203,13 +203,13 @@ export function Estimator({
   }
 
   return (
-    <form onSubmit={onSubmit} className="pb-44 lg:pb-0">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+    <form onSubmit={onSubmit} className="pb-24 lg:pb-0">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Link href="/" className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
           <ChevronLeft className="size-4" />
           Jobs
         </Link>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
           {draft.id ? (
             <Link href={`/proposal/${draft.id}`} className="font-medium text-primary">
               Proposal
@@ -251,6 +251,8 @@ export function Estimator({
                 ? "Elija Interior, Exterior o Gabinetes. Plantillas incluye un trabajo interior y un trabajo exterior, y cada tipo puede usar su propia tarifa por hora."
                 : "Pick Interior, Exterior, or Cabinets. Templates includes an interior job and an exterior job, and each type can use its own hourly rate."}
             </p>
+            {disabledReason ? <p className="mt-2 text-sm text-muted-foreground lg:hidden">{disabledReason}</p> : null}
+            {status ? <p className="mt-2 text-sm font-medium text-primary lg:hidden">{status}</p> : null}
           </div>
           <div className="flex flex-wrap gap-2" data-testid="estimate-kind">
             {ESTIMATE_KINDS.map((kind) => {
@@ -339,6 +341,11 @@ export function Estimator({
               />
             </div>
           </div>
+          {estimates.some((item) => item.id === draft.id && item.versions?.some((version) => version.approved)) ? (
+            <p className="text-sm text-muted-foreground" data-testid="signed-scope-note">
+              The signed proposal is locked. Extra work is a change order.
+            </p>
+          ) : null}
           <AreaEditor
             areas={draft.areas}
             areaGroups={draft.areaGroups ?? []}

@@ -5,6 +5,7 @@ import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
 import { applyLearnedPaces } from "@/lib/estimate/learned-pace"
 import { listActivity } from "@/lib/estimate/activity"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
+import { withApprovedScope } from "@/lib/estimate/versions"
 import { selectEstimateKind } from "@/lib/estimate/kinds"
 import { captureEstimateTemplate, type SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { useScope } from "@/lib/data/store"
@@ -148,12 +149,16 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
   const pacedAreas = draft
     ? applyLearnedPaces(draft.areas, scope.learnedPaces, draft.id, lockedAreaIds)
     : null
-  const quote: EstimateQuote | null = draft && pacedAreas
+  const stored = draft?.id ? scope.estimates.find((item) => item.id === draft.id) : undefined
+  const priced = draft && pacedAreas
+    ? withApprovedScope({ ...draft, areas: pacedAreas, versions: stored?.versions })
+    : null
+  const quote: EstimateQuote | null = priced
     ? calculateEstimate({
-        areas: pacedAreas,
-        lineItems: draft.lineItems,
-        rates: quoteRates(draft.rates, scope.productionRates, pacedAreas),
-        settings: draft.settings,
+        areas: priced.areas,
+        lineItems: priced.lineItems,
+        rates: quoteRates(priced.rates, scope.productionRates, priced.areas),
+        settings: priced.settings,
         paymentMethods: PAYMENT_METHODS,
       })
     : null

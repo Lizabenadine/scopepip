@@ -160,7 +160,7 @@ export function DealCard({
         <Link
           href={`/estimates/${estimate.id}`}
           data-testid={`next-step-${estimate.id}`}
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
           onClick={() => scope.advanceSalesStage(estimate.id)}
         >
           {nextStep}
@@ -170,7 +170,7 @@ export function DealCard({
         <Link
           href={`/proposal/${estimate.id}`}
           data-testid={`next-step-${estimate.id}`}
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
         >
           {nextStep}
         </Link>
@@ -179,7 +179,7 @@ export function DealCard({
         <button
           type="button"
           data-testid={`next-step-${estimate.id}`}
-          className="h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
+          className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
           onClick={() => {
             if (salesStage === "cold") setContactOpen(true)
             else if (salesStage === "warm") setVisitOpen(true)

@@ -1,5 +1,6 @@
 import { calculateEstimate, type EstimateQuote } from "../estimate/calculate.ts"
 import { ensureSubstrateRates } from "../estimate/substrate.ts"
+import { withApprovedScope } from "../estimate/versions.ts"
 import { depositAmount, clampDepositPercent } from "../payments/deposit.ts"
 import type { Estimate, LineItemInput, PaymentMethod } from "../types.ts"
 
@@ -13,11 +14,12 @@ export function proposalFigures(
   paymentMethods: PaymentMethod[],
   selectedIds: string[],
 ): { quote: EstimateQuote; deposit: number; depositPercent: number } {
+  const source = withApprovedScope(estimate)
   const quote = calculateEstimate({
-    areas: estimate.areas,
-    lineItems: linesWithSelection(estimate.lineItems, selectedIds),
-    rates: ensureSubstrateRates(estimate.rates),
-    settings: estimate.settings,
+    areas: source.areas,
+    lineItems: linesWithSelection(source.lineItems, selectedIds),
+    rates: ensureSubstrateRates(source.rates),
+    settings: source.settings,
     paymentMethods,
   })
   const depositPercent = clampDepositPercent(estimate.settings.depositPercent)

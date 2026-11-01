@@ -78,8 +78,27 @@ export function PriceSummary({
 
   if (variant === "dock") {
     return (
-      <div className="fixed inset-x-0 bottom-16 z-20 flex flex-col gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:bottom-0 lg:hidden">
-        {body}
+      <div className="fixed inset-x-0 bottom-16 z-20 border-t border-border bg-background px-4 py-2 md:bottom-0 lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-2xl leading-none text-price tabular-nums" aria-live="polite">
+              {money(quote.total)}
+            </p>
+            <button type="button" onClick={onExplain} className="mt-1 block truncate text-xs font-medium text-primary">
+              How it prices
+            </button>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {nextLabel ? (
+              <Button type="button" variant="outline" className="h-11 px-3" disabled={disabled} onClick={onAdvance}>
+                {nextLabel}
+              </Button>
+            ) : null}
+            <Button type="submit" className="h-11 px-3" disabled={disabled}>
+              {saveLabel}
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }

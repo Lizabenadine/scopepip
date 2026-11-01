@@ -60,6 +60,35 @@ export function rememberVersion(
   return next.length > MAX_VERSIONS ? next.slice(0, MAX_VERSIONS) : next
 }
 
+/** The signed scope, plus any line items added later by a change order. */
+export function withApprovedScope<
+  T extends { versions?: EstimateVersion[]; lineItems: Estimate["lineItems"] },
+>(estimate: T): T {
+  const approved = estimate.versions?.find((version) => version.approved)
+  if (!approved) return estimate
+  const signed = structuredClone(scopeSnapshot(approved))
+  const signedIds = new Set(signed.lineItems.map((item) => item.id))
+  const added = estimate.lineItems.filter((item) => !signedIds.has(item.id))
+  return {
+    ...estimate,
+    ...signed,
+    lineItems: [...signed.lineItems, ...added],
+  }
+}
+
+/** Store the scope the customer just signed. Later saves do not replace it. */
+export function lockApprovedScope(estimate: Estimate, now: string): Estimate {
+  const version: EstimateVersion = {
+    id: `approved-${estimate.id}`,
+    savedAt: now,
+    approved: true,
+    ...structuredClone(scopeSnapshot(estimate)),
+  }
+  const rest = (estimate.versions ?? []).filter((item) => item.id !== version.id && !item.approved)
+  const versions = [version, ...rest]
+  return { ...estimate, versions: versions.length > MAX_VERSIONS ? versions.slice(0, MAX_VERSIONS) : versions }
+}
+
 export function restoreVersion(
   estimate: Estimate,
   versionId: string,

@@ -88,7 +88,7 @@ describe("dispatch board", () => {
     assert.match(result.notice, /Lena Brooks is in progress/)
   })
 
-  it("schedules the work order when a deposit is recorded", () => {
+  it("records a deposit without putting the crew on the calendar", () => {
     const state = createSeedState()
     const accepted = {
       ...state,
@@ -107,8 +107,11 @@ describe("dispatch board", () => {
     assert.equal(result.ok, true)
     if (!result.ok) return
     const order = result.state.workOrders.find((item) => item.estimateId === "est-ortiz")
-    assert.equal(order?.status, "scheduled")
-    assert.equal(order?.scheduledStartDate, "2026-10-02")
+    const estimate = result.state.estimates.find((item) => item.id === "est-ortiz")
+    assert.equal(estimate?.paymentStatus, "deposit_paid")
+    assert.equal(estimate?.scheduledOn, null)
+    assert.equal(order?.status, "unscheduled")
+    assert.equal(order?.scheduledStartDate, null)
   })
 })
 

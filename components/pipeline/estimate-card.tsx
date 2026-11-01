@@ -77,7 +77,7 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
       {estimate.scheduledOn ? (
         <p className="text-sm font-medium">{officeOnSite(estimate.scheduledOn, language)}</p>
       ) : null}
-      <div className="mt-auto flex gap-2">
+      <div className="mt-auto flex flex-wrap gap-2">
         {next && NEXT_ACTION[stage.slug] ? (
           <Button type="button" className="h-11 flex-1" onClick={advance}>
             {officeNextAction(stage.slug, NEXT_ACTION[stage.slug], language)}

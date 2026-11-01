@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createOfficeLead } from "./office-lead.ts"
-import type { ScopeState } from "../data/seed.ts"
+import { SCOPE_VERSION, type ScopeState } from "../data/seed.ts"
 
 function book(): ScopeState {
   return {
-    version: 1,
+    version: SCOPE_VERSION,
     clients: [],
     stages: [{ id: "stage-lead", slug: "lead", name: "Lead", sortOrder: 0 }],
     estimates: [],
@@ -23,7 +23,7 @@ function book(): ScopeState {
       surchargePercent: 0,
     },
     paymentMethods: [],
-  } as ScopeState
+  } as unknown as ScopeState
 }
 
 describe("office lead", () => {

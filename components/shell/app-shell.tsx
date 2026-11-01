@@ -68,9 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
-    pathname === "/refunds" ||
-    pathname === "/innova" ||
-    pathname.startsWith("/innova/")
+    pathname === "/refunds"
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
@@ -131,9 +129,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <FollowUpRunner />
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-white/10 bg-[#02182F] px-4 py-3 text-white md:px-6">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#02182F] px-3 py-2 text-white md:px-6 md:py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <BrandLogo href={homeForRole(session.role)} />
+          <BrandLogo href={homeForRole(session.role)} compact />
           <nav className="hidden min-w-0 items-center gap-0.5 md:flex" aria-label="Primary" data-nav-root="bar">
             {sections.map((section) => (
               <SectionControl
@@ -149,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
         </div>
-        <div className="flex shrink-0 items-center justify-end gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <div className="hidden items-center gap-2 lg:flex">
             <p className="text-sm text-white" data-testid="signed-in-name">
               {session.name}

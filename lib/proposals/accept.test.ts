@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { createSeedState } from "../data/seed.ts"
 import { PAYMENT_METHODS } from "../defaults.ts"
+import { jobStageOf, salesStageOf } from "../pipeline/board.ts"
 import { toCrewSheet } from "../work-orders/crew-sheet.ts"
 import { applyAcceptance } from "./accept.ts"
 import { proposalFigures } from "./figures.ts"
@@ -46,6 +47,29 @@ describe("applyAcceptance", () => {
     assert.equal(packed.includes("laborCost"), false)
     assert.equal(sheet.lineItems.some((line) => line.label === "Trim package"), true)
     assert.equal(sheet.lineItems.some((line) => line.label === "Accent wall"), false)
+    assert.equal(estimate?.versions?.some((version) => version.approved), true)
+    assert.equal(salesStageOf(estimate!), null)
+    const stage = result.state.stages.find((item) => item.id === estimate?.stageId)
+    assert.equal(jobStageOf(estimate!, order, stage?.slug), "project_accepted")
+    const edited = {
+      ...estimate!,
+      areas: estimate!.areas.map((area) => ({ ...area, name: "Changed after signing" })),
+      lineItems: [
+        ...estimate!.lineItems,
+        {
+          ...estimate!.lineItems[0]!,
+          id: "change-closet",
+          label: "Closet interior",
+          optional: false,
+          selected: true,
+        },
+      ],
+    }
+    const locked = toCrewSheet(edited, result.state.clients.find((client) => client.id === "client-ortiz"), order)
+    assert.equal(locked.areas.some((area) => area.name === "Unit 4"), true)
+    assert.equal(locked.areas.some((area) => area.name === "Changed after signing"), false)
+    assert.equal(locked.lineItems.some((line) => line.label === "Closet interior"), true)
+    assert.equal(locked.estimateId, estimate?.id)
   })
 
   it("recalculates the total and deposit when optional add-ons change", () => {

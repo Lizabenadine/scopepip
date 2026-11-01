@@ -163,12 +163,12 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             </FilterSelect>
           </div>
           )}
-          <div className="flex items-start gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:overflow-x-auto md:pb-2">
             {visibleColumns.map((column) => (
               <section
                 key={column.id}
                 data-testid={`column-${column.id}`}
-                className="flex w-72 shrink-0 flex-col gap-3 self-stretch rounded-2xl bg-muted/40 p-3"
+                className="flex w-full flex-col gap-3 self-stretch rounded-2xl bg-muted/40 p-3 md:w-72 md:shrink-0"
               >
                 <header className="flex items-baseline justify-between gap-2 px-1">
                   {renaming === column.id ? (
@@ -376,13 +376,13 @@ function FilterSelect({
   children: ReactNode
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">{label}</span>
+    <label className="flex min-w-0 basis-full items-center gap-2 text-sm sm:basis-auto">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
       <select
         aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
+        className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-background px-2 text-sm sm:h-9"
       >
         {children}
       </select>

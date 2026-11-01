@@ -1,5 +1,6 @@
 import { PAYMENT_METHODS } from "../defaults.ts"
 import { calculateEstimate, type PricedArea, type PricedLine, type PricedSurface } from "../estimate/calculate.ts"
+import { withApprovedScope } from "../estimate/versions.ts"
 import { ensureSubstrateRates } from "../estimate/substrate.ts"
 import { sectionByGroup } from "../estimate/groups.ts"
 import type { Client, Estimate, PrepLevel, SitePhoto, WorkOrder } from "../types.ts"
@@ -148,11 +149,12 @@ export function toCrewSheet(
   client: Client | undefined,
   workOrder: WorkOrder,
 ): CrewSheet {
+  const source = withApprovedScope(estimate)
   const quote = calculateEstimate({
-    areas: estimate.areas,
-    lineItems: estimate.lineItems,
-    rates: ensureSubstrateRates(estimate.rates),
-    settings: estimate.settings,
+    areas: source.areas,
+    lineItems: source.lineItems,
+    rates: ensureSubstrateRates(source.rates),
+    settings: source.settings,
     paymentMethods: PAYMENT_METHODS,
   })
   const changeOrderItemIds = new Set(
@@ -168,8 +170,8 @@ export function toCrewSheet(
     scheduledOn: estimate.scheduledOn,
     crewNote: workOrder.prepNotes,
     crewNoteEs: prepSpanish(estimate, workOrder),
-    areas: sectionByGroup(quote.areas, estimate.areaGroups, (area) => {
-      return estimate.areas.find((item) => item.id === area.id)?.groupId
+    areas: sectionByGroup(quote.areas, source.areaGroups, (area) => {
+      return source.areas.find((item) => item.id === area.id)?.groupId
     }).flatMap((section) => section.items.map((area) => areaRow(area, section.groupName))),
     lineItems: quote.lineItems
       .filter((line) => !line.hiddenOnWorkOrder && !changeOrderItemIds.has(line.id))
