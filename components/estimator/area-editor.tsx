@@ -7,7 +7,7 @@ import { OneOffRateForm } from "@/components/estimator/one-off-rate"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
 import { copyArea, insertAfter } from "@/lib/estimate/copy"
-import { measureArea, measuredQuantity, quantityUnit } from "@/lib/estimate/calculate"
+import { measureArea, measuredQuantity, openingSqFt, quantityUnit } from "@/lib/estimate/calculate"
 import {
   createAreaGroup,
   moveAreaGroup,
@@ -29,7 +29,7 @@ import {
   surfaceHeads,
 } from "@/lib/estimate/substrate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import type { AreaGroup, AreaInput, EstimateKind, LineItemInput, ProductionRate, Substrate, SurfaceInput } from "@/lib/types"
+import type { AreaGroup, AreaInput, AreaOpening, EstimateKind, LineItemInput, ProductionRate, Substrate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -426,7 +426,7 @@ function AreaCard({
         </div>
         <div className="flex shrink-0 gap-3">
           <button type="button" className="text-sm font-medium text-primary" data-testid="copy-area" onClick={onCopy}>
-            Copy
+            Duplicate
           </button>
           <button type="button" className="text-sm text-muted-foreground" onClick={onRemove}>
             Remove
@@ -489,8 +489,14 @@ function AreaCard({
         />
       </div>
       <p className="mt-2 text-xs text-muted-foreground" data-testid="area-measures">
-        {measures.wallSqFt} sq ft walls · {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft
+        {measures.wallSqFt} sq ft walls
+        {openingSqFt(area.openings) > 0 ? ` after leaving out ${openingSqFt(area.openings)} sq ft of doors and windows` : ""}
+        {" · "}
+        {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft trim
       </p>
+      {kind === "interior" && area.areaType === "room" ? (
+        <RoomOpenings area={area} onChange={onChange} />
+      ) : null}
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <div className="grid gap-1">
           <Label htmlFor={`${area.id}-color`}>Color</Label>
@@ -532,7 +538,7 @@ function AreaCard({
           </select>
         </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <div className="grid gap-1">
           <Label htmlFor={`${area.id}-prep`}>Prep intensity</Label>
           <select
@@ -554,6 +560,12 @@ function AreaCard({
           label="Prep hours"
           value={area.prepHours ?? 0}
           onChange={(prepHours) => onChange({ ...area, prepHours: prepHours > 0 ? prepHours : null })}
+        />
+        <NumberField
+          id={`${area.id}-repair-hours`}
+          label="Repair hours"
+          value={area.repairHours ?? 0}
+          onChange={(repairHours) => onChange({ ...area, repairHours: repairHours > 0 ? repairHours : null })}
         />
         <div className="grid gap-1">
           <Label htmlFor={`${area.id}-access`}>Access multiplier</Label>
@@ -654,7 +666,7 @@ function AreaCard({
                               updateSurface(surface, { primerCoats: Number(event.target.value) })
                             }
                           >
-                            {[0, 1, 2].map((coats) => (
+                            {[0, 1, 2, 3].map((coats) => (
                               <option key={coats} value={coats}>
                                 {coats}
                               </option>
@@ -693,6 +705,27 @@ function AreaCard({
                         {SUBSTRATE_LABEL[substrateOf(active)].toLowerCase()} speed.
                       </p>
                     ) : null}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid gap-1">
+                        <Label htmlFor={`${surface.id}-product`}>Paint</Label>
+                        <Input
+                          id={`${surface.id}-product`}
+                          data-testid={`surface-product-${rate.id}`}
+                          value={surface.productName ?? ""}
+                          placeholder={active.productName || "Paint product"}
+                          className="h-10"
+                          onValueChange={(productName) => updateSurface(surface, { productName })}
+                        />
+                      </div>
+                      <OverrideField
+                        id={`${surface.id}-coverage`}
+                        label={unit === "items" ? "Gallons each" : unit === "ln ft" ? "Ln ft / gal" : "Sq ft / gal"}
+                        ariaLabel={`${rate.internalLabel} coverage`}
+                        testId={`surface-coverage-${rate.id}`}
+                        value={surface.coveragePerCoat ?? null}
+                        onChange={(coveragePerCoat) => updateSurface(surface, { coveragePerCoat })}
+                      />
+                    </div>
                     <div className={unit === "items" ? "grid max-w-xs gap-2" : "grid grid-cols-2 gap-2"}>
                       {unit === "items" ? null : (
                         <div className="grid gap-1">
@@ -797,6 +830,88 @@ function ratesForArea(rates: ProductionRate[], kind: EstimateKind, area: AreaInp
     (rate) => area.surfaces.some((surface) => surface.rateId === rate.id) && !allowed.some((item) => item.id === rate.id),
   )
   return [...allowed, ...extras]
+}
+
+function RoomOpenings({ area, onChange }: { area: AreaInput; onChange: (area: AreaInput) => void }) {
+  const openings = area.openings ?? []
+  const add = (kind: AreaOpening["kind"]) => {
+    const opening: AreaOpening = {
+      id: crypto.randomUUID(),
+      kind,
+      widthFt: kind === "door" ? 3 : 3,
+      heightFt: kind === "door" ? 7 : 4,
+      count: 1,
+      excludeFromWalls: true,
+    }
+    onChange({ ...area, openings: [...openings, opening] })
+  }
+  const update = (id: string, patch: Partial<AreaOpening>) => {
+    onChange({
+      ...area,
+      openings: openings.map((opening) => (opening.id === id ? { ...opening, ...patch } : opening)),
+    })
+  }
+  return (
+    <div className="mt-3 flex flex-col gap-2" data-testid="room-openings">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Doors and windows</h3>
+        <div className="flex gap-2">
+          <button type="button" className="text-sm font-medium text-primary" data-testid="add-door-opening" onClick={() => add("door")}>
+            Add door
+          </button>
+          <button type="button" className="text-sm font-medium text-primary" data-testid="add-window-opening" onClick={() => add("window")}>
+            Add window
+          </button>
+        </div>
+      </div>
+      {openings.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Add a door or window when it should come out of the paintable wall area. Frame painting stays on the door and window surfaces.
+        </p>
+      ) : null}
+      {openings.map((opening) => (
+        <div key={opening.id} className="grid gap-2 rounded-xl border border-border p-2 sm:grid-cols-[auto_1fr_1fr_5rem_auto]">
+          <p className="self-end pb-2 text-sm font-medium capitalize">{opening.kind}</p>
+          <NumberField
+            id={`${opening.id}-width`}
+            label="Width"
+            value={opening.widthFt}
+            onChange={(widthFt) => update(opening.id, { widthFt })}
+          />
+          <NumberField
+            id={`${opening.id}-height`}
+            label="Height"
+            value={opening.heightFt}
+            onChange={(heightFt) => update(opening.id, { heightFt })}
+          />
+          <NumberField
+            id={`${opening.id}-count`}
+            label="Count"
+            value={opening.count}
+            onChange={(count) => update(opening.id, { count })}
+          />
+          <div className="flex items-end gap-3 pb-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                data-testid={`exclude-opening-${opening.kind}`}
+                checked={opening.excludeFromWalls}
+                onChange={(event) => update(opening.id, { excludeFromWalls: event.target.checked })}
+              />
+              Exclude
+            </label>
+            <button
+              type="button"
+              className="text-sm text-muted-foreground"
+              onClick={() => onChange({ ...area, openings: openings.filter((item) => item.id !== opening.id) })}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function rateGroups(rates: ProductionRate[]): { category: string; rates: ProductionRate[] }[] {

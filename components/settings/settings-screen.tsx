@@ -18,7 +18,7 @@ import { displayCompanyName } from "@/lib/brand/company"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { officeLabel } from "@/lib/office/dashboard-copy"
-import { DEFAULT_ESTIMATE_SETTINGS, MINIMUM_JOB_CHARGE, PAYMENT_METHODS, PLAN_NAME } from "@/lib/defaults"
+import { DEFAULT_ESTIMATE_SETTINGS, PAYMENT_METHODS, PLAN_NAME } from "@/lib/defaults"
 import { FOLLOW_UP_STAGE_COPY } from "@/lib/follow-ups/defaults"
 import { clampDepositPercent } from "@/lib/payments/deposit"
 import type { EstimateSettings } from "@/lib/types"
@@ -416,7 +416,7 @@ function rateText(value: number | undefined): string {
 
 function fieldValue(settings: EstimateSettings, name: string): string {
   if (name === "materialMarkup") return String((settings.materialMarkup ?? 0.2) * 100)
-  if (name === "minimumJobCharge") return String(settings.minimumJobCharge ?? MINIMUM_JOB_CHARGE)
+  if (name === "minimumJobCharge") return String(settings.minimumJobCharge ?? 0)
   if (name === "depositPercent") return String(settings.depositPercent ?? 30)
   if (name === "financingApr") return String(settings.financingApr ?? 9.99)
   if (name === "financingMonths") return String(settings.financingMonths ?? 12)

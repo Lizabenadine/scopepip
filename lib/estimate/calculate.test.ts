@@ -15,7 +15,9 @@ import {
   applyMinimumCharge,
   calculateEstimate,
   calculateProduction,
+  estimateCharges,
   measureArea,
+  openingSqFt,
   prepHoursFor,
   roundHours,
   scaledCoatHours,
@@ -41,6 +43,20 @@ describe("measureArea", () => {
   it("uses the four-wall room formulas from the 12 by 15 by 8 example", () => {
     const measures = measureArea(documentedBedroom())
     assert.equal(measures.wallSqFt, 432)
+    assert.equal(measures.ceilingSqFt, 180)
+    assert.equal(measures.perimeterLnFt, 54)
+  })
+
+  it("removes excluded doors and windows from paintable wall area", () => {
+    const bedroom = documentedBedroom()
+    bedroom.openings = [
+      { id: "door", kind: "door", widthFt: 3, heightFt: 7, count: 1, excludeFromWalls: true },
+      { id: "window", kind: "window", widthFt: 3, heightFt: 4, count: 2, excludeFromWalls: true },
+      { id: "kept", kind: "window", widthFt: 2, heightFt: 3, count: 1, excludeFromWalls: false },
+    ]
+    const measures = measureArea(bedroom)
+    assert.equal(openingSqFt(bedroom.openings), 3 * 7 + 3 * 4 * 2)
+    assert.equal(measures.wallSqFt, 432 - 45)
     assert.equal(measures.ceilingSqFt, 180)
     assert.equal(measures.perimeterLnFt, 54)
   })
@@ -312,6 +328,7 @@ describe("calculateEstimate", () => {
     assert.equal(taxFor(200, 40, 8, "materials_only"), 3.2)
     assert.equal(taxFor(200, 40, 8, "total_job"), 16)
     assert.equal(applyMinimumCharge(100, MINIMUM_JOB_CHARGE), MINIMUM_JOB_CHARGE)
+    assert.equal(applyMinimumCharge(0, MINIMUM_JOB_CHARGE), 0)
     const quote = calculateEstimate({
       areas: [
         {
@@ -332,6 +349,22 @@ describe("calculateEstimate", () => {
     assert.ok(walls)
     assert.ok((walls?.paintGallons ?? 0) > 432 / 350)
     assert.equal(quote.total, 5000)
+    const empty = calculateEstimate({
+      areas: [],
+      lineItems: [],
+      rates,
+      settings: { ...settings, minimumJobCharge: 350 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(empty.laborPrice, 0)
+    assert.equal(empty.materialCost, 0)
+    assert.equal(empty.allocatedHours, 0)
+    assert.equal(empty.total, 0)
+    const charges = estimateCharges(quote)
+    assert.equal(
+      Math.round((charges.labor + charges.materials + charges.additional - charges.discount + charges.tax) * 100) / 100,
+      quote.total,
+    )
     assert.equal(quote.pricedTotal < 5000, true)
     assert.ok(DEFAULT_PRODUCTION_RATES.some((rate) => rate.id === "siding" && rate.coatRates[0]?.value === 120))
     assert.ok(DEFAULT_PRODUCTION_RATES.some((rate) => rate.id === "crown"))

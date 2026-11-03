@@ -238,6 +238,10 @@ export interface SurfaceInput {
   finishCoats?: number
   /** Material on this surface. Missing means drywall. The matching rate supplies the speed. */
   substrate?: Substrate
+  /** Paint named on this surface. Blank uses the rate's product. */
+  productName?: string
+  /** One-coat coverage. Blank uses the rate. Square feet, linear feet, or gallons per item. */
+  coveragePerCoat?: number | null
 }
 
 /** A named section of rooms, such as Upstairs or Front of the house. */
@@ -264,6 +268,19 @@ export interface AreaInput {
   colorName?: string
   colorCode?: string
   sheen?: string
+  /** Hours for patches and repairs. Blank means none. */
+  repairHours?: number | null
+  /** Doors and windows in this room. Excluded ones come out of the wall area. */
+  openings?: AreaOpening[]
+}
+
+export interface AreaOpening {
+  id: string
+  kind: "door" | "window"
+  widthFt: number
+  heightFt: number
+  count: number
+  excludeFromWalls: boolean
 }
 
 export interface LineMaterial {

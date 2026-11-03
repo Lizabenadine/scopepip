@@ -13,6 +13,7 @@ export function copyArea(area: AreaInput): AreaInput {
     id: crypto.randomUUID(),
     name: copiedName(area.name),
     surfaces: area.surfaces.map((surface) => ({ ...surface, id: crypto.randomUUID() })),
+    openings: (area.openings ?? []).map((opening) => ({ ...opening, id: crypto.randomUUID() })),
   }
 }
 

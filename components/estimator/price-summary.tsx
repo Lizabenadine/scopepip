@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import type { EstimateQuote } from "@/lib/estimate/calculate"
-import { gallonsLabel, hoursLabel, money } from "@/lib/format"
+import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
+import { gallonsLabel, hoursLabel, money, moneyExact } from "@/lib/format"
+import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
 
 export function PriceSummary({
   quote,
@@ -16,6 +17,7 @@ export function PriceSummary({
   onExplain,
   variant,
   details,
+  depositPercent,
 }: {
   quote: EstimateQuote
   saveLabel: string
@@ -27,7 +29,18 @@ export function PriceSummary({
   onExplain: () => void
   variant: "dock" | "card"
   details?: ReactNode
+  depositPercent: number
 }) {
+  const charges = estimateCharges(quote)
+  const rows = [
+    ["Labor", charges.labor],
+    ["Materials", charges.materials],
+    ["Additional charges", charges.additional],
+    ["Discounts", charges.discount],
+    ["Taxes", charges.tax],
+    ["Deposit", depositAmount(quote.total, depositPercent)],
+    ["Remaining balance", balanceAfterDeposit(quote.total, depositPercent)],
+  ] as const
   const body = (
     <>
       <div className="flex items-end justify-between gap-3">
@@ -53,6 +66,16 @@ export function PriceSummary({
           How it prices
         </button>
       </div>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-3" data-testid="estimate-breakdown">
+        {rows.map(([label, amount]) => (
+          <div key={label}>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="tabular-nums" data-testid={`estimate-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+              {label === "Discounts" && amount > 0 ? `−${moneyExact(amount)}` : moneyExact(amount)}
+            </dd>
+          </div>
+        ))}
+      </dl>
       {disabledReason ? (
         <p className="text-xs text-muted-foreground">{disabledReason}</p>
       ) : null}

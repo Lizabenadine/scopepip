@@ -253,7 +253,7 @@ export const DEFAULT_ESTIMATE_SETTINGS: EstimateSettings = {
   expiryDays: 0,
   materialMarkup: DEFAULT_MATERIAL_MARKUP,
   taxBasis: "total_job",
-  minimumJobCharge: MINIMUM_JOB_CHARGE,
+  minimumJobCharge: 0,
   depositPercent: 30,
 }
 
@@ -280,7 +280,7 @@ export const DEFAULT_RATE_CARD: RateCard = {
   laborRatePerHour: DEFAULT_HOURLY_RATE,
   materialMarkup: DEFAULT_MATERIAL_MARKUP,
   costPerGallon: DEFAULT_COST_PER_GALLON,
-  minimumJobCharge: MINIMUM_JOB_CHARGE,
+  minimumJobCharge: 0,
 }
 
 export function documentedBedroomSurfaces(): SurfaceInput[] {

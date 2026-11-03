@@ -875,6 +875,7 @@ export function Estimator({
         </div>
         <PriceSummary
           variant="card"
+          depositPercent={draft.settings.depositPercent ?? 30}
           quote={quote}
           saveLabel={draft.id ? "Save" : "Save to Lead"}
           disabled={disabled}
@@ -889,6 +890,7 @@ export function Estimator({
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
+              depositPercent={draft.settings.depositPercent ?? 30}
               showCosts={!estimatorLogin}
             />
           }
@@ -896,6 +898,7 @@ export function Estimator({
       </div>
       <PriceSummary
         variant="dock"
+        depositPercent={draft.settings.depositPercent ?? 30}
         quote={quote}
         saveLabel={draft.id ? "Save" : "Save to Lead"}
         disabled={disabled}
@@ -919,6 +922,8 @@ export function Estimator({
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
+              depositPercent={draft.settings.depositPercent ?? 30}
+              showCharges
               showCosts={!estimatorLogin}
             />
           </div>

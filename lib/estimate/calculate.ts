@@ -20,7 +20,6 @@ import type {
 import {
   DEFAULT_MATERIAL_MARKUP,
   DEFAULT_RATE_CARD,
-  MINIMUM_JOB_CHARGE,
   PREP_HOURS_PER_SQFT,
   SECOND_COAT_LABOR_FACTOR,
 } from "../defaults.ts"
@@ -188,8 +187,9 @@ export function measureArea(area: AreaInput): AreaMeasures {
       perimeterLnFt: nonNegative(area.lengthFt),
     }
   }
+  const excluded = Math.min(room.wallSqFt, openingSqFt(area.openings))
   return {
-    wallSqFt: room.wallSqFt,
+    wallSqFt: room.wallSqFt - excluded,
     ceilingSqFt: room.ceilingSqFt,
     perimeterLnFt: room.trimLnFt,
   }
@@ -251,8 +251,20 @@ export function taxFor(taxableJob: number, materialCost: number, taxPercent: num
   return base * (nonNegative(taxPercent) / 100)
 }
 
+/** A priced job can rise to the minimum. An empty job stays at zero. */
 export function applyMinimumCharge(total: number, minimumJobCharge: number): number {
-  return Math.max(nonNegative(total), nonNegative(minimumJobCharge))
+  const priced = nonNegative(total)
+  const minimum = nonNegative(minimumJobCharge)
+  if (priced === 0 || minimum === 0) return priced
+  return Math.max(priced, minimum)
+}
+
+export function openingSqFt(openings: AreaInput["openings"]): number {
+  return (openings ?? []).reduce((sum, opening) => {
+    if (!opening.excludeFromWalls) return sum
+    const count = Math.round(nonNegative(opening.count))
+    return sum + nonNegative(opening.widthFt) * nonNegative(opening.heightFt) * count
+  }, 0)
 }
 
 /** Room or item math before a typed square-foot or linear-foot override. */
@@ -402,7 +414,10 @@ function priceSurface(
   }
   const allocatedHours = typed !== null ? typed : roundHours(rawHours, settings.hourRounding)
   if (!pricedByArea) laborPrice = allocatedHours * nonNegative(hourlyRate)
-  const coverage = nonNegative(rate.coveragePerCoat)
+  const coverage =
+    surface.coveragePerCoat !== null && surface.coveragePerCoat !== undefined && Number.isFinite(surface.coveragePerCoat)
+      ? nonNegative(surface.coveragePerCoat)
+      : nonNegative(rate.coveragePerCoat)
   const itemGallons = rate.measure === "items" || rate.measure === "shutters"
   let paintGallons = 0
   if (coverage > 0) {
@@ -442,7 +457,7 @@ function priceSurface(
     paintGallons,
     materialCost: cents(materialCost),
     price,
-    productName: rate.productName,
+    productName: surface.productName?.trim() || rate.productName,
     clientDescription: rate.clientDescription,
     crewNote: surface.crewNote || rate.crewNote,
     hideFromCustomer: surface.hideFromCustomer ?? rate.hideFromCustomer,
@@ -480,6 +495,38 @@ function pricePrep(area: AreaInput, settings: EstimateSettings): PricedSurface |
     price: roundMoney(laborPrice, settings.priceRounding),
     productName: "Prep",
     clientDescription: "Patching, sanding, caulking, and masking.",
+    crewNote: area.crewNote,
+    hideFromCustomer: false,
+    showCoats: false,
+    showPrice: false,
+    missingRate: false,
+  }
+}
+
+function priceRepair(area: AreaInput, settings: EstimateSettings): PricedSurface | null {
+  const rawHours = applyAccessFactor(nonNegative(area.repairHours ?? 0), accessFactorOf(area))
+  if (rawHours <= 0) return null
+  const allocatedHours = roundHours(rawHours, settings.hourRounding)
+  const laborPrice = allocatedHours * nonNegative(settings.hourlyRate)
+  return {
+    id: `${area.id}-repairs`,
+    areaId: area.id,
+    areaName: area.name,
+    internalLabel: "Repairs",
+    clientLabel: "Repairs",
+    quantity: allocatedHours,
+    quantityUnit: "hr",
+    coatCount: 0,
+    primerCoats: 0,
+    rawHours,
+    allocatedHours,
+    rateLabel: "Repairs",
+    laborPrice: cents(laborPrice),
+    paintGallons: 0,
+    materialCost: 0,
+    price: roundMoney(laborPrice, settings.priceRounding),
+    productName: "Repairs",
+    clientDescription: "Patches, repairs, and extra prep.",
     crewNote: area.crewNote,
     hideFromCustomer: false,
     showCoats: false,
@@ -557,6 +604,8 @@ export function calculateEstimate(input: ScopeInput): EstimateQuote {
     })
     const prep = pricePrep(area, settings)
     if (prep) surfaces.push(prep)
+    const repairs = priceRepair(area, settings)
+    if (repairs) surfaces.push(repairs)
     return {
       id: area.id,
       name: area.name,
@@ -606,17 +655,14 @@ export function calculateEstimate(input: ScopeInput): EstimateQuote {
   const taxBasis = settings.taxBasis === "materials_only" ? "materials_only" : "total_job"
   const tax = cents(taxFor(taxable, materialTaxBase, settings.taxPercent, taxBasis))
   const pricedTotal = roundMoney(taxable + tax, settings.priceRounding)
-  const minimumJobCharge = Number.isFinite(settings.minimumJobCharge)
-    ? nonNegative(settings.minimumJobCharge)
-    : MINIMUM_JOB_CHARGE
+  const minimumJobCharge = Number.isFinite(settings.minimumJobCharge) ? nonNegative(settings.minimumJobCharge) : 0
   const total = roundMoney(applyMinimumCharge(pricedTotal, minimumJobCharge), settings.priceRounding)
   const method = input.paymentMethods.find((item) => item.id === settings.paymentMethodId)
   const surchargeRate = nonNegative(settings.surchargePercent) / 100
   const surcharge = method && surchargeRate > 0 ? cents(total * surchargeRate) : 0
   // Hourly labor spread across wall area, including ceiling and trim hours.
   const laborCostPerSqFt = wallSqFt > 0 ? Math.round((laborPrice / wallSqFt) * 10000) / 10000 : 0
-
-  return {
+  const quote = {
     areas,
     lineItems,
     wallSqFt,
@@ -636,6 +682,35 @@ export function calculateEstimate(input: ScopeInput): EstimateQuote {
     amountDue: cents(total + surcharge),
     paymentMethodLabel: method?.label ?? "Payment",
   }
+  return quote
+}
+
+export interface EstimateCharges {
+  labor: number
+  materials: number
+  additional: number
+  discount: number
+  tax: number
+}
+
+/** Labor, materials, and other charges that add to the estimate total. */
+export function estimateCharges(quote: EstimateQuote): EstimateCharges {
+  const lineLabor = quote.lineItems
+    .filter((item) => item.mode === "hourly")
+    .reduce((sum, item) => sum + Math.max(0, item.price - item.materialCost), 0)
+  const lineMaterials = quote.lineItems.reduce((sum, item) => sum + item.materialCost, 0)
+  const extraLines = quote.lineItems
+    .filter((item) => item.mode !== "hourly")
+    .reduce((sum, item) => sum + Math.max(0, item.price - item.materialCost), 0)
+  const labor = cents(quote.laborPrice + lineLabor)
+  const materials = cents(quote.materialCost + lineMaterials)
+  const minimumLift = Math.max(0, cents(quote.total - quote.pricedTotal))
+  let additional = cents(extraLines + minimumLift)
+  const discount = quote.discount
+  const tax = quote.tax
+  const drift = Math.round((quote.total - (labor + materials + additional - discount + tax)) * 100) / 100
+  additional = Math.round((additional + drift) * 100) / 100
+  return { labor, materials, additional, discount, tax }
 }
 
 function productionLine(

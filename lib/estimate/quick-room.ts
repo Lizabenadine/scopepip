@@ -52,6 +52,6 @@ export function quickRoom(name: string, kind: EstimateKind): AreaInput | null {
     widthFt: 0,
     heightFt: 8,
     crewNote: "",
-    surfaces: [surface("walls", 2), surface("ceiling", 2), surface("baseboards", 2), surface("door-frame", 2, 1)],
+    surfaces: [surface("walls", 2), surface("ceiling", 2), surface("baseboards", 2)],
   }
 }

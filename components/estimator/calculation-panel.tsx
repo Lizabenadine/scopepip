@@ -1,6 +1,7 @@
-import type { EstimateQuote } from "@/lib/estimate/calculate"
+import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
 import { sectionByGroup } from "@/lib/estimate/groups"
-import { hoursLabel, money } from "@/lib/format"
+import { hoursLabel, moneyExact } from "@/lib/format"
+import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
 import type { AreaGroup, AreaInput, EstimateSettings } from "@/lib/types"
 
 export function CalculationPanel({
@@ -8,19 +9,47 @@ export function CalculationPanel({
   settings,
   areas,
   areaGroups,
+  depositPercent,
   showCosts = true,
+  showCharges = false,
 }: {
   quote: EstimateQuote
   settings: EstimateSettings
   areas?: AreaInput[]
   areaGroups?: AreaGroup[]
+  depositPercent: number
   showCosts?: boolean
+  showCharges?: boolean
 }) {
+  const charges = estimateCharges(quote)
+  const deposit = depositAmount(quote.total, depositPercent)
+  const balance = balanceAfterDeposit(quote.total, depositPercent)
   const paintingHours = Math.round(quote.areas.reduce((sum, area) => sum + area.allocatedHours, 0) * 1000) / 1000
   const groupIdOf = new Map((areas ?? []).map((area) => [area.id, area.groupId]))
   const sections = sectionByGroup(quote.areas, areaGroups, (area) => groupIdOf.get(area.id))
+  const rows = [
+    ["Labor", charges.labor],
+    ["Materials", charges.materials],
+    ["Additional charges", charges.additional],
+    ["Discounts", charges.discount],
+    ["Taxes", charges.tax],
+    ["Deposit", deposit],
+    ["Remaining balance", balance],
+  ] as const
   return (
     <div className="flex flex-col gap-3 text-sm">
+      {showCharges ? (
+        <dl className="grid grid-cols-2 gap-2" data-testid="estimate-breakdown-sheet">
+          {rows.map(([label, amount]) => (
+            <div key={label}>
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="tabular-nums">
+                {label === "Discounts" && amount > 0 ? `−${moneyExact(amount)}` : moneyExact(amount)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       <p className="text-muted-foreground">
         Area and trim hours are the measurement divided by the time rate for that coat count. Item
         hours are the count times hours per item. Primer repeats its one-coat speed for each primer
@@ -61,46 +90,18 @@ export function CalculationPanel({
           ))}
         </div>
       ))}
-      <dl className="grid grid-cols-2 gap-2 border-t border-border pt-3">
-        <div className="col-span-2">
-          <dt className="text-xs text-muted-foreground">Labor</dt>
-          <dd className="tabular-nums" data-testid="estimate-labor">
-            {showCosts
-              ? `${hoursLabel(paintingHours)} × $${settings.hourlyRate}/hr = ${money(quote.laborPrice)}`
-              : hoursLabel(paintingHours)}
-          </dd>
-        </div>
-        {showCosts ? (
-        <div>
-          <dt className="text-xs text-muted-foreground">Materials</dt>
-          <dd className="tabular-nums">{money(quote.materialCost + quote.lineItemPrice)}</dd>
-        </div>
-        ) : null}
-        <div>
-          <dt className="text-xs text-muted-foreground">Discount</dt>
-          <dd className="tabular-nums">{money(quote.discount)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">
-            Tax {settings.taxBasis === "materials_only" ? "on materials" : "on the total job"}
-          </dt>
-          <dd className="tabular-nums">{money(quote.tax)}</dd>
-        </div>
-        {showCosts ? (
-        <div>
-          <dt className="text-xs text-muted-foreground">Sales rate</dt>
-          <dd className="tabular-nums">{money(quote.salesRate)}/hr</dd>
-        </div>
-        ) : null}
-        <div>
-          <dt className="text-xs text-muted-foreground">Total</dt>
-          <dd className="font-display text-lg text-price tabular-nums">{money(quote.total)}</dd>
-        </div>
-      </dl>
+      {showCosts ? (
+        <p className="text-xs text-muted-foreground">
+          {hoursLabel(paintingHours)} of area time at ${settings.hourlyRate}/hr.
+          {settings.taxPercent > 0
+            ? ` Tax is ${settings.taxBasis === "materials_only" ? "on materials" : "on the total job"}.`
+            : ""}
+        </p>
+      ) : null}
       {quote.surcharge > 0 ? (
         <p className="text-xs text-muted-foreground">
-          {quote.paymentMethodLabel} surcharge {money(quote.surcharge)}. Amount due{" "}
-          {money(quote.amountDue)}.
+          {quote.paymentMethodLabel} surcharge {moneyExact(quote.surcharge)}. Amount due{" "}
+          {moneyExact(quote.amountDue)}.
         </p>
       ) : null}
     </div>
