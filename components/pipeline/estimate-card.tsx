@@ -49,7 +49,11 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
           >
             {officeStageName(stage.slug, stage.name, language)}
           </p>
-          {estimate.paymentStatus === "deposit_paid" ? (
+          {estimate.paymentStatus === "paid" ? (
+            <p className="ml-2 inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2 py-0.5 text-xs font-medium text-[oklch(0.32_0.07_155)]">
+              {say("Paid")}
+            </p>
+          ) : estimate.paymentStatus === "deposit_paid" ? (
             <p className="ml-2 inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2 py-0.5 text-xs font-medium text-[oklch(0.32_0.07_155)]">
               {say("Deposit Paid / Scheduled")}
             </p>

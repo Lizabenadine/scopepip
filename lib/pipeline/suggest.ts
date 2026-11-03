@@ -1,5 +1,6 @@
 import { appointmentLabel } from "../appointments/visit.ts"
-import { bookingPath } from "../bookings/slots.ts"
+import { bookingLink } from "../bookings/slots.ts"
+import { reviewLink } from "../follow-ups/review.ts"
 import type { Client, Estimate, WorkOrder } from "../types.ts"
 import { jobStageOf, salesStageOf } from "./board.ts"
 
@@ -16,12 +17,14 @@ export function suggestFollowUp(input: {
   reply?: string
   order?: WorkOrder
   stageSlug?: string
+  reviewUrl?: string
 }): SuggestedFollowUp {
   const client = input.client
   const name = client?.name?.trim() || "there"
   const company = input.company.trim() || "ScopePipe"
   const address = input.estimate.jobAddress.trim() || client?.address.trim() || "the job"
-  const book = bookingPath(input.estimate.publicToken)
+  const book = bookingLink(input.estimate.publicToken)
+  const review = reviewLink(input.reviewUrl)
   const channel = client && digits(client.phone).length >= 10 ? "text" : client?.email.includes("@") ? "email" : "none"
   if (channel === "none") {
     return { channel, label: "Missing contact", body: "Add a phone or email before sending a follow-up." }
@@ -76,7 +79,9 @@ export function suggestFollowUp(input: {
     return {
       channel,
       label: "Ask for a review",
-      body: `Hi ${name}, thank you for having ${company} paint ${address}. If the work looks right, a short review helps us.`,
+      body: review
+        ? `Hi ${name}, thank you for having ${company} paint ${address}. If the work looks right, a short review helps us. ${review}`
+        : `Hi ${name}, thank you for having ${company} paint ${address}. If the work looks right, a short review helps us.`,
     }
   }
   if (stage === "project_in_progress") {

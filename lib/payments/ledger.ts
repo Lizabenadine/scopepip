@@ -7,6 +7,7 @@ export interface PaymentRow {
   title: string
   total: number
   paid: number
+  depositPaid: number
   credit: number
   balance: number
   depositPercent: number
@@ -19,11 +20,18 @@ export function listPaymentRows(
 ): PaymentRow[] {
   const rows: PaymentRow[] = []
   for (const estimate of estimates) {
-    const invoiced = estimate.clientStatus === "accepted" || estimate.paymentStatus === "deposit_paid"
+    const invoiced =
+      estimate.clientStatus === "accepted" ||
+      estimate.paymentStatus === "deposit_paid" ||
+      estimate.paymentStatus === "paid"
     if (!invoiced) continue
     const total = roundCents(totalFor(estimate))
-    const paid = roundCents(estimate.depositReceipt?.amount ?? 0)
     const credit = roundCents((estimate.credits ?? []).reduce((sum, item) => sum + item.amount, 0))
+    const depositPaid = roundCents(estimate.depositReceipt?.amount ?? 0)
+    const paid =
+      estimate.paymentStatus === "paid"
+        ? Math.max(0, roundCents(total - credit))
+        : depositPaid
     const client = clients.find((item) => item.id === estimate.clientId)
     rows.push({
       id: estimate.id,
@@ -31,6 +39,7 @@ export function listPaymentRows(
       title: estimate.title,
       total,
       paid,
+      depositPaid,
       credit,
       balance: Math.max(0, roundCents(total - credit - paid)),
       depositPercent: estimate.depositReceipt?.depositPercent ?? clampDepositPercent(estimate.settings.depositPercent),

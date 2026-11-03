@@ -65,6 +65,15 @@ export function BillingScreen() {
         >
           {opening ? "Opening checkout" : "Subscribe for $49/mo"}
         </button>
+        <form action="/api/billing/portal" method="post">
+          <button
+            type="submit"
+            className="inline-flex h-12 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-medium"
+            data-testid="billing-portal"
+          >
+            Manage payment method and invoices
+          </button>
+        </form>
         {billing && !paddle ? (
           <p className="text-sm text-muted-foreground">
             Subscribe opens after the checkout token and the $49 price are set.

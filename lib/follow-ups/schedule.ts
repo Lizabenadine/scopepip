@@ -1,5 +1,6 @@
 import { localDayOfInstant, visitReminderPhrase } from "../appointments/visit.ts"
 import { bookingLink } from "../bookings/slots.ts"
+import { reviewLink } from "./review.ts"
 import type { ScopeState } from "../data/seed.ts"
 import { jobStageOf, salesStageOf } from "../pipeline/board.ts"
 import type { Client, Estimate } from "../types.ts"
@@ -96,7 +97,7 @@ export function reconcileFollowUps(state: ScopeState, nowIso: string): ScopeStat
 
 export function renderFollowUp(template: string, vars: Record<string, string>): string {
   return template.replace(
-    /\{(client|company|address|visit|job|salesperson|book|proposal|proposalEs)\}/g,
+    /\{(client|company|address|visit|job|salesperson|book|proposal|proposalEs|review)\}/g,
     (_, key: string) => vars[key] ?? "",
   )
 }
@@ -264,7 +265,8 @@ function messageVars(
     visit: visitReminderPhrase(visitDay, estimate.estimateVisitAt, language),
     job: jobDay && isoDay(jobDay) ? dayLabel(jobDay, language) : language === "es" ? "el día de inicio" : "the start day",
     salesperson: estimate.salesperson?.trim() || displayCompanyName(state.estimateSettings.companyName),
-    book: bookingLink(estimate.publicToken),
+    book: bookingLink(estimate.publicToken, origin),
+    review: reviewLink(state.estimateSettings.reviewUrl),
     proposal: links.english,
     proposalEs: links.spanish,
   }

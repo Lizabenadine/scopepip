@@ -78,7 +78,7 @@ export function QuickBooksSync() {
   if (scope.session?.role === "project_manager") return null
 
   return (
-    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="quickbooks-sync">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:hidden" data-testid="quickbooks-sync">
       <h2 className="text-lg font-semibold">Invoice sync</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Accepted invoices sync to the books when the company is connected. Nothing is marked synced until the books accept them.

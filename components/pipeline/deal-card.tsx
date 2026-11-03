@@ -88,6 +88,7 @@ export function DealCard({
     reply: replyOnDeal?.body,
     order,
     stageSlug: stage?.slug,
+    reviewUrl: scope.estimateSettings.reviewUrl,
   })
 
   function toggleLabel(label: string) {
@@ -260,6 +261,19 @@ export function DealCard({
         {estimate.salesperson ? ` · ${estimate.salesperson}` : ""}
         {` · ${invoiceStatus(estimate, total)}`}
       </p>
+      {mode === "jobs" &&
+      estimate.paymentStatus === "deposit_paid" &&
+      (estimate.depositReceipt?.amount ?? 0) < total ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full"
+          data-testid={`mark-paid-${estimate.id}`}
+          onClick={() => scope.markJobPaid(estimate.id)}
+        >
+          Mark balance paid
+        </Button>
+      ) : null}
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
           <Badge key={tag} variant="outline">

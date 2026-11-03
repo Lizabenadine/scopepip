@@ -176,8 +176,8 @@ export function LandingPage() {
             <p className="mt-4 text-sm text-slate-400">14-day trial. No card to start.</p>
           </div>
 
-          <div className="relative mx-auto mt-16 max-w-5xl">
-            <p className="absolute -left-2 top-10 z-10 hidden rounded-full border border-white/10 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-cyan-200 shadow-lg backdrop-blur-md md:block">
+          <div className="relative mx-auto mt-16 max-w-5xl pt-10">
+            <p className="absolute left-4 top-0 z-10 hidden rounded-full border border-white/10 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-cyan-200 shadow-lg backdrop-blur-md md:block">
               Video Attached
             </p>
             <p className="absolute -right-2 top-24 z-10 hidden rounded-full border border-white/10 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md lg:block">

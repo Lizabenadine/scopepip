@@ -32,6 +32,7 @@ export function isOnDispatchBoard(estimate: Estimate, stageSlug: string | undefi
   return (
     estimate.clientStatus === "accepted" ||
     estimate.paymentStatus === "deposit_paid" ||
+    estimate.paymentStatus === "paid" ||
     stageSlug === "scheduled" ||
     stageSlug === "completed"
   )

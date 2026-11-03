@@ -130,6 +130,10 @@ function CompanyFields() {
     <DefaultsForm title="Company" intro="The name and phone customers see, and how tax is applied.">
       <TextField id="companyName" name="companyName" label="Company name" placeholder="ScopePipe" wide />
       <TextField id="settings-business-phone" name="businessPhone" label="Business phone" placeholder="(503) 555-0100" wide />
+      <TextField id="settings-review-url" name="reviewUrl" label="Review link" placeholder="https://" wide />
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Finished jobs include this link when they ask for a review.
+      </p>
       <TextField id="taxPercent" name="taxPercent" label="Tax %" />
       <SelectField id="taxBasis" name="taxBasis" label="Tax applies to">
         <option value="total_job">Total job</option>
@@ -317,6 +321,7 @@ function readDefaults(current: EstimateSettings, data: FormData): EstimateSettin
   const next = { ...current }
   if (data.has("companyName")) next.companyName = String(data.get("companyName") ?? "")
   if (data.has("businessPhone")) next.businessPhone = String(data.get("businessPhone") ?? "")
+  if (data.has("reviewUrl")) next.reviewUrl = String(data.get("reviewUrl") ?? "").trim()
   if (data.has("companyEmail")) next.companyEmail = String(data.get("companyEmail") ?? "")
   if (data.has("hourlyRate")) next.hourlyRate = Number(data.get("hourlyRate")) || 0
   if (data.has("interiorHourlyRate") || data.has("exteriorHourlyRate") || data.has("cabinetsHourlyRate")) {

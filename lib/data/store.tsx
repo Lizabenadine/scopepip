@@ -371,6 +371,7 @@ export interface ScopeApi {
     estimateId: string,
     receipt: DepositReceipt,
   ) => { ok: true } | { ok: false; reason: string }
+  markJobPaid: (estimateId: string) => void
   updateClient: (id: string, patch: Partial<Client>) => void
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
@@ -694,6 +695,14 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       if (!result.ok) return result
       commitReconciled(result.state)
       return { ok: true }
+    },
+    markJobPaid: (estimateId) => {
+      const latest = getSnapshot().state
+      const estimates = latest.estimates.map((estimate) => {
+        if (estimate.id !== estimateId || estimate.paymentStatus !== "deposit_paid") return estimate
+        return { ...estimate, paymentStatus: "paid" as const, updatedAt: new Date().toISOString() }
+      })
+      commitReconciled({ ...latest, estimates })
     },
     moveStage: (id, stageId, scheduledOn) => {
       const latest = getSnapshot().state

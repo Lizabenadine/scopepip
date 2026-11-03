@@ -286,7 +286,7 @@ export function defaultSequences(): FollowUpSequence[] {
           "entered",
           24,
           "How did we do on {address}?",
-          "Hi {client},\n\nThe paint job at {address} is complete. If it looks right, a short review helps other homeowners find {company}. Thank you.\n\n{salesperson}\n{company}",
+          "Hi {client},\n\nThe paint job at {address} is complete. If it looks right, a short review helps other homeowners find {company}.\n\n{review}\n\nThank you.\n\n{salesperson}\n{company}",
         ),
         step(
           "review-text-3d",
@@ -294,7 +294,7 @@ export function defaultSequences(): FollowUpSequence[] {
           "entered",
           72,
           "",
-          "Hi {client}, if the paint at {address} looks right, a short review helps other homeowners find {company}. Thank you.",
+          "Hi {client}, if the paint at {address} looks right, a short review helps other homeowners find {company}. {review}",
         ),
       ],
     },

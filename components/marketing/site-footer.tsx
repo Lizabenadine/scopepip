@@ -20,7 +20,22 @@ export function SiteFooter() {
             </a>
           </p>
         </div>
-        <div className="flex gap-6 text-sm">
+        <div className="flex max-w-xl flex-wrap justify-center gap-x-6 gap-y-2 text-sm md:justify-end">
+          <a href="/estimating" className="transition-colors hover:text-white">
+            Estimating
+          </a>
+          <a href="/proposals" className="transition-colors hover:text-white">
+            Proposals
+          </a>
+          <a href="/crew-sheets" className="transition-colors hover:text-white">
+            Crew sheets
+          </a>
+          <a href="/pricing" className="transition-colors hover:text-white">
+            Pricing
+          </a>
+          <a href="/sample-proposal" className="transition-colors hover:text-white">
+            Sample proposal
+          </a>
           <a href="/terms" className="transition-colors hover:text-white">
             Terms of Service
           </a>

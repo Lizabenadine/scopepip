@@ -90,10 +90,10 @@ export const SPANISH_FOLLOW_UPS: Record<string, { subject: string; body: string 
   },
   "review-email-1d": {
     subject: "¿Cómo nos fue en {address}?",
-    body: "Hola {client},\n\nEl trabajo de pintura en {address} está terminado. Si se ve bien, una reseña corta ayuda a otros propietarios a encontrar a {company}. Gracias.\n\n{salesperson}\n{company}",
+    body: "Hola {client},\n\nEl trabajo de pintura en {address} está terminado. Si se ve bien, una reseña corta ayuda a otros propietarios a encontrar a {company}.\n\n{review}\n\nGracias.\n\n{salesperson}\n{company}",
   },
   "review-text-3d": {
     subject: "",
-    body: "Hola {client}, si la pintura en {address} se ve bien, una reseña corta ayuda a otros propietarios a encontrar a {company}. Gracias.",
+    body: "Hola {client}, si la pintura en {address} se ve bien, una reseña corta ayuda a otros propietarios a encontrar a {company}. {review}",
   },
 }

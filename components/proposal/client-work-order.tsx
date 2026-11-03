@@ -103,6 +103,7 @@ export function ClientWorkOrder({
                   <p className="text-xs text-slate-500">{size}</p>
                   {[area.colorName, area.colorCode, area.sheen].filter(Boolean).length > 0 ? (
                     <p className="text-sm text-slate-800" data-testid="room-color">
+                      <span className="font-semibold">{spanish ? "Color y brillo" : "Color and sheen"}. </span>
                       {[area.colorName, area.colorCode, area.sheen].filter(Boolean).join(" · ")}
                     </p>
                   ) : null}

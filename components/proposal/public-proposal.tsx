@@ -30,6 +30,7 @@ import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { proposalFigures } from "@/lib/proposals/figures"
+import { balanceAfterDeposit } from "@/lib/payments/deposit"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { writeFieldLanguage, type FieldLanguage } from "@/lib/field/language"
 import { translatePainting, paintingText } from "@/lib/field/terms"
@@ -414,7 +415,22 @@ function ProposalDocument({
             {money(figures.deposit)}
           </p>
         </div>
+        {figures.deposit > 0 && figures.deposit < quote.total ? (
+          <div className="mt-2 flex items-baseline justify-between">
+            <p className="text-sm text-muted-foreground">{say("Balance after the job")}</p>
+            <p data-testid="proposal-balance" className="text-lg font-semibold tabular-nums">
+              {money(balanceAfterDeposit(quote.total, figures.depositPercent))}
+            </p>
+          </div>
+        ) : null}
         <p className="mt-2 text-sm">Pay by {quote.paymentMethodLabel.toLowerCase()}.</p>
+        {!accepted && !declined ? (
+          <p className="mt-3 text-sm">
+            <Link href={`/book/${estimate.publicToken}`} className="font-medium text-primary">
+              {say("Pick a time to talk about this proposal")}
+            </Link>
+          </p>
+        ) : null}
         <FinancingOffer total={quote.total} financing={financing} />
         {quote.surcharge > 0 ? (
           <p className="mt-1 text-sm text-muted-foreground">
@@ -482,7 +498,9 @@ function ProposalDocument({
           <p className="text-sm text-muted-foreground">
             Signed {signedLabel(estimate.signature.signedAt)}. {say("The crew work order is with your painter.")}
           </p>
-          {estimate.paymentStatus === "deposit_paid" ? (
+          {estimate.paymentStatus === "paid" ? (
+            <p className="text-sm font-medium">{say("Paid")}</p>
+          ) : estimate.paymentStatus === "deposit_paid" ? (
             <p className="text-sm font-medium">{say("Deposit Paid / Scheduled")}</p>
           ) : (
             <Link

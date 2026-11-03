@@ -114,7 +114,7 @@ export function boardColumns(
 export function salesStageOf(estimate: Estimate): SalesStage | null {
   if (estimate.archived) return null
   if (estimate.clientStatus === "declined") return estimate.salesStage ?? "proposal_sent"
-  if (estimate.clientStatus === "accepted" || estimate.paymentStatus === "deposit_paid") return null
+  if (estimate.clientStatus === "accepted" || estimate.paymentStatus === "deposit_paid" || estimate.paymentStatus === "paid") return null
   if (estimate.salesStage) return estimate.salesStage
   if (estimate.clientStatus === "sent") return "proposal_sent"
   return "cold"
@@ -129,6 +129,7 @@ export function jobStageOf(
   const onJobs =
     estimate.clientStatus === "accepted" ||
     estimate.paymentStatus === "deposit_paid" ||
+    estimate.paymentStatus === "paid" ||
     stageSlug === "scheduled" ||
     stageSlug === "completed"
   if (!onJobs) return null
@@ -139,6 +140,7 @@ export function jobStageOf(
 }
 
 export function invoiceStatus(estimate: Estimate, total: number): string {
+  if (estimate.paymentStatus === "paid") return "Invoice paid"
   const invoiced = estimate.clientStatus === "accepted" || estimate.paymentStatus === "deposit_paid"
   if (!invoiced) return "Not invoiced"
   const paid = estimate.depositReceipt?.amount ?? 0

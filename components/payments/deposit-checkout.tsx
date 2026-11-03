@@ -230,6 +230,7 @@ export function DepositCheckout({ id }: { id: string }) {
             Paid {new Date(estimate.depositReceipt.paidAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}.
             The crew work order is with your painter.
           </p>
+          {estimate.paymentStatus === "paid" ? <p className="mt-2 text-sm font-medium">Balance paid.</p> : null}
         </section>
       ) : (
         <div className="flex flex-col gap-3">

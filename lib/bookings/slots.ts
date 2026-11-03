@@ -30,9 +30,12 @@ export function bookingPath(token: string): string {
   return `/book/${token}`
 }
 
-export function bookingLink(token: string): string {
-  if (typeof window === "undefined" || !window.location?.origin) return bookingPath(token)
-  return `${window.location.origin}${bookingPath(token)}`
+export function bookingLink(token: string, origin?: string): string {
+  const fromCaller = origin?.trim().replace(/\/$/, "")
+  const fromWindow = typeof window !== "undefined" ? window.location?.origin : ""
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
+  const base = fromCaller || fromWindow || fromEnv || "https://www.scopepipe.com"
+  return `${base}${bookingPath(token)}`
 }
 
 function localIso(date: Date): string {

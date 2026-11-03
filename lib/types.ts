@@ -121,6 +121,8 @@ export interface EstimateSettings {
   logoUrl?: string
   /** Number customers text. Blank until the office saves one. */
   businessPhone?: string
+  /** Page where a finished customer leaves a review. Blank leaves the ask without a link. */
+  reviewUrl?: string
   /** Missing means the proposal shows a payment estimate. */
   financingEnabled?: boolean
   /** Annual percentage rate. Missing uses 9.99. */
@@ -149,7 +151,7 @@ export interface OutboundHook {
 }
 
 export type DepositMethod = "card" | "apple_pay" | "google_pay"
-export type PaymentStatus = "unpaid" | "deposit_paid"
+export type PaymentStatus = "unpaid" | "deposit_paid" | "paid"
 
 export interface DepositReceipt {
   paymentIntentId: string

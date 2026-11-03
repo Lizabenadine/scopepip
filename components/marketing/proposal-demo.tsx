@@ -32,6 +32,9 @@ export function ProposalDemo() {
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
             This is the page the customer opens. Press play and the view walks around the outside of the house.
           </p>
+          <a href="/sample-proposal" className="mt-4 inline-block text-sm font-medium text-cyan-300 hover:text-white">
+            Open the sample proposal
+          </a>
         </div>
         <article className="rounded-2xl border border-white/10 bg-white p-5 text-slate-900 shadow-2xl shadow-blue-500/10">
           <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">Sample proposal</p>

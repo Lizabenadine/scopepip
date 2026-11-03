@@ -172,7 +172,7 @@ export function UserGuide() {
             <Step
               n="2"
               title="Turn a sequence on"
-              body="Check Send this sequence on the ones you want, then choose Save sequences. Cold and warm leads use their own cadence. A finished job asks for a review the next day. A reply or a booked visit stops a pursuit."
+              body="Check Send this sequence on the ones you want, then choose Save sequences. Cold and warm leads use their own cadence. A finished job asks for a review the next day. Paste the review link under Settings, then Company, and that link goes in the message. A reply or a booked visit stops a pursuit."
             />
             <Step
               n="3"
@@ -189,12 +189,12 @@ export function UserGuide() {
             <Step
               n="2"
               title="Open the list"
-              body="Open Documents, then Invoices & Payments. Each card shows the invoice number, the client, the job, and a badge: Paid, Deposit paid, or Due."
+              body="Open Documents, then Invoices & Payments. The list shows the client, the job, and the balance. Open a row for that invoice."
             />
             <Step
               n="3"
               title="Read the balance"
-              body="The items are the rooms and the extra lines. Under that are the subtotal, any tax, discount, deposit, or credit, and the balance due. The customer accepts the proposal before that payment."
+              body="The invoice lists the rooms and the extra lines, then the job total, the deposit already received, and the balance due. Print prints that invoice. After the deposit, Mark balance paid records the rest."
             />
           </GuideSection>
           <GuideSection id="actuals" number="08" title="Actuals Tracking & Adaptive Rate Cards">

@@ -37,6 +37,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
+import { roomsMissingColor } from "@/lib/estimate/finish"
 import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
 import { flushBook, useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
@@ -130,6 +131,11 @@ export function Estimator({
   }
 
   const sendEstimate = async () => {
+    const missingColor = roomsMissingColor(draft.areas)
+    if (missingColor.length > 0) {
+      setStatus(`Add a color and a sheen on ${missingColor.join(", ")} before sending.`)
+      return
+    }
     const email = draft.clientEmail.trim()
     if (!email.includes("@") || /\s/.test(email)) {
       setStatus("Add the client's email. They accept the estimate from the link in that email.")

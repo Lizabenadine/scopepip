@@ -68,7 +68,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
-    pathname === "/refunds"
+    pathname === "/refunds" ||
+    pathname === "/estimating" ||
+    pathname === "/proposals" ||
+    pathname === "/crew-sheets" ||
+    pathname === "/pricing" ||
+    pathname === "/welcome" ||
+    pathname === "/sample-proposal"
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||
@@ -129,7 +135,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <FollowUpRunner />
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#02182F] px-3 py-2 text-white md:px-6 md:py-3">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#02182F] px-3 py-2 text-white print:hidden md:px-6 md:py-3">
         <div className="flex min-w-0 items-center gap-2">
           <BrandLogo href={homeForRole(session.role)} compact />
           <nav className="hidden min-w-0 items-center gap-0.5 md:flex" aria-label="Primary" data-nav-root="bar">
@@ -185,7 +191,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col">
         {notice ? (
-          <div className="flex items-start justify-between gap-3 border-b border-border bg-amber-100 px-4 py-3 text-sm text-amber-950">
+          <div className="flex items-start justify-between gap-3 border-b border-border bg-amber-100 px-4 py-3 text-sm text-amber-950 print:hidden">
             <p>{notice}</p>
             <button
               type="button"
@@ -217,7 +223,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </main>
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur print:hidden md:hidden"
           aria-label="Primary"
           data-nav-root="dock"
         >

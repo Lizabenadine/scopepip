@@ -19,6 +19,7 @@ import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, jobDate, money } from "@/lib/format"
 import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
+import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { ProposalEmail } from "@/components/proposal/proposal-email"
@@ -58,6 +59,8 @@ export function ProposalView({ id }: { id: string }) {
   const pagesDocument = proposalDocument(scope.estimateSettings)
   const pages = proposalPageList(pagesDocument)
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
+  const depositPercent = clampDepositPercent(estimate.settings.depositPercent)
+  const deposit = depositAmount(quote.total, depositPercent)
 
   return (
     <article className="mx-auto flex max-w-3xl flex-col gap-6 pb-8">
@@ -147,6 +150,18 @@ export function ProposalView({ id }: { id: string }) {
           <p className="font-medium">Total</p>
           <p className="font-display text-3xl text-price tabular-nums">{money(quote.total)}</p>
         </div>
+        <div className="mt-2 flex items-baseline justify-between">
+          <p className="text-sm text-muted-foreground">Deposit required ({depositPercent}%)</p>
+          <p className="text-lg font-semibold tabular-nums">{money(deposit)}</p>
+        </div>
+        {deposit > 0 && deposit < quote.total ? (
+          <div className="mt-2 flex items-baseline justify-between">
+            <p className="text-sm text-muted-foreground">Balance after the job</p>
+            <p data-testid="proposal-balance" className="text-lg font-semibold tabular-nums">
+              {money(balanceAfterDeposit(quote.total, depositPercent))}
+            </p>
+          </div>
+        ) : null}
         <p className="mt-2 text-xs text-muted-foreground">
           {hoursLabel(quote.allocatedHours)} · sales rate {money(quote.salesRate)} per hour
         </p>
