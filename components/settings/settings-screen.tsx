@@ -92,7 +92,7 @@ export function SettingsScreen() {
           )
         })}
       </div>
-      <div role="tabpanel" data-testid={`settings-panel-${active}`} className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <div role="tabpanel" data-testid={`settings-panel-${active}`} className={cn("mx-auto flex w-full flex-col gap-6", active === "integrations" ? "max-w-5xl" : "max-w-3xl")}>
         {active === "company" ? (
           <>
             <CompanyFields />
@@ -259,7 +259,7 @@ function AddOnsPanel() {
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
       <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{PLAN_NAME}</p>
       <p className="mt-2 text-sm text-muted-foreground">
-        Financing on proposals is turned on from Payments. The calendar, the books, and job photos connect from their own tabs.
+        Financing on proposals is turned on from Payments. The calendar, the books, and job photos connect from Integrations.
       </p>
       <Link href="/billing" className="mt-3 inline-block text-sm font-medium text-primary">
         Billing
