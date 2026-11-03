@@ -169,7 +169,7 @@ function Activity({ clientId }: { clientId: string }) {
   const entries = contactHistory(client, scope.estimates, { workOrders: scope.workOrders })
   const active = scope.estimates.filter((estimate) => estimate.clientId === client.id && estimate.followUp?.status === "active")
   function record(kind: "note" | "call") {
-    const result = scope.addClientInteraction(client.id, kind, body)
+    const result = scope.addClientInteraction(clientId, kind, body)
     if (!result.ok) {
       setNotice(result.reason)
       return

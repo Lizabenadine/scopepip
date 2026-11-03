@@ -248,10 +248,10 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
                   <div className="rounded-lg bg-background px-3 py-2 text-sm" data-testid={`follow-up-preview-${step.id}`}>
                     <p className="text-xs font-medium text-muted-foreground">Preview</p>
                     {step.channel === "email" ? (
-                      <p className="mt-1 font-medium">{previewFollowUp(step.subject, step.body, estimateSettings.companyName).subject || "No subject"}</p>
+                      <p className="mt-1 font-medium">{previewFollowUp(step.subject, step.body, estimateSettings.companyName ?? "").subject || "No subject"}</p>
                     ) : null}
                     <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                      {previewFollowUp(step.subject, step.body, estimateSettings.companyName).body}
+                      {previewFollowUp(step.subject, step.body, estimateSettings.companyName ?? "").body}
                     </p>
                   </div>
                 ) : null}
