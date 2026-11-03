@@ -94,8 +94,6 @@ const LABELS: Record<string, string> = {
   Interior: "Interior",
   Exterior: "Exterior",
   Cabinets: "Gabinetes",
-  Estimate: "Estimado",
-  "Work order": "Orden de trabajo",
   "Store list": "Lista para la tienda",
   "Hours from this job": "Horas de este trabajo",
   "This job's price stays. The next room of this size uses this speed.":
