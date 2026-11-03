@@ -215,7 +215,7 @@ describe("follow-up sequences", () => {
     assert.equal(reconcileEnrollment(fresh, "cold", START), fresh)
   })
 
-  it("logs the message when email and text services are not configured", async () => {
+  it("does not send when email and text services are not configured", async () => {
     const previous = {
       resend: process.env.RESEND_API_KEY,
       from: process.env.FOLLOW_UP_FROM_EMAIL,
@@ -244,8 +244,10 @@ describe("follow-up sequences", () => {
       body: "Reply with a day.",
       fromName: "ScopePipe",
     })
-    assert.equal(email.delivery, "logged")
-    assert.equal(text.delivery, "logged")
+    assert.equal(email.delivery, "skipped")
+    assert.equal(text.delivery, "skipped")
+    assert.match(email.detail, /not sent/)
+    assert.match(text.detail, /not sent/)
     if (previous.resend === undefined) delete process.env.RESEND_API_KEY
     else process.env.RESEND_API_KEY = previous.resend
     if (previous.from === undefined) delete process.env.FOLLOW_UP_FROM_EMAIL

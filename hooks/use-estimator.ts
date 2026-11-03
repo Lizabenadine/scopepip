@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { calculateEstimateTotals, type EstimateQuote, type EstimateTotals } from "@/lib/estimate/calculate"
 import { applyLearnedPaces } from "@/lib/estimate/learned-pace"
 import { listActivity } from "@/lib/estimate/activity"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
@@ -153,8 +153,8 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
   const priced = draft && pacedAreas
     ? withApprovedScope({ ...draft, areas: pacedAreas, versions: stored?.versions })
     : null
-  const quote: EstimateQuote | null = priced
-    ? calculateEstimate({
+  const totals: EstimateTotals | null = priced
+    ? calculateEstimateTotals({
         areas: priced.areas,
         lineItems: priced.lineItems,
         rates: quoteRates(priced.rates, scope.productionRates, priced.areas),
@@ -162,6 +162,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
         paymentMethods: PAYMENT_METHODS,
       })
     : null
+  const quote: EstimateQuote | null = totals?.quote ?? null
 
   const stage = draft ? scope.stageById(draft.stageId) : undefined
   const next = draft ? adjacentStage(scope.stages, draft.stageId, 1) : null
@@ -231,6 +232,7 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     missing,
     draft,
     quote,
+    totals,
     stage: stage as PipelineStage | undefined,
     next,
     previous,

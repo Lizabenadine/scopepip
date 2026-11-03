@@ -17,7 +17,7 @@ export type FollowUpChannel = "email" | "text"
 /** `entered` counts from enrollment. `before_visit` and `before_job` count back from the start instant, or from noon UTC when only a day is stored. */
 export type FollowUpAnchor = "entered" | "before_visit" | "before_job"
 
-export type FollowUpStop = "reply" | "visit_booked" | "archived"
+export type FollowUpStop = "reply" | "visit_booked" | "archived" | "accepted" | "declined" | "canceled"
 
 export interface FollowUpStep {
   id: string
@@ -53,7 +53,7 @@ export interface FollowUpMessage {
   subject: string
   body: string
   sentAt: string
-  delivery: "sent" | "logged" | "skipped"
+  delivery: "sent" | "logged" | "skipped" | "failed"
   detail: string
 }
 

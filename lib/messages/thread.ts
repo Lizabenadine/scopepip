@@ -129,9 +129,7 @@ function landOnClient(state: ScopeState, clientId: string, message: TextMessage,
     if (!active && !landed) return estimate
     const followUp = stoppedForReply(state, estimate, nowIso)
     if (followUp === estimate.followUp) return estimate
-    const line = "Customer replied. Follow-up stopped."
-    const notes = estimate.notes.includes(line) ? estimate.notes : estimate.notes.trim() ? `${estimate.notes.trim()}\n${line}` : line
-    return { ...estimate, followUp, notes, updatedAt: nowIso }
+    return { ...estimate, followUp, updatedAt: nowIso }
   })
   return { ...state, clients, estimates }
 }

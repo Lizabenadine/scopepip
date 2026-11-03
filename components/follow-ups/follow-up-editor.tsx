@@ -8,6 +8,7 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { FOLLOW_UP_STAGE_COPY, defaultSequences } from "@/lib/follow-ups/defaults"
+import { previewFollowUp } from "@/lib/follow-ups/schedule"
 import type { FollowUpAnchor, FollowUpChannel, FollowUpSequence, FollowUpStage } from "@/lib/follow-ups/types"
 
 interface Transport {
@@ -16,7 +17,7 @@ interface Transport {
 }
 
 export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
-  const { ready, followUpSequences, saveFollowUpSequences } = useScope()
+  const { ready, followUpSequences, saveFollowUpSequences, estimates, clients, estimateSettings, cancelFollowUp } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const [draft, setDraft] = useState<FollowUpSequence[] | null>(null)
@@ -108,8 +109,9 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
           <p className={heading ? "mt-1 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
             Every column follows up on its own. A sent quote gets a note the next day, again at three days, and
             again at a week, each with the proposal link. Cold and warm leads use their own cadence, and a finished
-            job asks for a review the next day. A reply or a booked visit stops a pursuit. Messages log on the deal
-            until email and text sending are connected.
+            job asks for a review the next day. A reply, a booked visit, an accepted or declined proposal, a lost
+            lead, or a manual cancel stops the sequence. A message sends only when its sequence is on and email or
+            text is connected.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Tokens: {"{client}"} {"{company}"} {"{address}"} {"{visit}"} {"{job}"} {"{salesperson}"} {"{book}"}{" "}
@@ -146,6 +148,14 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
         <p>{transport ? textStatus(transport.text) : "Checking texts…"}</p>
         {savedNote ? <p className="mt-1 font-medium">{savedNote}</p> : null}
       </div>
+      <FollowUpLog
+        estimates={estimates}
+        clients={clients}
+        onCancel={(estimateId) => {
+          cancelFollowUp(estimateId)
+          setSavedNote("Follow-up canceled.")
+        }}
+      />
       {draft.map((sequence) => {
         const copy = FOLLOW_UP_STAGE_COPY[sequence.stage]
         return (
@@ -234,6 +244,17 @@ export function FollowUpEditor({ heading = true }: { heading?: boolean }) {
                     className="min-h-24 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
                   />
                 </label>
+                {step.body.trim() ? (
+                  <div className="rounded-lg bg-background px-3 py-2 text-sm" data-testid={`follow-up-preview-${step.id}`}>
+                    <p className="text-xs font-medium text-muted-foreground">Preview</p>
+                    {step.channel === "email" ? (
+                      <p className="mt-1 font-medium">{previewFollowUp(step.subject, step.body, estimateSettings.companyName).subject || "No subject"}</p>
+                    ) : null}
+                    <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
+                      {previewFollowUp(step.subject, step.body, estimateSettings.companyName).body}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ))}
             <Button type="button" variant="outline" onClick={() => addStep(sequence.stage)}>
@@ -259,14 +280,78 @@ function hoursFrom(value: string): number {
   return Math.min(8760, Math.max(0, Math.round(offset)))
 }
 
+function FollowUpLog({
+  estimates,
+  clients,
+  onCancel,
+}: {
+  estimates: { id: string; clientId: string; title: string; followUp?: { status: string } | null; followUpLog?: { id: string; sentAt: string; channel: string; delivery: string; subject: string; body: string }[] }[]
+  clients: { id: string; name: string }[]
+  onCancel: (estimateId: string) => void
+}) {
+  const rows = estimates
+    .flatMap((estimate) =>
+      (estimate.followUpLog ?? []).map((message) => ({
+        ...message,
+        estimateId: estimate.id,
+        title: estimate.title,
+        clientName: clients.find((client) => client.id === estimate.clientId)?.name ?? "Customer",
+      })),
+    )
+    .sort((left, right) => right.sentAt.localeCompare(left.sentAt))
+    .slice(0, 40)
+  const active = estimates.filter((estimate) => estimate.followUp?.status === "active")
+  return (
+    <section className="flex flex-col gap-3" data-testid="follow-up-log">
+      <h2 className="text-lg font-semibold">Messages</h2>
+      {active.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No sequence is running.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {active.map((estimate) => (
+            <li key={estimate.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span>{estimate.title} is scheduled.</span>
+              <button type="button" className="font-medium text-primary" onClick={() => onCancel(estimate.id)}>
+                Cancel sequence
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No sent, failed, or canceled messages yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rows.map((row) => (
+            <li key={row.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="font-medium">{row.clientName} · {row.title}</p>
+                <p className="text-xs text-muted-foreground">{deliveryLabel(row.delivery)} · {row.channel}</p>
+              </div>
+              <p className="mt-1 line-clamp-2 text-muted-foreground">{row.subject ? `${row.subject}: ` : ""}{row.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function deliveryLabel(delivery: string): string {
+  if (delivery === "sent") return "Sent"
+  if (delivery === "failed") return "Failed"
+  if (delivery === "skipped") return "Not sent"
+  return "Logged"
+}
+
 function emailStatus(connected: boolean): string {
   return connected
-    ? "Email sends."
-    : "Email logs on the deal until sending is saved on Integrations."
+    ? "Email sends when a sequence is on."
+    : "Email is not connected. Sequences stay scheduled and nothing is sent."
 }
 
 function textStatus(connected: boolean): string {
   return connected
-    ? "Texts send."
-    : "Texts log on the deal until sending is saved on Integrations."
+    ? "Texts send when a sequence is on."
+    : "Texting is not connected. Sequences stay scheduled and nothing is sent."
 }

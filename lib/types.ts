@@ -434,6 +434,14 @@ export interface NoteEntry {
   body: string
 }
 
+/** An office-only note or call. It stays off the customer proposal. */
+export interface ClientInteraction {
+  id: string
+  at: string
+  kind: "note" | "call"
+  body: string
+}
+
 /** One line in the estimate history. The customer never sees it. */
 export interface EstimateActivity {
   id: string
@@ -481,6 +489,8 @@ export interface Client {
   /** The language this person should receive on follow-ups and the proposal link. */
   language?: "en" | "es"
   messages?: TextMessage[]
+  /** Calls and internal notes. These never print on a proposal. */
+  interactions?: ClientInteraction[]
 }
 
 /** Production inputs plus the rate snapshot used to price them. */

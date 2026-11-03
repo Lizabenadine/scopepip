@@ -34,7 +34,7 @@ async function deliverEmail(to: string, subject: string, body: string): Promise<
   if (!to.includes("@")) return { delivery: "skipped", detail: "The client has no email." }
   const keys = readSendKeys()
   if (!keys.resendKey || !keys.resendFrom.includes("@")) {
-    return { delivery: "logged", detail: "Logged on the deal. Save the email key on Integrations to send email." }
+    return { delivery: "skipped", detail: "Email is not connected, so this message was not sent." }
   }
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -58,7 +58,7 @@ async function deliverEmail(to: string, subject: string, body: string): Promise<
 async function deliverText(to: string, body: string): Promise<DeliveryResult> {
   const keys = readSendKeys()
   if (!keys.twilioSid || !keys.twilioToken || !keys.twilioFrom) {
-    return { delivery: "logged", detail: "Logged on the deal. Save the text key on Integrations to send texts." }
+    return { delivery: "skipped", detail: "Texting is not connected, so this message was not sent." }
   }
   const destination = e164(to)
   if (!destination) return { delivery: "skipped", detail: "The phone number needs 10 digits." }

@@ -14,6 +14,7 @@ import {
 import {
   applyMinimumCharge,
   calculateEstimate,
+  calculateEstimateTotals,
   calculateProduction,
   estimateCharges,
   measureArea,
@@ -365,6 +366,56 @@ describe("calculateEstimate", () => {
       Math.round((charges.labor + charges.materials + charges.additional - charges.discount + charges.tax) * 100) / 100,
       quote.total,
     )
+    const totals = calculateEstimateTotals({
+      areas: quote.areas.length > 0 ? [
+        {
+          ...documentedBedroom(),
+          prepLevel: "light",
+          accessFactor: HIGH_ACCESS_FACTOR,
+          surfaces: documentedBedroom().surfaces.map((surface) =>
+            surface.rateId === "walls" ? { ...surface, primerCoats: 1, coatCount: 1 } : surface,
+          ),
+        },
+      ] : [],
+      lineItems: [],
+      rates,
+      settings: { ...settings, minimumJobCharge: 5000, taxPercent: 8, taxBasis: "materials_only", depositPercent: 30 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(totals.total, quote.total)
+    assert.equal(totals.quote.total, totals.total)
+    assert.equal(
+      Math.round((totals.labor + totals.materials + totals.additional - totals.discount + totals.tax) * 100) / 100,
+      totals.total,
+    )
+    assert.equal(Math.round((totals.deposit + totals.balance) * 100) / 100, totals.total)
+    const discounted = calculateEstimateTotals({
+      areas: [],
+      lineItems: [
+        {
+          id: "custom-1",
+          mode: "custom",
+          label: "Color consult",
+          hours: 0,
+          units: 0,
+          pricePerUnit: 0,
+          customPrice: 200,
+          workOrderHours: 0,
+          materials: [],
+          clientNote: "",
+          crewNote: "",
+          hiddenOnWorkOrder: false,
+        },
+      ],
+      rates,
+      settings: { ...settings, minimumJobCharge: 0, discountKind: "percent", discountValue: 10, taxPercent: 8, depositPercent: 25 },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(discounted.discount, 20)
+    assert.equal(discounted.tax, 14.4)
+    assert.equal(discounted.total, 194.4)
+    assert.equal(discounted.deposit, 48.6)
+    assert.equal(discounted.balance, 145.8)
     assert.equal(quote.pricedTotal < 5000, true)
     assert.ok(DEFAULT_PRODUCTION_RATES.some((rate) => rate.id === "siding" && rate.coatRates[0]?.value === 120))
     assert.ok(DEFAULT_PRODUCTION_RATES.some((rate) => rate.id === "crown"))

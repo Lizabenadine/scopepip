@@ -30,7 +30,6 @@ import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { proposalFigures } from "@/lib/proposals/figures"
-import { balanceAfterDeposit } from "@/lib/payments/deposit"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { writeFieldLanguage, type FieldLanguage } from "@/lib/field/language"
 import { translatePainting, paintingText } from "@/lib/field/terms"
@@ -419,7 +418,7 @@ function ProposalDocument({
           <div className="mt-2 flex items-baseline justify-between">
             <p className="text-sm text-muted-foreground">{say("Balance after the job")}</p>
             <p data-testid="proposal-balance" className="text-lg font-semibold tabular-nums">
-              {money(balanceAfterDeposit(quote.total, figures.depositPercent))}
+              {money(figures.balance)}
             </p>
           </div>
         ) : null}

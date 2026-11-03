@@ -105,7 +105,7 @@ export function ClientDetail({ id }: { id: string }) {
           Save contact
         </Button>
       </form>
-      <History clientId={client.id} />
+      <Activity clientId={client.id} />
       <section className="flex flex-col gap-2">
         <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
           Jobs
@@ -160,21 +160,71 @@ export function ClientDetail({ id }: { id: string }) {
   )
 }
 
-function History({ clientId }: { clientId: string }) {
+function Activity({ clientId }: { clientId: string }) {
   const scope = useScope()
   const client = scope.clientById(clientId)
+  const [body, setBody] = useState("")
+  const [notice, setNotice] = useState("")
   if (!client) return null
-  const entries = contactHistory(client, scope.estimates)
+  const entries = contactHistory(client, scope.estimates, { workOrders: scope.workOrders })
+  const active = scope.estimates.filter((estimate) => estimate.clientId === client.id && estimate.followUp?.status === "active")
+  function record(kind: "note" | "call") {
+    const result = scope.addClientInteraction(client.id, kind, body)
+    if (!result.ok) {
+      setNotice(result.reason)
+      return
+    }
+    setBody("")
+    setNotice(kind === "call" ? "Call recorded." : "Note saved.")
+  }
   return (
-    <section className="flex flex-col gap-2" data-testid="contact-history">
+    <section className="flex flex-col gap-3" data-testid="contact-history">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">History</h2>
+        <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Activity</h2>
         <Link href={`/inbox?client=${client.id}`} className="text-sm font-medium text-primary">
           Open thread
         </Link>
       </div>
+      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <Label htmlFor="activity-note">Internal note or call</Label>
+        <textarea
+          id="activity-note"
+          data-testid="activity-note"
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          placeholder="What happened with this customer"
+          className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none"
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" className="h-11" data-testid="save-activity-note" onClick={() => record("note")}>
+            Add note
+          </Button>
+          <Button type="button" variant="outline" className="h-11" data-testid="record-call" onClick={() => record("call")}>
+            Record call
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">These stay in the office. They do not appear on the proposal.</p>
+        {notice ? <p className="text-sm font-medium text-primary">{notice}</p> : null}
+      </div>
+      {active.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {active.map((estimate) => (
+            <button
+              key={estimate.id}
+              type="button"
+              className="self-start text-sm font-medium text-primary"
+              onClick={() => {
+                scope.cancelFollowUp(estimate.id)
+                setNotice(`Follow-ups stopped for ${estimate.title}.`)
+              }}
+            >
+              Stop follow-ups for {estimate.title}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No texts, emails, proposal opens, stage changes, or notes yet.</p>
+        <p className="text-sm text-muted-foreground">No calls, messages, estimates, or payments yet.</p>
       ) : (
         <ol className="flex flex-col gap-2">
           {entries.map((entry) => (
@@ -185,6 +235,7 @@ function History({ clientId }: { clientId: string }) {
                   {historyWhen(entry.at)}
                 </time>
               </div>
+              <p className="mt-1 text-xs font-medium text-primary">{entry.status}</p>
               <p className="mt-1 line-clamp-4 text-sm whitespace-pre-wrap text-muted-foreground">{entry.body}</p>
             </li>
           ))}

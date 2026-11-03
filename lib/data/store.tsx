@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
-import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { calculateEstimateTotals, type EstimateQuote } from "@/lib/estimate/calculate"
 import { withApprovedScope } from "@/lib/estimate/versions"
 import type { LearnedPace } from "@/lib/estimate/learned-pace"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
@@ -29,9 +29,9 @@ import { syncAcceptance } from "@/lib/proposals/sync"
 import { createWorkOrder } from "@/lib/work-orders/defaults"
 import { createSubcontractorOffer, offerSendBlock } from "@/lib/work-orders/offers"
 import { subcontractorSignature } from "@/lib/work-orders/subcontractor"
-import { appendNote, recordStageChanges } from "@/lib/clients/activity"
+import { appendNote, recordInteraction, recordStageChanges } from "@/lib/clients/activity"
 import { visitStartInstant } from "@/lib/appointments/visit"
-import { reconcileFollowUps, resolveSequences, stopForReply, stopPursuit, collectDueFollowUps } from "@/lib/follow-ups/schedule"
+import { reconcileFollowUps, resolveSequences, stopFollowUp, stopForReply, stopPursuit, collectDueFollowUps } from "@/lib/follow-ups/schedule"
 import type { DueFollowUp, FollowUpMessage, FollowUpSequence } from "@/lib/follow-ups/types"
 import { applyPublicBooking, type PublicBooking } from "@/lib/bookings/apply"
 import { applyProposalEvent } from "@/lib/proposals/opens"
@@ -41,6 +41,7 @@ import { applyInboundLead } from "@/lib/leads/apply"
 import { createOfficeLead, type LeadReach } from "@/lib/leads/office-lead"
 import type { InboundLead } from "@/lib/leads/types"
 import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
+import { officeOverview, type OverviewItem } from "@/lib/office/overview"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
 import type {
   Client,
@@ -142,13 +143,13 @@ async function pushEstimateChanges(previous: ScopeState, next: ScopeState) {
     const orderChanged = JSON.stringify(order ? cloudWorkOrder(order) : null) !== JSON.stringify(priorOrder ? cloudWorkOrder(priorOrder) : null)
     if (!estimateChanged && !contactChanged && !orderChanged) continue
     if (!client) continue
-    const quote = calculateEstimate({
+    const quote = calculateEstimateTotals({
       areas: estimate.areas,
       lineItems: estimate.lineItems,
       rates: estimate.rates,
       settings: estimate.settings,
       paymentMethods: next.paymentMethods,
-    })
+    }).quote
     jobs.push(
       syncSavedEstimate({
         companyId,
@@ -373,6 +374,13 @@ export interface ScopeApi {
   ) => { ok: true } | { ok: false; reason: string }
   markJobPaid: (estimateId: string) => void
   updateClient: (id: string, patch: Partial<Client>) => void
+  addClientInteraction: (
+    clientId: string,
+    kind: "note" | "call",
+    body: string,
+  ) => { ok: true } | { ok: false; reason: string }
+  cancelFollowUp: (estimateId: string) => void
+  businessOverview: OverviewItem[]
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
@@ -478,7 +486,7 @@ function pricedTotal(
   state: ScopeState,
   source: Pick<Estimate, "areas" | "lineItems" | "rates" | "settings">,
 ): number {
-  return calculateEstimate({
+  return calculateEstimateTotals({
     areas: source.areas,
     lineItems: source.lineItems,
     rates: quoteRates(source.rates, state.productionRates, source.areas),
@@ -512,13 +520,13 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     stageById: (id) => state.stages.find((stage) => stage.id === id),
     quoteEstimate: (estimate) => {
       const source = withApprovedScope(estimate)
-      return calculateEstimate({
+      return calculateEstimateTotals({
         areas: source.areas,
         lineItems: source.lineItems,
         rates: quoteRates(source.rates, state.productionRates, source.areas),
         settings: source.settings,
         paymentMethods: state.paymentMethods,
-      })
+      }).quote
     },
     saveEstimate: (draft) => {
       const latest = getSnapshot().state
@@ -890,6 +898,41 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       }
       return { ok: true }
     },
+    addClientInteraction: (clientId, kind, body) => {
+      const text = body.trim()
+      if (!text) return { ok: false as const, reason: "Write a note or what was said on the call." }
+      const latest = getSnapshot().state
+      const client = latest.clients.find((item) => item.id === clientId)
+      if (!client) return { ok: false as const, reason: "Client not in this book." }
+      const at = new Date().toISOString()
+      commit({
+        ...latest,
+        clients: latest.clients.map((item) => (item.id === clientId ? recordInteraction(item, kind, text, at) : item)),
+      })
+      return { ok: true as const }
+    },
+    cancelFollowUp: (estimateId) => {
+      const latest = getSnapshot().state
+      const now = new Date().toISOString()
+      commit({
+        ...latest,
+        estimates: latest.estimates.map((estimate) =>
+          estimate.id === estimateId
+            ? { ...estimate, followUp: stopFollowUp(estimate.followUp, "canceled"), updatedAt: now }
+            : estimate,
+        ),
+      })
+    },
+    businessOverview: officeOverview(state, new Date(), (estimate) => {
+      const source = withApprovedScope(estimate)
+      return calculateEstimateTotals({
+        areas: source.areas,
+        lineItems: source.lineItems,
+        rates: quoteRates(source.rates, state.productionRates, source.areas),
+        settings: source.settings,
+        paymentMethods: state.paymentMethods,
+      }).total
+    }),
     updateClient: (id, patch) => {
       const latest = getSnapshot().state
       commit({
@@ -986,16 +1029,9 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         ...latest,
         estimates: latest.estimates.map((estimate) => {
           if (estimate.id !== estimateId) return estimate
-          const line = "Customer replied."
-          const notes = estimate.notes.includes(line)
-            ? estimate.notes
-            : estimate.notes.trim()
-              ? `${estimate.notes.trim()}\n${line}`
-              : line
           return {
             ...estimate,
             followUp: stopForReply(estimate.followUp),
-            notes,
             updatedAt: now,
           }
         }),

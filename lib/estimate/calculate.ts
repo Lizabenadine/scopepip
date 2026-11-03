@@ -23,6 +23,7 @@ import {
   PREP_HOURS_PER_SQFT,
   SECOND_COAT_LABOR_FACTOR,
 } from "../defaults.ts"
+import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "../payments/deposit.ts"
 
 export interface AreaMeasures {
   wallSqFt: number
@@ -711,6 +712,38 @@ export function estimateCharges(quote: EstimateQuote): EstimateCharges {
   const drift = Math.round((quote.total - (labor + materials + additional - discount + tax)) * 100) / 100
   additional = Math.round((additional + drift) * 100) / 100
   return { labor, materials, additional, discount, tax }
+}
+
+export interface EstimateTotals {
+  labor: number
+  materials: number
+  additional: number
+  discount: number
+  tax: number
+  deposit: number
+  balance: number
+  total: number
+  quote: EstimateQuote
+}
+
+/** Summary rows for the estimator, the saved estimate, and the customer proposal. */
+export function calculateEstimateTotals(input: ScopeInput): EstimateTotals {
+  const quote = calculateEstimate(input)
+  const charges = estimateCharges(quote)
+  const depositPercent = clampDepositPercent(input.settings.depositPercent)
+  const deposit = depositAmount(quote.total, depositPercent)
+  const balance = balanceAfterDeposit(quote.total, depositPercent)
+  return {
+    labor: charges.labor,
+    materials: charges.materials,
+    additional: charges.additional,
+    discount: charges.discount,
+    tax: charges.tax,
+    deposit,
+    balance,
+    total: quote.total,
+    quote,
+  }
 }
 
 function productionLine(

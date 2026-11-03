@@ -49,7 +49,7 @@ import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
-import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
+import { clampDepositPercent } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
 import type { LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
@@ -87,6 +87,7 @@ export function Estimator({
     missing,
     draft,
     quote,
+    totals,
     stage,
     next,
     previous,
@@ -112,7 +113,7 @@ export function Estimator({
     setAreaNames,
   } = estimator
 
-  if (missing || !draft || !quote) {
+  if (missing || !draft || !quote || !totals) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center">
         <h1 className="text-xl font-semibold">This estimate isn&apos;t on this device</h1>
@@ -740,9 +741,9 @@ export function Estimator({
                 }
               />
               <p className="text-sm text-muted-foreground tabular-nums" data-testid="estimate-deposit-amount">
-                Deposit {moneyExact(depositAmount(quote.total, draft.settings.depositPercent ?? 30))}
+                Deposit {moneyExact(totals.deposit)}
                 {" · "}
-                Balance {moneyExact(balanceAfterDeposit(quote.total, draft.settings.depositPercent ?? 30))}
+                Balance {moneyExact(totals.balance)}
               </p>
             </div>
             <div className="grid gap-1">
@@ -875,8 +876,8 @@ export function Estimator({
         </div>
         <PriceSummary
           variant="card"
-          depositPercent={draft.settings.depositPercent ?? 30}
           quote={quote}
+          totals={totals}
           saveLabel={draft.id ? "Save" : "Save to Lead"}
           disabled={disabled}
           disabledReason={disabledReason}
@@ -887,10 +888,10 @@ export function Estimator({
           details={
             <CalculationPanel
               quote={quote}
+              totals={totals}
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
-              depositPercent={draft.settings.depositPercent ?? 30}
               showCosts={!estimatorLogin}
             />
           }
@@ -898,8 +899,8 @@ export function Estimator({
       </div>
       <PriceSummary
         variant="dock"
-        depositPercent={draft.settings.depositPercent ?? 30}
         quote={quote}
+        totals={totals}
         saveLabel={draft.id ? "Save" : "Save to Lead"}
         disabled={disabled}
         disabledReason={disabledReason}
@@ -919,10 +920,10 @@ export function Estimator({
           <div className="px-4 pb-6">
             <CalculationPanel
               quote={quote}
+              totals={totals}
               settings={draft.settings}
               areas={draft.areas}
               areaGroups={draft.areaGroups}
-              depositPercent={draft.settings.depositPercent ?? 30}
               showCharges
               showCosts={!estimatorLogin}
             />

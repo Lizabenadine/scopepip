@@ -2,12 +2,12 @@
 
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
+import type { EstimateQuote, EstimateTotals } from "@/lib/estimate/calculate"
 import { gallonsLabel, hoursLabel, money, moneyExact } from "@/lib/format"
-import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
 
 export function PriceSummary({
   quote,
+  totals,
   saveLabel,
   disabled,
   disabledReason,
@@ -17,9 +17,9 @@ export function PriceSummary({
   onExplain,
   variant,
   details,
-  depositPercent,
 }: {
   quote: EstimateQuote
+  totals: EstimateTotals
   saveLabel: string
   disabled: boolean
   disabledReason: string | null
@@ -29,17 +29,15 @@ export function PriceSummary({
   onExplain: () => void
   variant: "dock" | "card"
   details?: ReactNode
-  depositPercent: number
 }) {
-  const charges = estimateCharges(quote)
   const rows = [
-    ["Labor", charges.labor],
-    ["Materials", charges.materials],
-    ["Additional charges", charges.additional],
-    ["Discounts", charges.discount],
-    ["Taxes", charges.tax],
-    ["Deposit", depositAmount(quote.total, depositPercent)],
-    ["Remaining balance", balanceAfterDeposit(quote.total, depositPercent)],
+    ["Labor", totals.labor],
+    ["Materials", totals.materials],
+    ["Additional charges", totals.additional],
+    ["Discounts", totals.discount],
+    ["Taxes", totals.tax],
+    ["Deposit", totals.deposit],
+    ["Remaining balance", totals.balance],
   ] as const
   const body = (
     <>
@@ -52,7 +50,7 @@ export function PriceSummary({
             className="font-display text-4xl leading-none text-price tabular-nums"
             aria-live="polite"
           >
-            {money(quote.total)}
+            {money(totals.total)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground" data-testid="estimate-summary">
             {hoursLabel(quote.allocatedHours)} · {gallonsLabel(quote.paintGallons)} · sales {money(quote.salesRate)}/hr
@@ -105,7 +103,7 @@ export function PriceSummary({
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="font-display text-2xl leading-none text-price tabular-nums" aria-live="polite">
-              {money(quote.total)}
+              {money(totals.total)}
             </p>
             <button type="button" onClick={onExplain} className="mt-1 block truncate text-xs font-medium text-primary">
               How it prices

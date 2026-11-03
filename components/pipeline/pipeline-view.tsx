@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { EstimateCard } from "@/components/pipeline/estimate-card"
 import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
 import { EstimatorPerformance } from "@/components/pipeline/estimator-performance"
@@ -8,7 +9,7 @@ import { JobsExport } from "@/components/pipeline/jobs-export"
 import { Input } from "@/components/ui/input"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { usePipeline } from "@/hooks/use-pipeline"
-import { money } from "@/lib/format"
+import { money, moneyExact } from "@/lib/format"
 import {
   officeEmptyStage,
   officeInView,
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils"
 export function PipelineView() {
   const { ready, ordered, visible, pipelineValue, query, setQuery, filter, setFilter } =
     usePipeline()
-  const { session } = useScope()
+  const { session, businessOverview } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
 
@@ -49,6 +50,23 @@ export function PipelineView() {
         </div>
         <NewLeadButton label={say("New lead")} className={newLeadButtonClass()} />
       </div>
+      <nav className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" aria-label="Today" data-testid="business-overview">
+        {businessOverview.map((item) => (
+          <Link
+            key={item.id}
+            href={item.href}
+            data-testid={`overview-${item.id}`}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+          >
+            <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{item.label}</p>
+            <p className="mt-1 font-display text-3xl text-price tabular-nums">{item.count}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {item.detail}
+              {item.amount && item.amount > 0 ? ` · ${moneyExact(item.amount)} open` : ""}
+            </p>
+          </Link>
+        ))}
+      </nav>
       <div className="flex items-center gap-2">
         <Input
           value={query}

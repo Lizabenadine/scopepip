@@ -37,11 +37,13 @@ export async function runQuoteDrip(
       body: item.body,
       fromName,
     })
-    if (result.delivery === "failed") {
+    const message = messageFrom(item, result.delivery, result.detail, nowMs)
+    if (result.delivery === "failed" || result.delivery === "skipped") {
+      current = recordDrip(current, message)
       current = holdDrip(current, item.estimateId, 15, nowMs)
       continue
     }
-    current = recordDrip(current, messageFrom(item, result.delivery, result.detail, nowMs))
+    current = recordDrip(current, message)
     delivered += 1
   }
   return { state: current, delivered }

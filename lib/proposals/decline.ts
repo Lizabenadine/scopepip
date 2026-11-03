@@ -1,4 +1,5 @@
 import type { ScopeState } from "../data/seed.ts"
+import { stopFollowUp } from "../follow-ups/schedule.ts"
 
 export type DeclineResult =
   | { ok: true; state: ScopeState; estimateId: string }
@@ -18,6 +19,7 @@ export function applyDecline(state: ScopeState, token: string, declinedAt: strin
     clientStatus: "declined" as const,
     declinedAt,
     updatedAt: declinedAt,
+    followUp: stopFollowUp(estimate.followUp, "declined"),
   }
   return {
     ok: true,

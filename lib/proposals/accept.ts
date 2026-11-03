@@ -1,4 +1,5 @@
 import type { ScopeState } from "../data/seed.ts"
+import { stopSalesFollowUp } from "../follow-ups/schedule.ts"
 import { lockApprovedScope } from "../estimate/versions.ts"
 import type { ClientSignature, Estimate } from "../types.ts"
 import { createWorkOrder } from "../work-orders/defaults.ts"
@@ -49,6 +50,7 @@ export function applyAcceptance(
       lineItems: estimate.lineItems.map((item) =>
         item.optional ? { ...item, selected: selected.has(item.id) } : item,
       ),
+      followUp: stopSalesFollowUp(estimate.followUp, "accepted"),
     },
     input.signedAt,
   )

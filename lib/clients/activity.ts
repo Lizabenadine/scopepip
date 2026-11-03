@@ -1,6 +1,6 @@
 import type { ScopeState } from "../data/seed.ts"
 import { jobStageOf, salesStageOf, JOB_COLUMNS, SALES_COLUMNS } from "../pipeline/board.ts"
-import type { Estimate, NoteEntry, StageChange } from "../types.ts"
+import type { Client, ClientInteraction, Estimate, NoteEntry, StageChange } from "../types.ts"
 
 const CAP = 40
 
@@ -10,6 +10,13 @@ export function appendStageChange(estimate: Estimate, label: string, at: string)
   if (last?.label === label) return estimate
   const next: StageChange = { id: crypto.randomUUID(), at, label }
   return { ...estimate, stageChanges: [...stageChanges, next].slice(-CAP) }
+}
+
+export function recordInteraction(client: Client, kind: "note" | "call", body: string, at: string): Client {
+  const note = body.trim()
+  if (!note) return client
+  const entry: ClientInteraction = { id: crypto.randomUUID(), at, kind, body: note }
+  return { ...client, interactions: [...(client.interactions ?? []), entry].slice(-CAP), updatedAt: at }
 }
 
 export function appendNote(estimate: Estimate, body: string, at: string): Estimate {

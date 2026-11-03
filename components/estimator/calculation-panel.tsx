@@ -1,40 +1,36 @@
-import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
+import type { EstimateQuote, EstimateTotals } from "@/lib/estimate/calculate"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { hoursLabel, moneyExact } from "@/lib/format"
-import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
 import type { AreaGroup, AreaInput, EstimateSettings } from "@/lib/types"
 
 export function CalculationPanel({
   quote,
+  totals,
   settings,
   areas,
   areaGroups,
-  depositPercent,
   showCosts = true,
   showCharges = false,
 }: {
   quote: EstimateQuote
+  totals: EstimateTotals
   settings: EstimateSettings
   areas?: AreaInput[]
   areaGroups?: AreaGroup[]
-  depositPercent: number
   showCosts?: boolean
   showCharges?: boolean
 }) {
-  const charges = estimateCharges(quote)
-  const deposit = depositAmount(quote.total, depositPercent)
-  const balance = balanceAfterDeposit(quote.total, depositPercent)
   const paintingHours = Math.round(quote.areas.reduce((sum, area) => sum + area.allocatedHours, 0) * 1000) / 1000
   const groupIdOf = new Map((areas ?? []).map((area) => [area.id, area.groupId]))
   const sections = sectionByGroup(quote.areas, areaGroups, (area) => groupIdOf.get(area.id))
   const rows = [
-    ["Labor", charges.labor],
-    ["Materials", charges.materials],
-    ["Additional charges", charges.additional],
-    ["Discounts", charges.discount],
-    ["Taxes", charges.tax],
-    ["Deposit", deposit],
-    ["Remaining balance", balance],
+    ["Labor", totals.labor],
+    ["Materials", totals.materials],
+    ["Additional charges", totals.additional],
+    ["Discounts", totals.discount],
+    ["Taxes", totals.tax],
+    ["Deposit", totals.deposit],
+    ["Remaining balance", totals.balance],
   ] as const
   return (
     <div className="flex flex-col gap-3 text-sm">

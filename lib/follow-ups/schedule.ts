@@ -78,8 +78,24 @@ export function stopPursuit(enrollment: FollowUpEnrollment | null | undefined): 
 }
 
 export function stopForReply(enrollment: FollowUpEnrollment | null | undefined): FollowUpEnrollment | null {
+  return stopFollowUp(enrollment, "reply")
+}
+
+export function stopFollowUp(
+  enrollment: FollowUpEnrollment | null | undefined,
+  reason: FollowUpStop,
+): FollowUpEnrollment | null {
   if (!enrollment || enrollment.status !== "active") return enrollment ?? null
-  return { ...enrollment, status: "stopped", stoppedReason: "reply", holdUntil: null }
+  return { ...enrollment, status: "stopped", stoppedReason: reason, holdUntil: null }
+}
+
+/** A signed proposal ends the sales sequence. Job reminders stay on their own columns. */
+export function stopSalesFollowUp(
+  enrollment: FollowUpEnrollment | null | undefined,
+  reason: FollowUpStop,
+): FollowUpEnrollment | null {
+  if (!enrollment || enrollment.status !== "active" || !PURSUIT.has(enrollment.stage)) return enrollment ?? null
+  return stopFollowUp(enrollment, reason)
 }
 
 export function reconcileFollowUps(state: ScopeState, nowIso: string): ScopeState {
@@ -93,6 +109,23 @@ export function reconcileFollowUps(state: ScopeState, nowIso: string): ScopeStat
   })
   if (!changed) return state
   return { ...state, estimates }
+}
+
+export function previewFollowUp(subject: string, body: string, company: string): { subject: string; body: string } {
+  const name = company.trim() || "ScopePipe"
+  const vars = {
+    client: "Alex",
+    company: name,
+    address: "the job address",
+    visit: "the visit day",
+    job: "the start day",
+    salesperson: "you",
+    book: "the booking link",
+    proposal: "the proposal link",
+    proposalEs: "the Spanish proposal link",
+    review: "the review link",
+  }
+  return { subject: renderFollowUp(subject, vars), body: renderFollowUp(body, vars) }
 }
 
 export function renderFollowUp(template: string, vars: Record<string, string>): string {
@@ -145,11 +178,7 @@ export function collectDueFollowUps(state: ScopeState, nowMs: number, origin?: s
 export function describeFollowUp(state: ScopeState, estimate: Estimate, nowMs: number): string {
   const sequences = resolveSequences(state.followUpSequences)
   const picked = inspectFollowUp(state, estimate, sequences, nowMs)
-  if (picked.kind === "stopped") {
-    if (picked.reason === "reply") return "Follow-up stopped. Customer replied."
-    if (picked.reason === "visit_booked") return "Follow-up stopped. Visit booked."
-    return "Follow-up stopped."
-  }
+  if (picked.kind === "stopped") return stoppedCopy(picked.reason)
   if (picked.kind === "waiting") return "Follow-up starts on its own."
   if (picked.kind === "off") return "Follow-up is off for this column."
   if (picked.kind === "hold") return `Next ${channelName(picked.step.channel)} is waiting to retry.`
@@ -184,9 +213,14 @@ function inspectFollowUp(
   nowMs: number,
   origin?: string,
 ): Inspection {
+  if (estimate.archived) return { kind: "stopped", reason: "archived" }
+  if (estimate.clientStatus === "declined" || estimate.declinedAt) return { kind: "stopped", reason: "declined" }
   const enrollment = estimate.followUp
   if (!enrollment) return { kind: "waiting" }
   if (enrollment.status === "stopped") return { kind: "stopped", reason: enrollment.stoppedReason ?? null }
+  if (estimate.clientStatus === "accepted" && PURSUIT.has(enrollment.stage)) {
+    return { kind: "stopped", reason: "accepted" }
+  }
   const sequence = sequences.find((item) => item.stage === enrollment.stage)
   if (!sequence?.enabled) return { kind: "off" }
   const holdUntil = enrollment.holdUntil ? Date.parse(enrollment.holdUntil) : NaN
@@ -306,6 +340,16 @@ function destination(channel: FollowUpChannel, client: Client | undefined): stri
   }
   const digits = client.phone.replace(/\D/g, "")
   return digits.length >= 10 ? client.phone.trim() : ""
+}
+
+function stoppedCopy(reason: FollowUpStop | null): string {
+  if (reason === "reply") return "Follow-up stopped. Customer replied."
+  if (reason === "visit_booked") return "Follow-up stopped. Visit booked."
+  if (reason === "accepted") return "Follow-up stopped. The proposal was accepted."
+  if (reason === "declined") return "Follow-up stopped. The proposal was declined."
+  if (reason === "canceled") return "Follow-up stopped. Canceled by the office."
+  if (reason === "archived") return "Follow-up stopped. The lead was marked lost."
+  return "Follow-up stopped."
 }
 
 function channelName(channel: FollowUpChannel): string {

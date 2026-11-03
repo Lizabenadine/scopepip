@@ -7,7 +7,7 @@ import { createSeedState } from "../data/seed.ts"
 import type { FollowUpMessage } from "../follow-ups/types.ts"
 import { ackProposalEvents, addProposalEvent, readProposalEvents } from "../proposals/event-spool.ts"
 import { applyProposalEvent } from "../proposals/opens.ts"
-import { recordStageChanges } from "./activity.ts"
+import { recordInteraction, recordStageChanges } from "./activity.ts"
 import { contactHistory } from "./history.ts"
 
 const AT = "2026-10-18T16:00:00.000Z"
@@ -84,18 +84,21 @@ describe("contact history", () => {
         },
       ],
     )
-    assert.deepEqual(
-      entries.map((entry) => entry.label),
-      ["Moved to Warm Leads", "Opened the proposal", "Email: A walkthrough", "Text received", "Note"],
-    )
+    const labels = entries.map((entry) => entry.label)
+    assert.ok(labels.indexOf("Text logged") < labels.indexOf("Moved to Warm Leads"))
+    assert.ok(labels.indexOf("Moved to Warm Leads") < labels.indexOf("Opened the proposal"))
+    assert.ok(labels.indexOf("Opened the proposal") < labels.indexOf("Email logged: A walkthrough"))
+    assert.ok(labels.indexOf("Email logged: A walkthrough") < labels.indexOf("Text received"))
+    assert.ok(labels.includes("Lead created"))
+    assert.ok(labels.includes("Note"))
     assert.equal(
       entries.some((entry) => entry.body.includes("This text stays on the thread.")),
-      false,
+      true,
     )
     const note = entries.find((entry) => entry.kind === "note")
     assert.equal(note?.body.includes("Ceilings stay eggshell."), true)
     assert.equal(note?.at, mayaEstimate.createdAt)
-    assert.equal(entries.find((entry) => entry.kind === "text")?.body.includes("Thursday afternoon works."), true)
+    assert.equal(entries.find((entry) => entry.label === "Text received")?.body.includes("Thursday afternoon works."), true)
     assert.equal(entries[0]?.at > entries[entries.length - 1]!.at, true)
   })
 
@@ -141,5 +144,20 @@ describe("contact history", () => {
     ackProposalEvents([stored[0]!.id])
     assert.equal(readProposalEvents().length, 0)
     delete process.env.PROPOSAL_EVENT_SPOOL_PATH
+  })
+
+  it("keeps a recorded call on the customer timeline and off the proposal note", () => {
+    const state = createSeedState()
+    const client = state.clients.find((item) => item.id === "client-maya")
+    const estimate = state.estimates.find((item) => item.id === "est-maya")
+    assert.ok(client)
+    assert.ok(estimate)
+    const withCall = recordInteraction(client, "call", "Left a voicemail about the hallway.", AT)
+    const entries = contactHistory(withCall, [estimate])
+    const call = entries.find((entry) => entry.kind === "call")
+    assert.equal(call?.label, "Call")
+    assert.equal(call?.status, "Internal")
+    assert.equal(call?.body, "Left a voicemail about the hallway.")
+    assert.equal(estimate.notes.includes("voicemail"), false)
   })
 })

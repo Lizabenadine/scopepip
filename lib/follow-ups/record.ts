@@ -8,11 +8,15 @@ export function recordDrip(state: ScopeState, message: FollowUpMessage, now = me
     ...state,
     estimates: state.estimates.map((estimate) => {
       if (estimate.id !== message.estimateId) return estimate
-      const followUpLog = [...(estimate.followUpLog ?? []), message].slice(-40)
+      const prior = estimate.followUpLog ?? []
+      const advance = message.delivery === "sent" || message.delivery === "logged"
+      const duplicate =
+        !advance && prior.some((item) => item.stepId === message.stepId && item.delivery === message.delivery)
+      const followUpLog = duplicate ? prior : [...prior, message].slice(-40)
       const enrollment = estimate.followUp
       const stillActive = enrollment?.status === "active" && enrollment.stage === message.stage
       const followUp =
-        stillActive && enrollment
+        advance && stillActive && enrollment
           ? {
               ...enrollment,
               sentStepIds: enrollment.sentStepIds.includes(message.stepId)
@@ -24,7 +28,7 @@ export function recordDrip(state: ScopeState, message: FollowUpMessage, now = me
       return { ...estimate, followUp, followUpLog, updatedAt: now }
     }),
   }
-  if (message.channel === "text" && message.delivery !== "skipped") {
+  if (message.channel === "text" && (message.delivery === "sent" || message.delivery === "logged")) {
     const estimate = next.estimates.find((item) => item.id === message.estimateId)
     if (estimate) {
       next = applyOutbound(next, estimate.clientId, {
