@@ -11,17 +11,20 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { money } from "@/lib/format"
 import { officeAreas, officeLabel, officeNextAction, officeOnSite, officeStageName } from "@/lib/office/dashboard-copy"
+import { JOB_FLOW, jobFlowStep } from "@/lib/office/workflow"
 import { adjacentStage, NEXT_ACTION, stageTone } from "@/lib/stages"
 import { cn } from "@/lib/utils"
 import type { Estimate } from "@/lib/types"
 
 export function EstimateCard({ estimate }: { estimate: Estimate }) {
   const router = useRouter()
-  const { clientById, stageById, stages, quoteEstimate, moveStage } = useScope()
+  const { clientById, stageById, stages, quoteEstimate, moveStage, workOrders } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const client = clientById(estimate.clientId)
   const stage = stageById(estimate.stageId)
+  const order = workOrders.find((item) => item.estimateId === estimate.id)
+  const flow = stage ? JOB_FLOW.find((item) => item.id === jobFlowStep(estimate, order, stage.slug)) : undefined
   const quote = quoteEstimate(estimate)
   const next = adjacentStage(stages, estimate.stageId, 1)
   const [scheduleOpen, setScheduleOpen] = useState(false)
@@ -70,6 +73,7 @@ export function EstimateCard({ estimate }: { estimate: Estimate }) {
             </Link>
           </h3>
           <p className="truncate text-sm text-muted-foreground">{estimate.title}</p>
+          {flow ? <p className="mt-1 text-xs font-semibold text-[#004789]">{say(flow.label)}</p> : null}
         </div>
         <p className="font-display text-2xl leading-none text-price tabular-nums">
           {money(quote.total)}

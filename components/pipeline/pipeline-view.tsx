@@ -17,13 +17,14 @@ import {
   officeNoMatch,
   officeStageName,
 } from "@/lib/office/dashboard-copy"
+import { OfficeQueues } from "@/components/office/office-queues"
 import { EMPTY_STAGE, stageTone } from "@/lib/stages"
 import { cn } from "@/lib/utils"
 
 export function PipelineView() {
   const { ready, ordered, visible, pipelineValue, query, setQuery, filter, setFilter } =
     usePipeline()
-  const { session, businessOverview } = useScope()
+  const { session, businessOverview, officeQueues } = useScope()
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
 
@@ -67,6 +68,7 @@ export function PipelineView() {
           </Link>
         ))}
       </nav>
+      <OfficeQueues queues={officeQueues} language={language} />
       <div className="flex items-center gap-2">
         <Input
           value={query}

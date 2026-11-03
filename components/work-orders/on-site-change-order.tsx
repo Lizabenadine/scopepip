@@ -74,7 +74,8 @@ export function OnSiteChangeOrder({ estimateId }: { estimateId: string }) {
     <>
       <Button
         type="button"
-        className="h-11 w-full"
+        variant="outline"
+        className="h-12 w-full border-[#004789] text-[#004789] sm:w-fit"
         data-testid="create-change-order"
         onClick={() => setOpen(true)}
       >

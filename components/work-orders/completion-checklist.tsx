@@ -17,16 +17,20 @@ export function CompletionChecklist({
 }) {
   const { copy, language } = useFieldLanguage()
   const done = items.filter((item) => item.done).length
+  const progress = items.length === 0 ? 0 : Math.round((done / items.length) * 100)
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+        <h2 className="text-xs font-semibold tracking-[0.14em] text-[#004789] uppercase">
           {copy.checklist}
         </h2>
-        <p className="text-xs text-muted-foreground tabular-nums">
+        <p className="text-sm font-semibold tabular-nums text-slate-800" data-testid="checklist-progress">
           {copy.checklistProgress(done, items.length)}
         </p>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+        <div className="h-full rounded-full bg-[#05C9FF]" style={{ width: `${progress}%` }} />
       </div>
       <ul className="flex flex-col gap-2">
         {items.map((item) => (

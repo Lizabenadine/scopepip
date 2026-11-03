@@ -57,26 +57,35 @@ export function SubcontractorWorkOrder({
 
   return (
     <div className="space-y-6 text-slate-900" data-testid="subcontractor-order">
-      <div className="flex flex-col justify-between gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 md:flex-row">
-        <div className="space-y-2">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:break-inside-avoid">
+        <div className="flex flex-col justify-between gap-6 bg-[#02182F] p-6 text-white sm:p-8 md:flex-row print:bg-white print:text-slate-950">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <span className="rounded bg-slate-900 px-2.5 py-1 text-[10px] font-bold tracking-widest text-white uppercase">
+            <span className="rounded bg-[#05C9FF] px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#02182F] uppercase">
               {copy.subOrder}
             </span>
-            <span className="font-mono text-xs text-slate-400">#{order.jobId}</span>
+            <span className="font-mono text-xs text-cyan-200 print:text-slate-500">#{order.jobId}</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">{order.jobName}</h1>
-          <p className="text-xs text-slate-600">
-            <span className="font-semibold text-slate-800">{copy.customer}:</span> {order.customerName}
-          </p>
-          {order.jobAddress ? <p className="text-xs text-slate-500">{order.jobAddress}</p> : null}
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{order.jobName}</h1>
+          <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-[11px] font-semibold tracking-wider text-cyan-200 uppercase print:text-slate-500">{copy.customer}</dt>
+              <dd>{order.customerName}</dd>
+            </div>
+            {order.jobAddress ? (
+              <div>
+                <dt className="text-[11px] font-semibold tracking-wider text-cyan-200 uppercase print:text-slate-500">{language === "es" ? "Dirección" : "Jobsite"}</dt>
+                <dd>{order.jobAddress}</dd>
+              </div>
+            ) : null}
+          </dl>
           {order.customerPhone ? (
-            <a className="block text-xs font-medium text-blue-700" href={`tel:${order.customerPhone}`}>
+            <a className="block text-sm font-medium text-[#05C9FF] print:text-[#004789]" href={`tel:${order.customerPhone}`}>
               {order.customerPhone}
             </a>
           ) : null}
           {order.customerEmail ? (
-            <a className="block text-xs text-blue-700" href={`mailto:${order.customerEmail}`}>
+            <a className="block text-sm text-cyan-100 print:text-[#004789]" href={`mailto:${order.customerEmail}`}>
               {order.customerEmail}
             </a>
           ) : null}
@@ -93,6 +102,7 @@ export function SubcontractorWorkOrder({
           {order.salespersonEmail ? <p className="text-[11px] text-slate-400">{order.salespersonEmail}</p> : null}
           {order.dateGenerated ? <p className="text-[11px] text-slate-400">{copy.generated}: {order.dateGenerated}</p> : null}
         </div>
+        </div>
       </div>
 
       {order.companyCamUrl ? (
@@ -104,7 +114,7 @@ export function SubcontractorWorkOrder({
             href={order.companyCamUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-sm transition-colors hover:bg-blue-700"
+            className="inline-flex min-h-11 items-center rounded-lg bg-[#004789] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white"
           >
             {copy.openCompanyCam}
           </a>
@@ -290,7 +300,7 @@ export function SubcontractorWorkOrder({
               <button
                 type="submit"
                 data-testid="subcontractor-sign"
-                className="rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold text-white shadow-lg transition-colors hover:bg-blue-500"
+                className="inline-flex min-h-12 items-center rounded-xl bg-[#004789] px-6 py-3 text-xs font-bold text-white"
               >
                 {copy.acceptSign}
               </button>

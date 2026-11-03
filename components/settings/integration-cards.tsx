@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BookOpen, CalendarDays, Camera, Mail, Share2, Store, Zap } from "lucide-react"
+import { BookOpen, CalendarDays, Camera, CreditCard, Mail, Share2, Store, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +21,7 @@ const ICONS = {
   companycam: Camera,
   zapier: Zap,
   quickbooks: BookOpen,
+  stripe: CreditCard,
   "google-calendar": CalendarDays,
   gmail: Mail,
   "google-business": Store,
@@ -52,7 +53,7 @@ export function IntegrationCards() {
       .then(({ response, payload }) => {
         if (cancelled) return
         if (!response.ok || payload.ok === false) {
-          setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false })
+          setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false, stripe: false })
           setHostDetail("Connection status could not be checked. Nothing is shown as connected.")
           return
         }
@@ -61,12 +62,13 @@ export function IntegrationCards() {
           quickbooks: payload.quickbooks === true,
           googleCalendar: payload.googleCalendar === true,
           facebookLeads: payload.facebookLeads === true,
+          stripe: payload.stripe === true,
         })
         setHostDetail("")
       })
       .catch(() => {
         if (cancelled) return
-        setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false })
+        setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false, stripe: false })
         setHostDetail("Connection status could not be checked. Nothing is shown as connected.")
       })
     return () => {

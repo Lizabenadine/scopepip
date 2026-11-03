@@ -16,13 +16,15 @@ import { PhotoCapture } from "@/components/photos/photo-capture"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
+import { JobFlow } from "@/components/office/job-flow"
 import { officeLabel } from "@/lib/office/dashboard-copy"
+import { jobFlowStep } from "@/lib/office/workflow"
 import { useWorkOrders } from "@/hooks/use-work-orders"
 import type { WorkOrder } from "@/lib/types"
 
 export function WorkOrderView({ id }: { id: string }) {
   const crew = useWorkOrders(id)
-  const { estimateSettings, session } = useScope()
+  const { estimateSettings, session, estimates, workOrders, stages } = useScope()
   const { copy, language } = useFieldLanguage()
   const limited = session?.role === "project_manager"
   const estimator = session?.role === "estimator"
@@ -71,6 +73,9 @@ export function WorkOrderView({ id }: { id: string }) {
   }
 
   const sheet = crew.sheet
+  const estimate = estimates.find((item) => item.id === id)
+  const stage = stages.find((item) => item.id === estimate?.stageId)
+  const order = workOrders.find((item) => item.estimateId === id)
   const orderNumber = id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()
 
   return (
@@ -95,6 +100,7 @@ export function WorkOrderView({ id }: { id: string }) {
           </button>
         </div>
       </div>
+      {estimate ? <JobFlow step={jobFlowStep(estimate, order, stage?.slug)} language={language} /> : null}
       {crew.packet ? (
         <SubcontractorWorkOrder
           order={crew.packet}
@@ -103,7 +109,14 @@ export function WorkOrderView({ id }: { id: string }) {
           spanishDescription={sheet.crewNoteEs}
           workerName={crew.crewName}
           setDescription={crew.setPrepNotes}
-          offersPanel={<SendSubcontractor offers={crew.offers} onSend={crew.sendOffer} />}
+          offersPanel={
+            <SendSubcontractor
+              offers={crew.offers}
+              onSend={crew.sendOffer}
+              signed={Boolean(crew.packet?.subSignature)}
+              completed={crew.status === "complete"}
+            />
+          }
         />
       ) : null}
       {crew.crewName ? <p className="text-sm font-medium">{crew.crewName}</p> : null}

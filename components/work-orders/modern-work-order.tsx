@@ -29,52 +29,48 @@ export function ModernWorkOrder({
     : ""
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm md:p-8 print:shadow-none">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-6">
-        <div>
-          <CompanyMark
-            name={companyName}
-            logoUrl={logoUrl}
-            className="text-2xl font-bold tracking-tight text-slate-950"
-            imageClassName="h-9"
-            testId="crew-brand"
-          />
-          <p className="mt-1 text-xs text-slate-500">{copy.crewProduction}</p>
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm print:shadow-none">
+      <header className="bg-[#02182F] px-5 py-5 text-white print:bg-white print:text-slate-950 md:px-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <CompanyMark
+              name={companyName}
+              logoUrl={logoUrl}
+              className="text-xl font-bold tracking-tight text-white print:text-slate-950"
+              imageClassName="h-9"
+              testId="crew-brand"
+            />
+            <p className="mt-1 text-xs text-cyan-200 print:text-slate-500">{copy.crewProduction}</p>
+          </div>
+          <div className="text-left sm:text-right">
+            <span className="rounded-full border border-cyan-300/40 bg-cyan-400/10 px-3 py-1 text-xs font-semibold tracking-wider text-[#05C9FF] uppercase print:border-slate-300 print:text-slate-700">
+              {spanish ? "Orden de Trabajo" : "Work Order"}
+            </span>
+            <p className="mt-2 font-mono text-sm font-semibold">#{orderNumber}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold tracking-wider text-cyan-800 uppercase">
-            {spanish ? "Orden de Trabajo" : "Work Order"}
-          </span>
-          <p className="mt-2 text-sm font-semibold text-slate-800">#{orderNumber}</p>
-          {sheet.scheduledOn ? <p className="text-xs text-slate-500">{copy.jobDate(sheet.scheduledOn)}</p> : null}
-          {workerName ? (
-            <p className="text-xs text-slate-700">
-              {copy.crewLead}: {workerName}
-            </p>
-          ) : null}
-        </div>
-      </div>
+        <h2 className="mt-4 text-2xl font-semibold tracking-tight">{sheet.title}</h2>
+        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <Fact label={spanish ? "Cliente" : "Customer"} value={sheet.clientName} />
+          <Fact label={spanish ? "Dirección" : "Jobsite"} value={address || (spanish ? "Sin dirección" : "No address yet")} />
+          <Fact label={copy.crewLead} value={workerName || (spanish ? "Sin asignar" : "Unassigned")} />
+          <Fact label={spanish ? "Fecha" : "Scheduled"} value={sheet.scheduledOn ? copy.jobDate(sheet.scheduledOn) : (spanish ? "Sin fecha" : "Not scheduled")} />
+        </dl>
+      </header>
 
-      <div className="my-6 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <div>
-          <h3 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
-            {spanish ? "Dirección del Trabajo" : "Jobsite Address"}
-          </h3>
-          <p className="text-sm font-medium text-slate-950">{sheet.clientName}</p>
-          {address ? <p className="text-sm text-slate-700">{address}</p> : null}
-          {showTotal ? (
-            <p className="mt-2 text-xs text-slate-500">
-              {copy.targetHours}: {copy.hours(sheet.allocatedHours)}
-            </p>
-          ) : null}
-        </div>
+      <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between md:px-8">
+        {showTotal ? (
+          <p className="text-sm font-semibold text-slate-800">
+            {copy.targetHours}: <span className="text-[#004789]">{copy.hours(sheet.allocatedHours)}</span>
+          </p>
+        ) : <span />}
         {mapsUrl ? (
           <a
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="navigate-jobsite"
-            className="flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#05C9FF] px-5 text-sm font-semibold text-[#02182F]"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -84,6 +80,7 @@ export function ModernWorkOrder({
           </a>
         ) : null}
       </div>
+      <div className="space-y-6 px-5 pb-5 md:px-8 md:pb-8">
 
       <div className="space-y-6">
         {sheet.areas.map((area, index) => {
@@ -95,11 +92,11 @@ export function ModernWorkOrder({
                   {say(area.groupName ?? "")}
                 </h2>
               ) : null}
-              <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
+              <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5 break-inside-avoid">
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                  <h4 className="text-base font-bold text-cyan-800">{say(area.name)}</h4>
+                  <h4 className="text-lg font-semibold text-[#02182F]">{say(area.name)}</h4>
                   {showItems ? (
-                    <span className="rounded-md bg-white px-2.5 py-1 text-xs text-slate-700">
+                    <span className="rounded-full bg-[#02182F] px-3 py-1 text-xs font-semibold text-[#05C9FF]">
                       {copy.hours(area.allocatedHours)}
                     </span>
                   ) : null}
@@ -191,6 +188,16 @@ export function ModernWorkOrder({
           ))}
         </section>
       ) : null}
+      </div>
+    </div>
+  )
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold tracking-wider text-cyan-200 uppercase print:text-slate-500">{label}</dt>
+      <dd className="mt-0.5 font-medium">{value}</dd>
     </div>
   )
 }

@@ -9,11 +9,15 @@ import type { SubcontractorOffer } from "@/lib/types"
 export function SendSubcontractor({
   offers,
   onSend,
+  signed = false,
+  completed = false,
 }: {
   offers: SubcontractorOffer[]
   onSend: (name: string, email: string) => { ok: true; token: string; jobName: string } | { ok: false; reason: string }
+  signed?: boolean
+  completed?: boolean
 }) {
-  const { copy } = useFieldLanguage()
+  const { copy, language } = useFieldLanguage()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [notice, setNotice] = useState<string | null>(null)
@@ -58,12 +62,41 @@ export function SendSubcontractor({
   const current = [...offers].reverse().find((offer) => offer.status === "sent" || offer.status === "accepted")
   const passed = current ? undefined : [...offers].reverse().find((offer) => offer.status === "declined")
 
+  const sent = offers.some((offer) => offer.status === "sent" || offer.status === "accepted")
+  const signedOn = signed || offers.some((offer) => offer.status === "accepted")
+  const es = language === "es"
+  const steps = [
+    { id: "sent", label: es ? "Enviado" : "Sent", on: sent },
+    { id: "viewed", label: es ? "Visto" : "Viewed", on: false },
+    { id: "signed", label: es ? "Firmado" : "Signed", on: signedOn },
+    { id: "completed", label: es ? "Terminado" : "Completed", on: completed },
+  ]
+
   return (
     <div className="space-y-4" data-testid="send-subcontractor">
       <div>
         <h3 className="text-sm font-bold text-slate-900">{copy.sendOffers}</h3>
         <p className="mt-1 text-xs text-slate-500">{copy.sendOffersBody}</p>
       </div>
+      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="offer-status">
+        {steps.map((step) => (
+          <li
+            key={step.id}
+            data-testid={`offer-status-${step.id}`}
+            data-on={step.on ? "yes" : "no"}
+            className={
+              step.on
+                ? "rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-900"
+                : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500"
+            }
+          >
+            {step.label}
+          </li>
+        ))}
+      </ol>
+      <p className="text-xs text-slate-500">
+        {es ? "Abrir el enlace no queda registrado, así que Visto sigue apagado." : "Opening the link is not recorded, so Viewed stays off."}
+      </p>
       {current ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
           <span>
@@ -108,7 +141,7 @@ export function SendSubcontractor({
         <button
           type="button"
           data-testid="offer-send"
-          className="h-11 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white"
+          className="h-12 rounded-xl bg-[#004789] px-5 text-sm font-semibold text-white sm:min-w-36"
           onClick={() => void submit()}
         >
           {copy.sendOffer}

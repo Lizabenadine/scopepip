@@ -57,6 +57,7 @@ export function useWorkOrders(estimateId: string) {
     signSubcontractor: (name: string, signedDate: string) =>
       scope.signSubcontractorCopy(estimateId, name, signedDate),
     offers: stored?.offers ?? [],
+    status: stored?.status ?? null,
     sendOffer: (name: string, email: string) => scope.sendSubcontractorOffer(estimateId, name, email),
     reloadBook: () => scope.reloadBook(),
   }

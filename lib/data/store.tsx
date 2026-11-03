@@ -42,6 +42,7 @@ import { createOfficeLead, type LeadReach } from "@/lib/leads/office-lead"
 import type { InboundLead } from "@/lib/leads/types"
 import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
 import { officeOverview, type OverviewItem } from "@/lib/office/overview"
+import { officeWorklist, type OfficeQueues } from "@/lib/office/workflow"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
 import type {
   Client,
@@ -381,6 +382,7 @@ export interface ScopeApi {
   ) => { ok: true } | { ok: false; reason: string }
   cancelFollowUp: (estimateId: string) => void
   businessOverview: OverviewItem[]
+  officeQueues: OfficeQueues
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
@@ -923,16 +925,8 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         ),
       })
     },
-    businessOverview: officeOverview(state, new Date(), (estimate) => {
-      const source = withApprovedScope(estimate)
-      return calculateEstimateTotals({
-        areas: source.areas,
-        lineItems: source.lineItems,
-        rates: quoteRates(source.rates, state.productionRates, source.areas),
-        settings: source.settings,
-        paymentMethods: state.paymentMethods,
-      }).total
-    }),
+    businessOverview: officeOverview(state, new Date(), (estimate) => pricedTotal(state, withApprovedScope(estimate))),
+    officeQueues: officeWorklist(state, new Date(), (estimate) => pricedTotal(state, withApprovedScope(estimate))),
     updateClient: (id, patch) => {
       const latest = getSnapshot().state
       commit({

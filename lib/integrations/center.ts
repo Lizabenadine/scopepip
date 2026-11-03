@@ -8,6 +8,7 @@ export interface HostConnections {
   quickbooks: boolean
   googleCalendar: boolean
   facebookLeads: boolean
+  stripe?: boolean
 }
 
 export interface FeaturedIntegration {
@@ -48,6 +49,7 @@ export function latestTimestamp(values: Array<string | undefined | null>): strin
 export function featuredIntegrations(book: FeaturedBook, host: HostConnections | null): FeaturedIntegration[] {
   const photos = hostFlag(host, host?.companyCam === true)
   const books = hostFlag(host, host?.quickbooks === true)
+  const stripe = hostFlag(host, host?.stripe === true)
   const calendar = hostFlag(host, host?.googleCalendar === true)
   const facebook = hostFlag(host, host?.facebookLeads === true)
   const zapierSaved = zapierTarget(book.zapierWebhookUrl) !== null
@@ -86,6 +88,16 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       ...books,
       href: "/settings?tab=payments",
       lastSync: book.quickbooksSyncedAt,
+    }),
+    item({
+      id: "stripe",
+      name: "Stripe",
+      description: "Card deposits and invoice payments.",
+      setup: stripe.status === "connected"
+        ? "The Stripe key is saved. Deposits still record only after Stripe confirms the charge."
+        : "Add the Stripe key in Sending. A card form is not treated as a connection.",
+      ...stripe,
+      anchor: "integration-sending",
     }),
     item({
       id: "google-calendar",

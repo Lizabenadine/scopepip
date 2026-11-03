@@ -13,6 +13,7 @@ const names = [
   "CompanyCam",
   "Zapier",
   "QuickBooks Online",
+  "Stripe",
   "Google Calendar",
   "Gmail",
   "Google Business Profile",
@@ -20,7 +21,7 @@ const names = [
 ]
 
 describe("featured integrations", () => {
-  it("lists the seven services and leaves each one disconnected until a real connection exists", () => {
+  it("lists the services and leaves each one disconnected until a real connection exists", () => {
     const cards = featuredIntegrations({}, emptyHost)
     assert.deepEqual(cards.map((item) => item.name), names)
     const gmail = cards.find((item) => item.id === "gmail")
@@ -47,6 +48,7 @@ describe("featured integrations", () => {
     assert.equal(status.companycam, "connected")
     assert.equal(status.zapier, "connected")
     assert.equal(status.quickbooks, "connected")
+    assert.equal(status.stripe, "disconnected")
     assert.equal(status["google-calendar"], "connected")
     assert.equal(status.gmail, "unavailable")
     assert.equal(status["google-business"], "configured")
@@ -65,6 +67,10 @@ describe("featured integrations", () => {
     assert.equal(cards.find((item) => item.id === "gmail")?.status, "unavailable")
     assert.equal(cards.find((item) => item.id === "google-business")?.status, "disconnected")
     assert.equal(cards.find((item) => item.id === "zapier")?.status, "disconnected")
+    assert.equal(cards.find((item) => item.id === "stripe")?.status, "disconnected")
+    const paid = featuredIntegrations({}, { ...emptyHost, stripe: true })
+    assert.equal(paid.find((item) => item.id === "stripe")?.status, "connected")
+    assert.equal(paid.find((item) => item.id === "gmail")?.status, "unavailable")
     assert.equal(cards.find((item) => item.id === "facebook-instagram")?.status, "disconnected")
   })
 

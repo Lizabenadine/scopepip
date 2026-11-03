@@ -30,9 +30,15 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
     }).then(() => setCaption(""))
   }
 
+  const groups = [
+    { id: "before", title: copy.photoTag("before"), items: photos.filter((photo) => photo.tag === "before") },
+    { id: "after", title: copy.photoTag("after"), items: photos.filter((photo) => photo.tag === "after") },
+    { id: "other", title: copy.sitePhotos, items: photos.filter((photo) => photo.tag !== "before" && photo.tag !== "after") },
+  ].filter((group) => group.items.length > 0)
+
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+    <section className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="text-xs font-semibold tracking-[0.14em] text-[#004789] uppercase">
         {copy.sitePhotos}
       </h2>
       {photos.length === 0 ? (
@@ -40,29 +46,37 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
           {copy.noSitePhotos}
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {photos.map((photo) => {
-            const detail = photoScope ? describeLink({ kind: photo.linkKind, id: photo.linkId }, photoScope) : null
-            return (
-              <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-2xl bg-card border border-slate-200 bg-white shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.url} alt={photo.caption || copy.photoTag(photo.tag)} className="aspect-[4/3] max-h-56 w-full object-cover" />
-                <div className="flex flex-col gap-1 px-4 py-3">
-                  <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                    {copy.photoTag(photo.tag)}
-                  </p>
-                  <p className="text-sm">{photo.caption || copy.siteUpdate}</p>
-                  {detail ? (
-                    <p className="text-sm text-muted-foreground">
-                      {copy.photoLink(detail.label)}
-                      {detail.detail ? ` · ${copy.photoDetail(detail.detail)}` : ""}
-                    </p>
-                  ) : null}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="flex flex-col gap-5">
+          {groups.map((group) => (
+            <div key={group.id}>
+              <h3 className="text-sm font-semibold text-slate-800">{group.title}</h3>
+              <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {group.items.map((photo) => {
+                  const detail = photoScope ? describeLink({ kind: photo.linkKind, id: photo.linkId }, photoScope) : null
+                  return (
+                    <li key={photo.id} data-photo-id={photo.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photo.url} alt={photo.caption || copy.photoTag(photo.tag)} className="aspect-[4/3] w-full object-cover" />
+                      <div className="flex flex-col gap-1 px-3 py-2">
+                        <p className="text-xs font-semibold tracking-wide text-[#004789] uppercase">
+                          {copy.photoTag(photo.tag)}
+                        </p>
+                        <p className="text-sm">{photo.caption || copy.siteUpdate}</p>
+                        <p className="text-xs text-muted-foreground">{formatPhotoTime(photo.createdAt)}</p>
+                        {detail ? (
+                          <p className="text-xs text-muted-foreground">
+                            {copy.photoLink(detail.label)}
+                            {detail.detail ? ` · ${copy.photoDetail(detail.detail)}` : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
       <label className="grid gap-1 text-sm">
         <span className="font-medium">{copy.tag}</span>
@@ -139,6 +153,12 @@ export function PhotoCapture({ estimateId }: { estimateId: string }) {
   )
 }
 
+function formatPhotoTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ""
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date)
+}
+
 function defaultKind(tag: PhotoTag): "prep" | "line" | "area" {
   if (tag === "prep_concern") return "prep"
   if (tag === "touch_up") return "line"
@@ -175,7 +195,7 @@ function FileButton({
           onFile(file)
         }}
       />
-      <span className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
+      <span className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#004789] px-3 text-sm font-semibold text-white">
         {icon}
         {label}
       </span>
