@@ -39,6 +39,19 @@ describe("signup auth", () => {
     if (outcome.kind === "error") assert.match(outcome.reason, /Wait a minute/)
   })
 
+  it("uses the sign-in message when Supabase says the email is registered", () => {
+    const outcome = interpretSignUp({
+      configured: true,
+      errorMessage: "User already registered",
+      hasSession: false,
+      hasUser: false,
+      identityCount: null,
+    })
+    assert.equal(outcome.kind, "error")
+    if (outcome.kind === "error") {
+      assert.equal(outcome.reason, "An account with this email already exists. Please sign in or reset your password.")
+    }
+  })
   it("treats an empty identity list as an existing account", () => {
     assert.equal(
       interpretSignUp({

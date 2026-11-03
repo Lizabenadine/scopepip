@@ -1,3 +1,5 @@
+import { DUPLICATE_ACCOUNT_EMAIL } from "./account-email.ts"
+
 export type SignupAuthOutcome =
   | { kind: "unconfigured" }
   | { kind: "session" }
@@ -8,8 +10,8 @@ export type SignupAuthOutcome =
 export function publicAuthReason(message: string): string {
   const text = message.toLowerCase()
   if (text.includes("rate limit")) return "Too many account emails were sent just now. Wait a minute and create the account again."
-  if (text.includes("already registered") || text.includes("already been registered")) {
-    return "That email already has an account."
+  if (text.includes("already registered") || text.includes("already been registered") || text.includes("already exists")) {
+    return DUPLICATE_ACCOUNT_EMAIL
   }
   if (text.includes("password") && (text.includes("short") || text.includes("at least") || text.includes("6 character"))) {
     return "Use at least 8 characters."

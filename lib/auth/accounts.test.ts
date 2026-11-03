@@ -214,4 +214,44 @@ describe("accounts", () => {
     if (!signedIn.ok) return
     assert.equal(signedIn.user.language, "es")
   })
+
+  it("rejects a second account when the email differs only by case or spaces", async () => {
+    const created = await signup({
+      name: "John Example",
+      email: "  John@Example.com ",
+      password: "password1",
+      companyName: "Example Painting",
+    })
+    assert.equal(created.ok, true)
+    if (!created.ok) return
+    assert.equal(created.user.email, "john@example.com")
+    const mixed = await signup({
+      name: "John Again",
+      email: "JOHN@example.com",
+      password: "password2",
+      companyName: "Another Painting",
+    })
+    const spaced = await signup({
+      name: "John Spaced",
+      email: " john@example.com ",
+      password: "password2",
+      companyName: "Spaced Painting",
+    })
+    assert.equal(mixed.ok, false)
+    assert.equal(spaced.ok, false)
+    if (!mixed.ok) {
+      assert.equal(mixed.reason, "An account with this email already exists. Please sign in or reset your password.")
+    }
+    const signedIn = await login({ email: "JOHN@example.com", password: "password1" })
+    assert.equal(signedIn.ok, true)
+    if (!signedIn.ok) return
+    assert.equal(signedIn.user.id, created.user.id)
+    const fresh = await signup({
+      name: "New Painter",
+      email: "new-painter@example.com",
+      password: "password1",
+      companyName: "New Painting",
+    })
+    assert.equal(fresh.ok, true)
+  })
 })

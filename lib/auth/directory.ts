@@ -21,6 +21,14 @@ import { toSubcontractorOrder, type WorkOrderData } from "../work-orders/subcont
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod, SubcontractorOffer, WorkOrder } from "../types.ts"
 import { isSubscriptionStatus, trialEndsAt, type SubscriptionStatus } from "../billing/access.ts"
 import { matchCompanySlug, slugifyCompanyName } from "./company-slug.ts"
+import {
+  DUPLICATE_ACCOUNT_EMAIL,
+  accountEmailTaken,
+  canonicalizeUniqueEmails,
+  introducesDuplicateEmail,
+  normalizeAccountEmail,
+  sameAccountEmail,
+} from "./account-email.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
 import { roleSignInReason, type UserRole } from "./role.ts"
@@ -127,7 +135,23 @@ async function readAccounts(): Promise<AccountFile> {
 }
 
 async function writeAccounts(file: AccountFile) {
-  await writeJsonFile(accountsFile(), "accounts/accounts.json", JSON.stringify(file))
+  const current = await readAccounts()
+  const users = mergeById(current.users, file.users)
+  const companies = mergeById(current.companies, file.companies)
+  if (introducesDuplicateEmail(current.users, users)) {
+    throw new Error(DUPLICATE_ACCOUNT_EMAIL)
+  }
+  await writeJsonFile(
+    accountsFile(),
+    "accounts/accounts.json",
+    JSON.stringify({ users: canonicalizeUniqueEmails(users), companies }),
+  )
+}
+
+function mergeById<T extends { id: string }>(current: T[], next: T[]): T[] {
+  const merged = new Map(current.map((item) => [item.id, item]))
+  for (const item of next) merged.set(item.id, item)
+  return [...merged.values()]
 }
 
 async function writeBook(companyId: string, value: BookFile) {
@@ -224,7 +248,7 @@ export async function saveBillingStatus(input: {
     const match =
       (input.officeUserId && user.id === input.officeUserId) ||
       (input.userId && (user.id === input.userId || user.authUserId === input.userId)) ||
-      (email.includes("@") && user.email === email)
+      (email.includes("@") && sameAccountEmail(user.email, email))
     if (!match) return user
     account = true
     return {
@@ -274,7 +298,20 @@ export async function saveAccountLanguage(userId: string, language: "en" | "es")
 }
 
 function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
+  return normalizeAccountEmail(email)
+}
+
+async function reserveAccountEmail(email: string, userId: string): Promise<boolean> {
+  if (process.env.ACCOUNTS_PATH) return true
+  const admin = supabaseAdmin()
+  if (!admin) return true
+  const { error } = await admin.from("account_emails").insert({ email, user_id: userId })
+  if (!error) return true
+  const code = "code" in error ? String(error.code) : ""
+  const message = error.message.toLowerCase()
+  if (code === "23505" || message.includes("duplicate") || message.includes("account_emails_pkey")) return false
+  if (code === "42P01" || message.includes("account_emails")) return true
+  throw new Error("The account could not be saved.")
 }
 
 function uniqueSlug(name: string, companies: StoredCompany[]): string {
@@ -296,7 +333,7 @@ export async function sessionById(userId: string): Promise<OfficeSession | null>
 
 export async function sessionByEmail(email: string): Promise<OfficeSession | null> {
   const accounts = await readAccounts()
-  const user = accounts.users.find((item) => item.email === normalizeEmail(email))
+  const user = accounts.users.find((item) => sameAccountEmail(item.email, email))
   if (!user) return null
   const company = accounts.companies.find((item) => item.id === user.companyId)
   if (!company) return null
@@ -330,8 +367,8 @@ export async function signup(input: {
   const companyName = input.companyName.trim()
   const email = normalizeEmail(input.email)
   const accounts = await readAccounts()
-  if (accounts.users.some((user) => user.email === email)) {
-    return { ok: false, reason: "That email already has an account." }
+  if (accountEmailTaken(accounts.users, email)) {
+    return { ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }
   }
   const now = new Date()
   const company: StoredCompany = {
@@ -364,8 +401,17 @@ export async function signup(input: {
       book: createCompanyBook(companyName),
     }
   }
+  const reserved = await reserveAccountEmail(email, user.id)
+  if (!reserved) return { ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }
   await writeBook(company.id, { revision: 1, state: createCompanyBook(companyName) })
-  await writeAccounts({ users: [...accounts.users, user], companies: [...accounts.companies, company] })
+  try {
+    await writeAccounts({ users: [...accounts.users, user], companies: [...accounts.companies, company] })
+  } catch (error) {
+    if (error instanceof Error && error.message === DUPLICATE_ACCOUNT_EMAIL) {
+      return { ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }
+    }
+    throw error
+  }
   return { ok: true, user: session }
 }
 
@@ -378,8 +424,8 @@ export async function login(input: {
 }): Promise<{ ok: true; user: OfficeSession; hosted?: boolean } | { ok: false; reason: string }> {
   const email = normalizeEmail(input.email)
   const accounts = await readAccounts()
-  const user = accounts.users.find((item) => item.email === email)
-  if (!user || !verifyPassword(input.password, user.passwordHash)) {
+  const user = accounts.users.find((item) => sameAccountEmail(item.email, email) && verifyPassword(input.password, item.passwordHash))
+  if (!user) {
     const hosted = input.hostedUser
     if (
       process.env.VERCEL &&
@@ -427,8 +473,8 @@ export async function addStaff(
     return { ok: false, reason: "Enter a real email." }
   }
   if (input.password.length < 8) return { ok: false, reason: "Use at least 8 characters." }
-  if (accounts.users.some((user) => user.email === email)) {
-    return { ok: false, reason: "That email already has an account." }
+  if (accountEmailTaken(accounts.users, email)) {
+    return { ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }
   }
   const user: StoredUser = {
     id: crypto.randomUUID(),
@@ -439,7 +485,16 @@ export async function addStaff(
     companyId: company.id,
     createdAt: new Date().toISOString(),
   }
-  await writeAccounts({ ...accounts, users: [...accounts.users, user] })
+  const reserved = await reserveAccountEmail(email, user.id)
+  if (!reserved) return { ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }
+  try {
+    await writeAccounts({ ...accounts, users: [...accounts.users, user] })
+  } catch (error) {
+    if (error instanceof Error && error.message === DUPLICATE_ACCOUNT_EMAIL) {
+      return { ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }
+    }
+    throw error
+  }
   return { ok: true, user: toSession(user, company) }
 }
 

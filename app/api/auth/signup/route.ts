@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { authSecret, signup, signupInputError } from "@/lib/auth/directory"
+import { normalizeAccountEmail, DUPLICATE_ACCOUNT_EMAIL } from "@/lib/auth/account-email"
 import { interpretSignUp } from "@/lib/auth/signup-auth"
 import { sessionCookie } from "@/lib/auth/session"
 import { signOfficeSession, signSession } from "@/lib/auth/session-token"
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
   } | null
   const input = {
     name: body?.name ?? "",
-    email: body?.email ?? "",
+    email: normalizeAccountEmail(body?.email ?? ""),
     password: body?.password ?? "",
     companyName: body?.companyName ?? "",
   }
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const pending = authClientFromRequest(request)
     try {
       const { data, error } = await pending.supabase.auth.signUp({
-        email: input.email.trim(),
+        email: input.email,
         password: input.password,
         options: {
           emailRedirectTo: `${request.nextUrl.origin}/auth/callback`,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (outcome.kind === "exists") {
-    return attachAuthCookies(NextResponse.json({ ok: false, reason: "That email already has an account." }, { status: 400 }), pendingCookies, cacheHeaders)
+    return attachAuthCookies(NextResponse.json({ ok: false, reason: DUPLICATE_ACCOUNT_EMAIL }, { status: 400 }), pendingCookies, cacheHeaders)
   }
   if (outcome.kind === "error") {
     return attachAuthCookies(NextResponse.json({ ok: false, reason: outcome.reason }, { status: 400 }), pendingCookies, cacheHeaders)
