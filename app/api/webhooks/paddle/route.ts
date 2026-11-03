@@ -4,6 +4,13 @@ import { paddleServerEnvironment, verifyPaddleWebhook } from "@/lib/billing/padd
 
 export const runtime = "nodejs"
 
+export function GET() {
+  return Response.json({
+    ok: true,
+    detail: "This address receives signed Paddle events. Opening it in a browser does not send one.",
+  })
+}
+
 export async function POST(request: Request) {
   const secret = process.env.PADDLE_WEBHOOK_SECRET?.trim() || ""
   if (!secret) {
