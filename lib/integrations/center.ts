@@ -58,7 +58,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       id: "companycam",
       name: "CompanyCam",
       description: "Jobsite photos, project documentation, and before/after photos.",
-      setup: photos.connected
+      setup: photos.status === "connected"
         ? "Token saved. A work order sync stores photos after CompanyCam returns them."
         : "Save an API token in Job photos. Nothing is stored until a work order sync succeeds.",
       ...photos,
@@ -80,7 +80,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       id: "quickbooks",
       name: "QuickBooks Online",
       description: "Accounting, invoices, and payment synchronization.",
-      setup: books.connected
+      setup: books.status === "connected"
         ? "The host keys are set. An invoice is marked synced only after QuickBooks returns an id."
         : "The host needs the QuickBooks client id, secret, refresh token, and realm id. Sync from Payments.",
       ...books,
@@ -91,7 +91,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       id: "google-calendar",
       name: "Google Calendar",
       description: "Appointments and job scheduling.",
-      setup: calendar.connected
+      setup: calendar.status === "connected"
         ? "Calendar push is set on the host. The feed still updates from the Calendar tab."
         : "Update the feed from the Calendar tab. Direct push needs the Google calendar keys on the host.",
       ...calendar,
@@ -120,7 +120,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       id: "facebook-instagram",
       name: "Facebook and Instagram",
       description: "Lead generation and marketing.",
-      setup: facebook.connected
+      setup: facebook.status === "connected"
         ? "The Facebook verify token is set on the host. Instagram Lead Ads use the same address."
         : "Point Lead Ads at the Facebook address. The host needs FACEBOOK_VERIFY_TOKEN before the check succeeds.",
       ...facebook,
