@@ -131,11 +131,6 @@ export function Estimator({
   }
 
   const sendEstimate = async () => {
-    const missingColor = roomsMissingColor(draft.areas)
-    if (missingColor.length > 0) {
-      setStatus(`Add a color and a sheen on ${missingColor.join(", ")} before sending.`)
-      return
-    }
     const email = draft.clientEmail.trim()
     if (!email.includes("@") || /\s/.test(email)) {
       setStatus("Add the client's email. They accept the estimate from the link in that email.")
