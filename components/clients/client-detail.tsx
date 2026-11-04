@@ -77,14 +77,14 @@ export function ClientDetail({ id }: { id: string }) {
             setError("A client needs a name.")
             return
           }
-          scope.updateClient(client.id, {
+          const saved = scope.updateClient(client.id, {
             name,
             phone: String(data.get("phone") ?? "").trim(),
             email: String(data.get("email") ?? "").trim(),
             address: String(data.get("address") ?? "").trim(),
             notes: String(data.get("notes") ?? "").trim(),
           })
-          setError(null)
+          setError(saved.ok ? null : saved.reason)
         }}
       >
         <Field id="name" label="Name" name="name" defaultValue={client.name} />

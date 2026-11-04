@@ -3,7 +3,7 @@ import { LegalDocument, LegalSection } from "@/components/marketing/legal-docume
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms for a Scopepipe subscription.",
+  description: "The terms for a ScopePipe subscription.",
 }
 
 export default function TermsPage() {
@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalDocument title="Terms of Service">
       <LegalSection heading="The service">
         <p>
-          Scopepipe is software for painting contractors. It covers estimating, customer proposals, crew sheets, and the
+          ScopePipe is software for painting contractors. It covers estimating, customer proposals, crew sheets, and the
           office tools on this site. These terms cover the subscription you buy for that software.
         </p>
       </LegalSection>
@@ -31,14 +31,14 @@ export default function TermsPage() {
       </LegalSection>
       <LegalSection heading="Your content">
         <p>
-          Estimates, proposals, photos, videos, and customer records you add stay yours. You give Scopepipe permission
+          Estimates, proposals, photos, videos, and customer records you add stay yours. You give ScopePipe permission
           to store and display that content so the product can run, including showing a proposal to the customer you
           send it to. You are responsible for having the right to upload that content.
         </p>
       </LegalSection>
       <LegalSection heading="Acceptable use">
         <p>
-          Do not use Scopepipe to break the law, send spam, or attempt to access another company&apos;s book. Scopepipe
+          Do not use ScopePipe to break the law, send spam, or attempt to access another company&apos;s book. ScopePipe
           may suspend an account that does so.
         </p>
       </LegalSection>

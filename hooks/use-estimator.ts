@@ -204,6 +204,8 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
       rates,
       id: saved.id,
       clientId: saved.clientId,
+      clientName: saved.clientName,
+      clientEmail: saved.clientEmail,
       publicToken: saved.publicToken,
       createdAt: draft.createdAt ?? new Date().toISOString(),
     })

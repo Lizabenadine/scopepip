@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BookOpen, CalendarDays, Camera, CreditCard, Mail, Share2, Store, Zap } from "lucide-react"
+import { BadgeDollarSign, BookOpen, CalendarDays, Camera, CreditCard, Landmark, Mail, Share2, Store, Wallet, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,9 @@ const ICONS = {
   zapier: Zap,
   quickbooks: BookOpen,
   stripe: CreditCard,
+  paypal: Wallet,
+  paddle: BadgeDollarSign,
+  bank: Landmark,
   "google-calendar": CalendarDays,
   gmail: Mail,
   "google-business": Store,
@@ -53,7 +56,7 @@ export function IntegrationCards() {
       .then(({ response, payload }) => {
         if (cancelled) return
         if (!response.ok || payload.ok === false) {
-          setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false, stripe: false })
+          setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false, stripe: false, paypal: false, paddle: false, bank: false })
           setHostDetail("Connection status could not be checked. Nothing is shown as connected.")
           return
         }
@@ -63,12 +66,15 @@ export function IntegrationCards() {
           googleCalendar: payload.googleCalendar === true,
           facebookLeads: payload.facebookLeads === true,
           stripe: payload.stripe === true,
+          paypal: payload.paypal === true,
+          paddle: payload.paddle === true,
+          bank: payload.bank === true,
         })
         setHostDetail("")
       })
       .catch(() => {
         if (cancelled) return
-        setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false, stripe: false })
+        setHost({ companyCam: false, quickbooks: false, googleCalendar: false, facebookLeads: false, stripe: false, paypal: false, paddle: false, bank: false })
         setHostDetail("Connection status could not be checked. Nothing is shown as connected.")
       })
     return () => {

@@ -11,6 +11,9 @@ export interface SendKeys {
   stripeSecret: string
   stripePublishable: string
   stripeWebhookSecret: string
+  paypalClientId: string
+  paypalSecret: string
+  paypalMode: "live" | "sandbox"
   cronSecret: string
 }
 
@@ -24,6 +27,9 @@ const EMPTY: SendKeys = {
   stripeSecret: "",
   stripePublishable: "",
   stripeWebhookSecret: "",
+  paypalClientId: "",
+  paypalSecret: "",
+  paypalMode: "sandbox",
   cronSecret: "",
 }
 
@@ -44,6 +50,9 @@ function savedKeys(): SendKeys {
       stripeSecret: text(parsed.stripeSecret),
       stripePublishable: text(parsed.stripePublishable),
       stripeWebhookSecret: text(parsed.stripeWebhookSecret),
+      paypalClientId: text(parsed.paypalClientId),
+      paypalSecret: text(parsed.paypalSecret),
+      paypalMode: parsed.paypalMode === "live" ? "live" : "sandbox",
       cronSecret: text(parsed.cronSecret),
     }
   } catch {
@@ -76,6 +85,9 @@ export function readSendKeys(): SendKeys {
     stripeSecret: envOrSaved("STRIPE_SECRET_KEY", saved.stripeSecret),
     stripePublishable: envOrSaved("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", saved.stripePublishable),
     stripeWebhookSecret: envOrSaved("STRIPE_WEBHOOK_SECRET", saved.stripeWebhookSecret),
+    paypalClientId: envOrSaved("PAYPAL_CLIENT_ID", saved.paypalClientId),
+    paypalSecret: envOrSaved("PAYPAL_SECRET", saved.paypalSecret),
+    paypalMode: process.env.PAYPAL_ENV?.trim() === "live" || saved.paypalMode === "live" ? "live" : "sandbox",
     cronSecret: envOrSaved("CRON_SECRET", saved.cronSecret),
   }
 }
@@ -88,6 +100,7 @@ export function sendKeyStatus(): {
   supabase: boolean
   cron: boolean
   stripe: boolean
+  paypal: boolean
 } {
   const keys = readSendKeys()
   return {
@@ -98,6 +111,7 @@ export function sendKeyStatus(): {
     supabase: keys.supabaseSecret.length >= 20,
     cron: keys.cronSecret.length >= 16,
     stripe: keys.stripeSecret.startsWith("sk_") && keys.stripePublishable.startsWith("pk_"),
+    paypal: keys.paypalClientId.length >= 20 && keys.paypalSecret.length >= 20,
   }
 }
 
@@ -147,6 +161,19 @@ export function saveSendKeys(patch: Partial<SendKeys>): { ok: true } | { ok: fal
     if (secret && !secret.startsWith("whsec_")) return { ok: false, reason: "The card webhook secret starts with whsec_." }
     next.stripeWebhookSecret = secret || current.stripeWebhookSecret
   }
+  if (patch.paypalClientId !== undefined) {
+    const clientId = patch.paypalClientId.trim()
+    if (clientId && clientId.length < 20) return { ok: false, reason: "The PayPal client id is too short." }
+    next.paypalClientId = clientId || current.paypalClientId
+  }
+  if (patch.paypalSecret !== undefined) {
+    const secret = patch.paypalSecret.trim()
+    if (secret && secret.length < 20) return { ok: false, reason: "The PayPal secret is too short." }
+    next.paypalSecret = secret || current.paypalSecret
+  }
+  if (patch.paypalMode !== undefined) {
+    next.paypalMode = patch.paypalMode === "live" ? "live" : "sandbox"
+  }
   if (patch.cronSecret !== undefined) {
     const secret = patch.cronSecret.trim()
     if (secret && secret.length < 16) return { ok: false, reason: "CRON_SECRET needs at least 16 characters." }
@@ -158,7 +185,7 @@ export function saveSendKeys(patch: Partial<SendKeys>): { ok: true } | { ok: fal
   return { ok: true }
 }
 
-export function clearSendKeys(which: "resend" | "twilio" | "supabase" | "stripe" | "cron"): void {
+export function clearSendKeys(which: "resend" | "twilio" | "supabase" | "stripe" | "paypal" | "cron"): void {
   const current = savedKeys()
   if (which === "resend") {
     current.resendKey = ""
@@ -171,6 +198,10 @@ export function clearSendKeys(which: "resend" | "twilio" | "supabase" | "stripe"
     current.stripeSecret = ""
     current.stripePublishable = ""
     current.stripeWebhookSecret = ""
+  } else if (which === "paypal") {
+    current.paypalClientId = ""
+    current.paypalSecret = ""
+    current.paypalMode = "sandbox"
   } else if (which === "cron") {
     current.cronSecret = ""
   } else {

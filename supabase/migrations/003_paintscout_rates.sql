@@ -1,4 +1,4 @@
--- PaintScout-style areas, coat rates, and invoice payment methods.
+-- Areas, coat rates, and invoice payment methods.
 -- A coat-box value is the production rate for that many full coats.
 -- Gallons = quantity × coats ÷ one-coat coverage, or items × gal/item × coats.
 

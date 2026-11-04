@@ -53,6 +53,6 @@ export function receiptFromPaymentIntent(
 }
 
 export function depositMethod(value: string | undefined): DepositMethod {
-  if (value === "apple_pay" || value === "google_pay") return value
+  if (value === "apple_pay" || value === "google_pay" || value === "paypal" || value === "paddle") return value
   return "card"
 }

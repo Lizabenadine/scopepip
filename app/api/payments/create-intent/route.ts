@@ -1,6 +1,7 @@
 import Stripe from "stripe"
-import { readSendKeys } from "@/lib/messaging/keys"
+import { payoutForEstimate } from "@/lib/payments/account-payout"
 import { clampDepositPercent, depositAmount, depositCents } from "@/lib/payments/deposit"
+import { payoutStatus } from "@/lib/payments/payouts"
 import { signTestIntent } from "@/lib/payments/test-intents"
 
 export const runtime = "nodejs"
@@ -19,9 +20,11 @@ export async function POST(request: Request) {
   }
 
   const amount = depositCents(total, depositPercent)
-  const keys = readSendKeys()
-  const secret = keys.stripeSecret
-  if (!secret || !keys.stripePublishable.startsWith("pk_")) {
+  const account = await payoutForEstimate(estimateId)
+  const connected = account ? payoutStatus(account) : null
+  const secret = connected?.stripe ? account?.stripeSecret ?? "" : ""
+  const publishable = connected?.stripe ? account?.stripePublishable ?? "" : ""
+  if (!secret || !publishable.startsWith("pk_")) {
     const paymentIntentId = `pi_test_${crypto.randomUUID().replace(/-/g, "")}`
     const issued = {
       id: paymentIntentId,
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
     mode: "stripe",
     paymentIntentId: intent.id,
     clientSecret: intent.client_secret,
-    publishableKey: keys.stripePublishable,
+    publishableKey: publishable,
     depositAmount: depositAmount(total, depositPercent),
     depositPercent,
     currency: "usd",

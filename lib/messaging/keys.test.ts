@@ -12,11 +12,15 @@ describe("send keys", () => {
     const resend = process.env.RESEND_API_KEY
     const from = process.env.FOLLOW_UP_FROM_EMAIL
     const stripe = process.env.STRIPE_SECRET_KEY
+    const paypalId = process.env.PAYPAL_CLIENT_ID
+    const paypalSecret = process.env.PAYPAL_SECRET
     const cron = process.env.CRON_SECRET
     process.env.SEND_KEYS_PATH = file
     delete process.env.RESEND_API_KEY
     delete process.env.FOLLOW_UP_FROM_EMAIL
     delete process.env.STRIPE_SECRET_KEY
+    delete process.env.PAYPAL_CLIENT_ID
+    delete process.env.PAYPAL_SECRET
     delete process.env.CRON_SECRET
     try {
       assert.equal(saveSendKeys({ resendKey: "short" }).ok, false)
@@ -30,6 +34,20 @@ describe("send keys", () => {
       assert.equal(JSON.stringify(status).includes("re_test_key"), false)
       clearSendKeys("resend")
       assert.equal(readSendKeys().resendKey, "")
+      assert.equal(saveSendKeys({ paypalClientId: "short" }).ok, false)
+      assert.equal(
+        saveSendKeys({
+          paypalClientId: "paypal-client-id-example",
+          paypalSecret: "paypal-secret-example-value",
+          paypalMode: "sandbox",
+        }).ok,
+        true,
+      )
+      assert.equal(sendKeyStatus().paypal, true)
+      assert.equal(JSON.stringify(sendKeyStatus()).includes("paypal-secret"), false)
+      clearSendKeys("paypal")
+      assert.equal(readSendKeys().paypalClientId, "")
+      assert.equal(sendKeyStatus().paypal, false)
       assert.equal(saveSendKeys({ stripeSecret: "not-a-stripe-key" }).ok, false)
       assert.equal(
         saveSendKeys({
@@ -60,6 +78,10 @@ describe("send keys", () => {
       else process.env.FOLLOW_UP_FROM_EMAIL = from
       if (stripe === undefined) delete process.env.STRIPE_SECRET_KEY
       else process.env.STRIPE_SECRET_KEY = stripe
+      if (paypalId === undefined) delete process.env.PAYPAL_CLIENT_ID
+      else process.env.PAYPAL_CLIENT_ID = paypalId
+      if (paypalSecret === undefined) delete process.env.PAYPAL_SECRET
+      else process.env.PAYPAL_SECRET = paypalSecret
       if (cron === undefined) delete process.env.CRON_SECRET
       else process.env.CRON_SECRET = cron
       fs.rmSync(file, { force: true })

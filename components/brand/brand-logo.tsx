@@ -26,7 +26,7 @@ export function BrandLogo({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo.png?v=2"
-        alt="Scopepipe"
+        alt="ScopePipe"
         width={208}
         height={56}
         className={

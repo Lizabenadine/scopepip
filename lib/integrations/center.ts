@@ -9,6 +9,9 @@ export interface HostConnections {
   googleCalendar: boolean
   facebookLeads: boolean
   stripe?: boolean
+  paypal?: boolean
+  paddle?: boolean
+  bank?: boolean
 }
 
 export interface FeaturedIntegration {
@@ -50,6 +53,9 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
   const photos = hostFlag(host, host?.companyCam === true)
   const books = hostFlag(host, host?.quickbooks === true)
   const stripe = hostFlag(host, host?.stripe === true)
+  const paypal = hostFlag(host, host?.paypal === true)
+  const paddle = hostFlag(host, host?.paddle === true)
+  const bank = hostFlag(host, host?.bank === true)
   const calendar = hostFlag(host, host?.googleCalendar === true)
   const facebook = hostFlag(host, host?.facebookLeads === true)
   const zapierSaved = zapierTarget(book.zapierWebhookUrl) !== null
@@ -70,7 +76,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
     item({
       id: "zapier",
       name: "Zapier",
-      description: "Connect Scopepipe to external apps and automate workflows.",
+      description: "Connect ScopePipe to external apps and automate workflows.",
       setup: zapierSaved
         ? "The https hook is saved. New events post there. Older history stays in the office."
         : "Paste an https Catch Hook below. Nothing is posted until that hook is saved.",
@@ -94,10 +100,40 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       name: "Stripe",
       description: "Card deposits and invoice payments.",
       setup: stripe.status === "connected"
-        ? "The Stripe key is saved. Deposits still record only after Stripe confirms the charge."
-        : "Add the Stripe key in Sending. A card form is not treated as a connection.",
+        ? "This account's Stripe key is saved. A deposit is recorded after Stripe confirms the charge."
+        : "Connect this account's Stripe keys under Get paid. A card form is not treated as a connection.",
       ...stripe,
-      anchor: "integration-sending",
+      anchor: "payout-connections",
+    }),
+    item({
+      id: "paypal",
+      name: "PayPal",
+      description: "PayPal deposits and invoice payments.",
+      setup: paypal.status === "connected"
+        ? "PayPal accepted this account's keys. A deposit is recorded after PayPal captures the payment."
+        : "Connect this account's PayPal client id and secret under Get paid. This stays disconnected until PayPal accepts them.",
+      ...paypal,
+      anchor: "payout-connections",
+    }),
+    item({
+      id: "paddle",
+      name: "Paddle",
+      description: "Paddle checkout for job deposits.",
+      setup: paddle.status === "connected"
+        ? "Paddle accepted this account's API key. ScopePipe's own subscription stays separate."
+        : "Connect the Paddle account that should get paid. This is not the ScopePipe subscription.",
+      ...paddle,
+      anchor: "payout-connections",
+    }),
+    item({
+      id: "bank",
+      name: "Bank account",
+      description: "Routing and account instructions on the deposit page.",
+      setup: bank.status === "connected"
+        ? "The deposit page shows this account's bank instructions. The office marks the deposit paid when the transfer arrives."
+        : "Add the bank name, account holder, routing number, and account number under Get paid.",
+      ...bank,
+      anchor: "payout-connections",
     }),
     item({
       id: "google-calendar",
@@ -123,7 +159,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
       name: "Google Business Profile",
       description: "Review requests and reputation management.",
       setup: reviewSaved
-        ? "Finished jobs include this review page. Google does not send reviews back into Scopepipe."
+        ? "Finished jobs include this review page. Google does not send reviews back into ScopePipe."
         : "Add an https review page. The link is left off the message until it is saved.",
       status: reviewSaved ? "configured" : "disconnected",
       pending: false,

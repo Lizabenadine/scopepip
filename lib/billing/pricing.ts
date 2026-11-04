@@ -26,7 +26,7 @@ export const TIER_COPY: Record<Tier["name"], { description: string; features: st
   Pro: {
     description: "For the office that sells the work and schedules the crew.",
     features: [
-      "Full access to Scopepipe Beta",
+      "Full access to ScopePipe Beta",
       "3 User seats included",
       "Sales pipeline and jobs board",
       "Bilingual work orders & material takeoffs",

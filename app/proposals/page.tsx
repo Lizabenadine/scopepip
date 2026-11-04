@@ -24,7 +24,7 @@ export default function ProposalsPage() {
         },
         {
           heading: "A signed copy",
-          body: "When the customer accepts, Scopepipe keeps that scope for the crew sheet. Extra work after the signature is a change order.",
+          body: "When the customer accepts, ScopePipe keeps that scope for the crew sheet. Extra work after the signature is a change order.",
         },
       ]}
     />

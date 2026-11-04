@@ -18,7 +18,7 @@ export default function WelcomePage() {
       </header>
       <main className="mx-auto max-w-2xl px-4 py-16 md:px-6">
         <p className="text-sm font-medium text-cyan-300">Subscription</p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight">Welcome to Scopepipe</h1>
+        <h1 className="mt-3 text-4xl font-bold tracking-tight">Welcome to ScopePipe</h1>
         <p className="mt-5 text-lg leading-relaxed text-slate-300" data-testid="welcome-message">
           Checkout finished. Sign in to open the office and keep estimating.
         </p>

@@ -17,8 +17,8 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   metadataBase: new URL("https://scopepipe.com"),
   title: {
-    default: "Scopepipe | Contractor Estimating & Proposal Software",
-    template: "%s | Scopepipe",
+    default: "ScopePipe | Contractor Estimating & Proposal Software",
+    template: "%s | ScopePipe",
   },
   description:
     "Estimating, proposals, and crew sheets for painting contractors. $49 a month. Put a video on the proposal line, and open the crew sheet in English or Spanish.",

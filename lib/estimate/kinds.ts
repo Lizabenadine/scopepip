@@ -1,6 +1,6 @@
 import type { EstimateKind, EstimateSettings, ProductionRate } from "../types.ts"
 
-/** Rates with no explicit list follow the Paint Scout split: interior, exterior, or cabinets. */
+/** Rates with no explicit list use the interior, exterior, or cabinets split. */
 export function rateKinds(rate: ProductionRate): EstimateKind[] {
   if (rate.estimateKinds && rate.estimateKinds.length > 0) return rate.estimateKinds
   if (rate.id === "cabinet-doors") return ["cabinets"]

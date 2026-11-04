@@ -46,7 +46,7 @@ const OPERATIONS = [
   {
     title: "Stop Losing Money on Rooms You Priced Too Fast",
     subheadline: "Turn completed jobs into pricing intelligence.",
-    body: "Log actual labor hours after job completion to refine your estimating database. Scopepipe adapts future estimates to your crew's actual production speeds, protecting your profit margins on every future bid.",
+    body: "Log actual labor hours after job completion to refine your estimating database. ScopePipe adapts future estimates to your crew's actual production speeds, protecting your profit margins on every future bid.",
   },
 ] as const
 
@@ -152,7 +152,7 @@ export function LandingPage() {
               Write the estimate. Send the proposal. Hand the crew the sheet.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
-              Scopepipe is $49 a month. You price the rooms, the customer opens the proposal and can play a short video
+              ScopePipe is $49 a month. You price the rooms, the customer opens the proposal and can play a short video
               on that line, and the crew gets the sheet in English or Spanish.
             </p>
             <p className="mx-auto mt-8 max-w-3xl text-sm leading-6 text-slate-200">
@@ -252,7 +252,7 @@ export function LandingPage() {
 
         <section id="how-it-works" className="scroll-mt-24 px-4 py-20 md:px-6">
           <div className="mx-auto max-w-6xl">
-            <h2 className="text-3xl font-bold tracking-tight">How Scopepipe works</h2>
+            <h2 className="text-3xl font-bold tracking-tight">How ScopePipe works</h2>
             <ol className="mt-8 grid gap-4 md:grid-cols-3">
               {STEPS.map((item) => (
                 <li key={item.step} className="rounded-2xl border border-white/10 bg-white/5 p-6">

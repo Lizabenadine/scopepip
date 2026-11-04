@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { normalizeClientEmail } from "@/lib/clients/email"
 import type { Client } from "@/lib/types"
 
 export function ClientField({
@@ -20,7 +21,10 @@ export function ClientField({
   const needle = name.trim().toLowerCase()
   const matches = needle
     ? clients
-        .filter((client) => client.name.toLowerCase().includes(needle))
+        .filter(
+          (client) =>
+            client.name.toLowerCase().includes(needle) || normalizeClientEmail(client.email).includes(needle),
+        )
         .slice(0, 5)
     : clients.slice(0, 5)
 
@@ -65,8 +69,10 @@ export function ClientField({
                 }}
               >
                 <span className="font-medium">{client.name}</span>
-                {client.address ? (
-                  <span className="text-xs text-muted-foreground">{client.address}</span>
+                {client.email || client.address ? (
+                  <span className="text-xs text-muted-foreground">
+                    {[client.email, client.address].filter(Boolean).join(" · ")}
+                  </span>
                 ) : null}
               </button>
             </li>

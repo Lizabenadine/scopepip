@@ -3,7 +3,7 @@ import { LegalDocument, LegalSection } from "@/components/marketing/legal-docume
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "What Scopepipe stores about an account and the jobs in it.",
+  description: "What ScopePipe stores about an account and the jobs in it.",
 }
 
 export default function PrivacyPage() {
@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <LegalDocument title="Privacy Policy">
       <LegalSection heading="Who this covers">
         <p>
-          This policy describes information Scopepipe stores to run the product for a painting company. The contractor
+          This policy describes information ScopePipe stores to run the product for a painting company. The contractor
           decides what customer details to put in an estimate or proposal.
         </p>
       </LegalSection>
@@ -30,20 +30,20 @@ export default function PrivacyPage() {
       </LegalSection>
       <LegalSection heading="Payment information">
         <p>
-          Card numbers are handled by the checkout provider. Scopepipe stores the subscription status needed to keep
-          the office open, such as whether the plan is in a trial, active, or canceled. Scopepipe does not store a
+          Card numbers are handled by the checkout provider. ScopePipe stores the subscription status needed to keep
+          the office open, such as whether the plan is in a trial, active, or canceled. ScopePipe does not store a
           full card number.
         </p>
       </LegalSection>
       <LegalSection heading="How it is used">
         <p>
           The information is used to provide the product, send a proposal or follow-up the company asks to send, and
-          keep the account signed in. Scopepipe does not sell account or customer lists.
+          keep the account signed in. ScopePipe does not sell account or customer lists.
         </p>
       </LegalSection>
       <LegalSection heading="How long it stays">
         <p>
-          Account and job records stay while the company uses Scopepipe. A canceled subscription keeps the book until
+          Account and job records stay while the company uses ScopePipe. A canceled subscription keeps the book until
           the company asks for it to be deleted or the account is removed.
         </p>
       </LegalSection>

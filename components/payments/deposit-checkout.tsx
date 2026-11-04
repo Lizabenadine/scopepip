@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { PaintRoller } from "lucide-react"
 import { PendingWork } from "@/components/payments/pending-work"
 import { StripePaymentForm } from "@/components/payments/stripe-payment-form"
+import { openPaddleDeposit } from "@/components/billing/open-paddle-checkout"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -36,6 +37,8 @@ interface IntentResponse {
 
 export function DepositCheckout({ id }: { id: string }) {
   const scope = useScope()
+  const scopeRef = useRef(scope)
+  scopeRef.current = scope
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [clientName, setClientName] = useState("Client")
@@ -48,6 +51,17 @@ export function DepositCheckout({ id }: { id: string }) {
   const [cvc, setCvc] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [methods, setMethods] = useState({
+    stripe: false,
+    paypal: false,
+    paddle: false,
+    bank: false,
+    bankName: "",
+    accountHolder: "",
+    routingNumber: "",
+    accountNumber: "",
+  })
+  const [paypalNote, setPaypalNote] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -70,6 +84,77 @@ export function DepositCheckout({ id }: { id: string }) {
       cancelled = true
     }
   }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch(`/api/payments/methods?estimateId=${encodeURIComponent(id)}`)
+      .then((response) => response.json())
+      .then((payload: {
+        stripe?: boolean
+        paypal?: boolean
+        paddle?: boolean
+        bank?: boolean
+        bankName?: string
+        accountHolder?: string
+        routingNumber?: string
+        accountNumber?: string
+      }) => {
+        if (cancelled) return
+        setMethods({
+          stripe: payload.stripe === true,
+          paypal: payload.paypal === true,
+          paddle: payload.paddle === true,
+          bank: payload.bank === true,
+          bankName: payload.bankName ?? "",
+          accountHolder: payload.accountHolder ?? "",
+          routingNumber: payload.routingNumber ?? "",
+          accountNumber: payload.accountNumber ?? "",
+        })
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!estimate) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("paypal") === "cancel") {
+      setPaypalNote("PayPal checkout was canceled.")
+      return
+    }
+    const orderId = params.get("token")
+    if (params.get("paypal") !== "return" || !orderId) return
+    let cancelled = false
+    setPending(true)
+    void fetch("/api/payments/paypal/capture", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ estimateId: estimate.id, orderId }),
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as { ok?: boolean; reason?: string; estimate?: Estimate }
+        if (cancelled) return
+        setPending(false)
+        if (!response.ok || !payload.ok || !payload.estimate) {
+          setError(payload.reason || "PayPal did not capture this deposit.")
+          return
+        }
+        setEstimate(payload.estimate)
+        if (scopeRef.current.session) void scopeRef.current.reloadBook()
+        window.history.replaceState(null, "", window.location.pathname)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPending(false)
+          setError("PayPal did not capture this deposit.")
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [estimate])
 
   if (!estimate && !missing) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
@@ -109,6 +194,71 @@ export function DepositCheckout({ id }: { id: string }) {
     }
     setIntent(payload)
     setOpen(true)
+  }
+
+  const startPaypal = async () => {
+    setError(null)
+    setPending(true)
+    const response = await fetch("/api/payments/paypal/order", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ estimateId: estimate.id }),
+    })
+    const payload = (await response.json()) as { approveUrl?: string; error?: string }
+    if (!response.ok || !payload.approveUrl) {
+      setPending(false)
+      setError(payload.error ?? "PayPal did not start the payment.")
+      return
+    }
+    window.location.assign(payload.approveUrl)
+  }
+
+  const startPaddle = async () => {
+    setError(null)
+    setPending(true)
+    const response = await fetch("/api/payments/paddle/transaction", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ estimateId: estimate.id }),
+    })
+    const payload = (await response.json()) as { transactionId?: string; clientToken?: string; error?: string }
+    if (!response.ok || !payload.transactionId || !payload.clientToken) {
+      setPending(false)
+      setError(payload.error ?? "Paddle did not start the payment.")
+      return
+    }
+    try {
+      await openPaddleDeposit({
+        token: payload.clientToken,
+        transactionId: payload.transactionId,
+        onPaid: (transactionId) => {
+          setPending(true)
+          void fetch("/api/payments/paddle/confirm", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ estimateId: estimate.id, transactionId }),
+          })
+            .then(async (confirm) => {
+              const saved = (await confirm.json()) as { ok?: boolean; reason?: string; estimate?: Estimate }
+              setPending(false)
+              if (!confirm.ok || !saved.ok || !saved.estimate) {
+                setError(saved.reason || "Paddle has not marked this deposit paid.")
+                return
+              }
+              setEstimate(saved.estimate)
+              if (scope.session) void scope.reloadBook()
+            })
+            .catch(() => {
+              setPending(false)
+              setError("Paddle has not marked this deposit paid.")
+            })
+        },
+      })
+      setPending(false)
+    } catch {
+      setPending(false)
+      setError("Paddle did not start the payment.")
+    }
   }
 
   const finish = async (receipt: DepositReceipt) => {
@@ -235,8 +385,29 @@ export function DepositCheckout({ id }: { id: string }) {
       ) : (
         <div className="flex flex-col gap-3">
           {error && !open ? <p className="text-sm text-destructive">{error}</p> : null}
+          {paypalNote ? <p className="text-sm text-muted-foreground">{paypalNote}</p> : null}
+          {methods.bank ? (
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 text-sm" data-testid="bank-instructions">
+              <p className="font-medium">Send {money(amount)} by bank transfer.</p>
+              <p className="mt-2">{methods.bankName}</p>
+              <p>{methods.accountHolder}</p>
+              <p>Routing {methods.routingNumber}</p>
+              <p>Account {methods.accountNumber}</p>
+              <p className="mt-2 text-muted-foreground">The office marks the deposit paid when the transfer arrives.</p>
+            </section>
+          ) : null}
+          {methods.paddle ? (
+            <Button type="button" data-testid="pay-paddle" className="h-12" disabled={pending} onClick={() => void startPaddle()}>
+              Pay {money(amount)} with Paddle
+            </Button>
+          ) : null}
+          {methods.paypal ? (
+            <Button type="button" data-testid="pay-paypal" className="h-12" disabled={pending} onClick={() => void startPaypal()}>
+              Pay {money(amount)} with PayPal
+            </Button>
+          ) : null}
           <Button type="button" data-testid="pay-deposit" className="h-12" disabled={pending} onClick={openCheckout}>
-            Pay {money(amount)} deposit
+            {methods.stripe ? `Pay ${money(amount)} with card` : `Pay ${money(amount)} deposit`}
           </Button>
         </div>
       )}
@@ -362,5 +533,7 @@ export function DepositCheckout({ id }: { id: string }) {
 function methodLabel(method: DepositMethod): string {
   if (method === "apple_pay") return "Phone wallet"
   if (method === "google_pay") return "Browser wallet"
+  if (method === "paypal") return "PayPal"
+  if (method === "paddle") return "Paddle"
   return "Credit card"
 }

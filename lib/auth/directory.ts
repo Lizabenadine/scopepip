@@ -639,6 +639,11 @@ export async function acceptPublicProposal(
   return { ok: true, estimate: forCustomer(estimate) }
 }
 
+export async function companyIdForEstimate(id: string): Promise<string | null> {
+  const found = await findByEstimate((estimate) => estimate.id === id)
+  return found?.companyId ?? null
+}
+
 export async function publicEstimate(id: string): Promise<{ estimate: Estimate; clientName: string; paymentMethods: PaymentMethod[] } | null> {
   const found = await findByEstimate((estimate) => estimate.id === id)
   if (!found) return null

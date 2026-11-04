@@ -4,7 +4,7 @@ import { SiteFooter } from "@/components/marketing/site-footer"
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy",
-  description: "How a Scopepipe trial is canceled and when a subscription charge can be refunded.",
+  description: "How a ScopePipe trial is canceled and when a subscription charge can be refunded.",
 }
 
 export default function RefundPage() {
@@ -19,7 +19,7 @@ export default function RefundPage() {
           <section>
             <h2 className="mb-2 text-xl font-semibold text-white">1. 14-Day Free Trial</h2>
             <p>
-              Scopepipe provides a 14-day free trial for new accounts. You can cancel your subscription at any time
+              ScopePipe provides a 14-day free trial for new accounts. You can cancel your subscription at any time
               during the trial period without being charged.
             </p>
           </section>
@@ -37,7 +37,7 @@ export default function RefundPage() {
           <section>
             <h2 className="mb-2 text-xl font-semibold text-white">3. Refund Requests</h2>
             <p>
-              Because Scopepipe offers a full 14-day free trial to evaluate the software before purchase, payments are
+              Because ScopePipe offers a full 14-day free trial to evaluate the software before purchase, payments are
               generally non-refundable. However, if you experience technical issues preventing you from using the
               service, or if you were charged accidentally after attempting to cancel, please submit a refund request
               within 7 days of the charge date to{" "}

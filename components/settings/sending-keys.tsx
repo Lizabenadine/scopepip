@@ -13,6 +13,7 @@ interface SendStatus {
   supabase: boolean
   cron: boolean
   stripe: boolean
+  paypal: boolean
 }
 
 export function SendingKeys() {
@@ -24,9 +25,6 @@ export function SendingKeys() {
   const [twilioToken, setTwilioToken] = useState("")
   const [twilioFrom, setTwilioFrom] = useState("")
   const [supabaseSecret, setSupabaseSecret] = useState("")
-  const [stripeSecret, setStripeSecret] = useState("")
-  const [stripePublishable, setStripePublishable] = useState("")
-  const [stripeWebhookSecret, setStripeWebhookSecret] = useState("")
   const [cronSecret, setCronSecret] = useState("")
 
   useEffect(() => {
@@ -50,9 +48,6 @@ export function SendingKeys() {
     setTwilioSid("")
     setTwilioToken("")
     setSupabaseSecret("")
-    setStripeSecret("")
-    setStripePublishable("")
-    setStripeWebhookSecret("")
     setCronSecret("")
   }
 
@@ -60,11 +55,11 @@ export function SendingKeys() {
     <div data-testid="sending-keys">
       <h2 className="text-lg font-semibold">Sending</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Email, texts, and card deposits each need a key. Until those keys are saved, the note stays on the deal and checkout uses the test card. A database key lets a hook look up addresses. The daily follow-up check needs its own secret, and that same secret has to be set on the host.
+        Email and texts each need a key. Customer payments use the Stripe, PayPal, Paddle, or bank account connected under Get paid. Until one of those is connected, card checkout uses the test card. A database key lets a hook look up addresses. The daily follow-up check needs its own secret, and that same secret has to be set on the host.
       </p>
       <p className="mt-2 text-sm" data-testid="sending-status">
         {status
-          ? `${status.email ? `Email sends from ${status.emailFrom}.` : "Email is logged."} ${status.text ? `Texts send from ${status.textFrom}.` : "Texts are logged."} ${status.stripe ? "Card deposits charge." : "Card checkout uses the test card."} ${status.supabase ? "Hook lookup is on." : "Hook lookup is off."} ${status.cron ? "The daily follow-up check is ready." : "The daily follow-up check is off until its secret is saved."}`
+          ? `${status.email ? `Email sends from ${status.emailFrom}.` : "Email is logged."} ${status.text ? `Texts send from ${status.textFrom}.` : "Texts are logged."} ${status.supabase ? "Hook lookup is on." : "Hook lookup is off."} ${status.cron ? "The daily follow-up check is ready." : "The daily follow-up check is off until its secret is saved."}`
           : "Checking sending keys."}
       </p>
       <div className="mt-3 grid gap-2">
@@ -144,37 +139,6 @@ export function SendingKeys() {
         </Button>
         <Button type="button" variant="outline" className="h-11" onClick={() => void save({ clear: "supabase" })}>
           Clear database key
-        </Button>
-      </div>
-      <div className="mt-4 grid gap-2">
-        <Label htmlFor="stripeSecret">Card secret key</Label>
-        <SecretField id="stripeSecret" value={stripeSecret} onChange={setStripeSecret} testId="stripe-secret" />
-        <Label htmlFor="stripePublishable">Card publishable key</Label>
-        <SecretField id="stripePublishable" value={stripePublishable} onChange={setStripePublishable} testId="stripe-publishable" />
-        <Label htmlFor="stripeWebhookSecret">Card webhook secret</Label>
-        <SecretField id="stripeWebhookSecret" value={stripeWebhookSecret} onChange={setStripeWebhookSecret} testId="stripe-webhook" />
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          type="button"
-          className="h-11"
-          data-testid="stripe-save"
-          onClick={() => {
-            if (!stripeSecret.trim() && !stripePublishable.trim() && !stripeWebhookSecret.trim()) {
-              setDetail("Add the card secret key and publishable key.")
-              return
-            }
-            void save({
-              ...(stripeSecret.trim() ? { stripeSecret } : {}),
-              ...(stripePublishable.trim() ? { stripePublishable } : {}),
-              ...(stripeWebhookSecret.trim() ? { stripeWebhookSecret } : {}),
-            })
-          }}
-        >
-          Save card keys
-        </Button>
-        <Button type="button" variant="outline" className="h-11" onClick={() => void save({ clear: "stripe" })}>
-          Clear card keys
         </Button>
       </div>
       <div className="mt-4 grid gap-2">

@@ -150,7 +150,7 @@ export interface OutboundHook {
   active: boolean
 }
 
-export type DepositMethod = "card" | "apple_pay" | "google_pay"
+export type DepositMethod = "card" | "apple_pay" | "google_pay" | "paypal" | "paddle"
 export type PaymentStatus = "unpaid" | "deposit_paid" | "paid"
 
 export interface DepositReceipt {

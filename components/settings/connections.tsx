@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { useScope } from "@/lib/data/store"
 import { leadWebhookToken } from "@/lib/webhooks/token"
 import { OutboundHooks } from "@/components/settings/outbound-hooks"
+import { PayoutConnections } from "@/components/settings/payout-connections"
 import { SendingKeys } from "@/components/settings/sending-keys"
 import { IntegrationCards } from "@/components/settings/integration-cards"
 import { zapierTarget } from "@/lib/zapier/events"
@@ -143,7 +144,7 @@ export function Connections() {
         <div id="zapier-hook" className="scroll-mt-24">
           <h2 className="text-lg font-semibold">Outbound hooks</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Paste a hook address. Scopepipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
+            Paste a hook address. ScopePipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
           </p>
           <div className="mt-3 grid gap-2">
             <Label htmlFor="zapierWebhook">Webhook URL</Label>
@@ -162,6 +163,7 @@ export function Connections() {
         <div id="automatic-hooks" className="scroll-mt-24">
           <OutboundHooks />
         </div>
+        <PayoutConnections />
         <div id="integration-sending" className="scroll-mt-24">
           <SendingKeys />
         </div>

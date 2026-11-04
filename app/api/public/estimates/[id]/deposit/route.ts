@@ -15,7 +15,7 @@ function isReceipt(value: unknown): value is DepositReceipt {
     receipt.currency === "usd" &&
     typeof receipt.depositPercent === "number" &&
     typeof receipt.paidAt === "string" &&
-    (receipt.method === "card" || receipt.method === "apple_pay" || receipt.method === "google_pay")
+    (receipt.method === "card" || receipt.method === "apple_pay" || receipt.method === "google_pay" || receipt.method === "paypal" || receipt.method === "paddle")
   )
 }
 

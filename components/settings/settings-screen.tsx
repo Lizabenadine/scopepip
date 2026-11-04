@@ -181,7 +181,7 @@ function PaymentFields() {
   const scope = useScope()
   return (
     <div className="flex flex-col gap-6">
-      <DefaultsForm title="Payments" intro="Deposit and financing apply to the next proposal. Card and bank checkout runs once the card keys are set.">
+      <DefaultsForm title="Payments" intro="Deposit and financing apply to the next proposal. Connect Stripe, PayPal, Paddle, or a bank account on Integrations so the customer can pay this account.">
         <TextField id="depositPercent" name="depositPercent" label="Deposit %" />
         <TextField id="financingApr" name="financingApr" label="Financing APR %" />
         <TextField id="financingMonths" name="financingMonths" label="Financing months" />

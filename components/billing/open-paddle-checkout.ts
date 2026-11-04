@@ -4,13 +4,17 @@ import type { PaddleCheckout } from "@/lib/billing/paddle-checkout"
 
 interface PaddleClient {
   Environment: { set: (environment: "sandbox" | "production") => void }
-  Initialize: (options: { token: string }) => void
+  Initialize: (options: {
+    token: string
+    eventCallback?: (event: { name?: string; data?: { transaction_id?: string } }) => void
+  }) => void
   Checkout: {
     open: (options: {
-      items: { priceId: string; quantity: number }[]
-      customData: { user_id: string; office_user_id: string }
-      customer: { email: string }
-      settings: { successUrl: string }
+      items?: { priceId: string; quantity: number }[]
+      transactionId?: string
+      customData?: { user_id: string; office_user_id: string }
+      customer?: { email: string }
+      settings: { successUrl?: string; displayMode?: "overlay"; variant?: "one-page" }
     }) => void
   }
 }
@@ -30,6 +34,27 @@ export function openPaddleCheckout(checkout: PaddleCheckout): Promise<void> {
       customData: { user_id: checkout.userId, office_user_id: checkout.officeUserId },
       customer: { email: checkout.email },
       settings: { successUrl: `${window.location.origin}/billing` },
+    })
+  })
+}
+
+export function openPaddleDeposit(input: {
+  token: string
+  transactionId: string
+  onPaid: (transactionId: string) => void
+}): Promise<void> {
+  return loadPaddle().then((paddle) => {
+    paddle.Environment.set(input.token.startsWith("test_") ? "sandbox" : "production")
+    paddle.Initialize({
+      token: input.token,
+      eventCallback: (event) => {
+        if (event.name === "checkout.completed") input.onPaid(event.data?.transaction_id || input.transactionId)
+      },
+    })
+    initializedToken = input.token
+    paddle.Checkout.open({
+      transactionId: input.transactionId,
+      settings: { displayMode: "overlay", variant: "one-page", successUrl: window.location.href },
     })
   })
 }

@@ -42,6 +42,7 @@ import { createOfficeLead, type LeadReach } from "@/lib/leads/office-lead"
 import type { InboundLead } from "@/lib/leads/types"
 import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
 import { officeOverview, type OverviewItem } from "@/lib/office/overview"
+import { clientByEmail, normalizeClientEmail } from "@/lib/clients/email"
 import { officeWorklist, type OfficeQueues } from "@/lib/office/workflow"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
 import type {
@@ -346,7 +347,13 @@ export interface ScopeApi {
   clientById: (id: string) => Client | undefined
   stageById: (id: string) => PipelineStage | undefined
   quoteEstimate: (estimate: Estimate) => EstimateQuote
-  saveEstimate: (draft: EstimateDraft) => { id: string; clientId: string; publicToken: string }
+  saveEstimate: (draft: EstimateDraft) => {
+    id: string
+    clientId: string
+    clientName: string
+    clientEmail: string
+    publicToken: string
+  }
   restoreEstimateVersion: (
     estimateId: string,
     versionId: string,
@@ -374,7 +381,7 @@ export interface ScopeApi {
     receipt: DepositReceipt,
   ) => { ok: true } | { ok: false; reason: string }
   markJobPaid: (estimateId: string) => void
-  updateClient: (id: string, patch: Partial<Client>) => void
+  updateClient: (id: string, patch: Partial<Client>) => { ok: true } | { ok: false; reason: string }
   addClientInteraction: (
     clientId: string,
     kind: "note" | "call",
@@ -535,17 +542,20 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       const id = draft.id ?? crypto.randomUUID()
       const previous = latest.estimates.find((item) => item.id === id)
       const now = new Date().toISOString()
-      const clientId = draft.clientId ?? crypto.randomUUID()
-      const creatingClient = draft.clientId === null
+      const email = normalizeClientEmail(draft.clientEmail)
+      const known = clientByEmail(latest.clients, email)
+      const clientId = known?.id ?? draft.clientId ?? crypto.randomUUID()
+      const clientName = known?.name ?? draft.clientName.trim()
+      const creatingClient = !latest.clients.some((client) => client.id === clientId)
 
       let clients = latest.clients
       if (creatingClient) {
         clients = [
           {
             id: clientId,
-            name: draft.clientName.trim(),
+            name: clientName,
             phone: "",
-            email: draft.clientEmail.trim(),
+            email,
             address: draft.jobAddress.trim(),
             notes: "",
             createdAt: now,
@@ -556,10 +566,10 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       } else {
         clients = clients.map((client) => {
           if (client.id !== clientId) return client
-          const email = draft.clientEmail.trim() || client.email
+          const nextEmail = email
           const address = client.address || draft.jobAddress.trim()
-          if (email === client.email && address === client.address) return client
-          return { ...client, email, address, updatedAt: now }
+          if (nextEmail === client.email && address === client.address) return client
+          return { ...client, email: nextEmail, address, updatedAt: now }
         })
       }
 
@@ -642,7 +652,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         : [createWorkOrder(estimate), ...latest.workOrders]
 
       commitReconciled({ ...latest, clients, estimates, workOrders })
-      return { id, clientId, publicToken: estimate.publicToken }
+      return { id, clientId, clientName, clientEmail: email, publicToken: estimate.publicToken }
     },
     restoreEstimateVersion: (estimateId, versionId) => {
       const latest = getSnapshot().state
@@ -929,14 +939,22 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     officeQueues: officeWorklist(state, new Date(), (estimate) => pricedTotal(state, withApprovedScope(estimate))),
     updateClient: (id, patch) => {
       const latest = getSnapshot().state
+      const email = patch.email === undefined ? undefined : normalizeClientEmail(patch.email)
+      if (email) {
+        const owner = clientByEmail(latest.clients, email)
+        if (owner && owner.id !== id) {
+          return { ok: false, reason: `This email is already saved for ${owner.name}.` }
+        }
+      }
       commit({
         ...latest,
         clients: latest.clients.map((client) =>
           client.id === id
-            ? { ...client, ...patch, id, updatedAt: new Date().toISOString() }
+            ? { ...client, ...patch, ...(email === undefined ? {} : { email }), id, updatedAt: new Date().toISOString() }
             : client,
         ),
       })
+      return { ok: true }
     },
     deleteClient: (id) => {
       const latest = getSnapshot().state

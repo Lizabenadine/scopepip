@@ -37,7 +37,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
-import { roomsMissingColor } from "@/lib/estimate/finish"
+import { AddressField } from "@/components/estimator/address-field"
+import { clientByEmail } from "@/lib/clients/email"
 import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
 import { flushBook, useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
@@ -132,11 +133,6 @@ export function Estimator({
   }
 
   const sendEstimate = async () => {
-    const missingColor = roomsMissingColor(draft.areas)
-    if (missingColor.length > 0) {
-      setStatus(`Add a color and a sheen on ${missingColor.join(", ")} before sending.`)
-      return
-    }
     const email = draft.clientEmail.trim()
     if (!email.includes("@") || /\s/.test(email)) {
       setStatus("Add the client's email. They accept the estimate from the link in that email.")
@@ -178,10 +174,10 @@ export function Estimator({
       }
       const link = `${window.location.origin}/p/${saved.publicToken}`
       if (body?.delivery === "sent") {
-        setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
+        setStatus(`Sent to ${email}. The job is in Estimate Sent. The client accepts from the link in the email.`)
         return
       }
-      setStatus(`${body?.detail ?? "The link is ready."} They accept here: ${link}`)
+      setStatus(body?.detail ?? `The link is ready. They accept here: ${link}`)
     } catch {
       setStatus("The estimate could not be emailed.")
     }
@@ -292,10 +288,18 @@ export function Estimator({
             clientId={draft.clientId}
             onChange={(nextClient) => {
               const picked = clients.find((client) => client.id === nextClient.clientId)
+              if (picked) {
+                patch({
+                  clientName: nextClient.name,
+                  clientId: picked.id,
+                  clientEmail: picked.email,
+                })
+                return
+              }
+              const known = clientByEmail(clients, draft.clientEmail)
               patch({
                 clientName: nextClient.name,
-                clientId: nextClient.clientId,
-                ...(picked ? { clientEmail: picked.email } : {}),
+                clientId: known?.id ?? null,
               })
             }}
           />
@@ -310,7 +314,19 @@ export function Estimator({
                 autoComplete="email"
                 placeholder="name@email.com"
                 className="h-11 sm:max-w-sm"
-                onValueChange={(clientEmail) => patch({ clientEmail })}
+                onValueChange={(clientEmail) => {
+                  const known = clientByEmail(clients, clientEmail)
+                  if (known) {
+                    patch({
+                      clientEmail,
+                      clientId: known.id,
+                      clientName: known.name,
+                      ...(known.address && !draft.jobAddress.trim() ? { jobAddress: known.address } : {}),
+                    })
+                    return
+                  }
+                  patch({ clientEmail })
+                }}
               />
               <button
                 type="button"
@@ -323,7 +339,9 @@ export function Estimator({
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Sending emails the proposal and puts this job in Estimate Sent. The client opens the email and accepts from the link.
+              {clientByEmail(clients, draft.clientEmail)
+                ? `This email is saved for ${clientByEmail(clients, draft.clientEmail)?.name}.`
+                : "Sending emails the proposal and puts this job in Estimate Sent. The client opens the email and accepts from the link."}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -337,16 +355,7 @@ export function Estimator({
                 onValueChange={(value) => patch({ title: value })}
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-address">Address</Label>
-              <Input
-                id="job-address"
-                value={draft.jobAddress}
-                placeholder="Street, city"
-                className="h-11"
-                onValueChange={(value) => patch({ jobAddress: value })}
-              />
-            </div>
+            <AddressField value={draft.jobAddress} onValueChange={(jobAddress) => patch({ jobAddress })} />
           </div>
           {estimates.some((item) => item.id === draft.id && item.versions?.some((version) => version.approved)) ? (
             <p className="text-sm text-muted-foreground" data-testid="signed-scope-note">

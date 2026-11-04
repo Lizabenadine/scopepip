@@ -8,7 +8,7 @@ export function SiteFooter() {
           <div className="mb-3">
             <BrandLogo href="/" compact />
           </div>
-          <p>© {new Date().getFullYear()} Scopepipe. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} ScopePipe. All rights reserved.</p>
           <p className="mt-1 text-slate-500">
             Support:{" "}
             <a href="mailto:support@scopepipe.com" className="text-slate-300 hover:underline">

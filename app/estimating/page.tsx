@@ -4,7 +4,7 @@ import { ProductPage } from "@/components/marketing/product-page"
 export const metadata: Metadata = {
   title: "Painting estimates",
   description:
-    "Room-by-room painting estimates with wall area, coats, gallons, and labor hours. Scopepipe prices the job from the measurements.",
+    "Room-by-room painting estimates with wall area, coats, gallons, and labor hours. ScopePipe prices the job from the measurements.",
 }
 
 export default function EstimatingPage() {
@@ -12,7 +12,7 @@ export default function EstimatingPage() {
     <ProductPage
       kicker="Estimating"
       title="Price the rooms from the measurements."
-      lede="Enter each room once. Scopepipe turns the length, width, and height into paintable area, gallons, and labor hours, then prices the job."
+      lede="Enter each room once. ScopePipe turns the length, width, and height into paintable area, gallons, and labor hours, then prices the job."
       sections={[
         {
           heading: "Walls, ceilings, and trim",

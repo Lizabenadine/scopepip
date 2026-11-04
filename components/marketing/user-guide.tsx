@@ -38,7 +38,7 @@ export function UserGuide() {
         <GuideNav />
         <article>
           <header className="border-b border-slate-200 pb-8">
-            <p className="text-xs font-semibold tracking-[0.18em] text-cyan-700 uppercase">Scopepipe</p>
+            <p className="text-xs font-semibold tracking-[0.18em] text-cyan-700 uppercase">ScopePipe</p>
             <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950">Help</h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
               Set up the company, price each room, lock the color and sheen, hand the paint counter a buy list, and use a finished room’s hours on the next room of that size.
@@ -63,7 +63,7 @@ export function UserGuide() {
             <Step
               n="4"
               title="Name the paint lines"
-              body="The card starts as Wall paint, Ceiling paint, Trim paint, and Cabinet paint. Rename a line to the product you buy. A Sherwin-Williams, Benjamin Moore, or Dunn-Edwards name is what the store list and the crew sheet print."
+              body="The card starts as Wall paint, Ceiling paint, Trim paint, and Cabinet paint. Rename a line to the product you buy. That name is what the store list and the crew sheet print."
             />
             <h3 className="pt-2 text-lg font-semibold text-slate-950">Who can sign in</h3>
             <ul className="grid gap-3">
@@ -159,7 +159,7 @@ export function UserGuide() {
             <Step
               n="4"
               title="Switch the crew sheet"
-              body="Open Jobs, then Work Orders, and open the job. At the top of the sheet, choose English or Español. The labels and the notes switch. Print uses the language on the screen. Scopepipe remembers that choice for this login."
+              body="Open Jobs, then Work Orders, and open the job. At the top of the sheet, choose English or Español. The labels and the notes switch. Print uses the language on the screen. ScopePipe remembers that choice for this login."
             />
             <Tip>Keep prices hidden on crew sheets. The sheet lists the rooms, the surfaces, the color, and the notes. It does not list prices, costs, or margins.</Tip>
           </GuideSection>

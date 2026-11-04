@@ -1,5 +1,6 @@
 import { sessionFromRequest } from "@/lib/auth/request"
-import { clearSendKeys, saveSendKeys, sendKeyStatus, type SendKeys } from "@/lib/messaging/keys"
+import { clearSendKeys, readSendKeys, saveSendKeys, sendKeyStatus, type SendKeys } from "@/lib/messaging/keys"
+import { paypalAccessToken } from "@/lib/payments/paypal"
 
 export const runtime = "nodejs"
 
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
     record.clear === "twilio" ||
     record.clear === "supabase" ||
     record.clear === "stripe" ||
+    record.clear === "paypal" ||
     record.clear === "cron"
   ) {
     clearSendKeys(record.clear)
@@ -37,7 +39,23 @@ export async function POST(request: Request) {
   if (typeof record.stripeSecret === "string") patch.stripeSecret = record.stripeSecret
   if (typeof record.stripePublishable === "string") patch.stripePublishable = record.stripePublishable
   if (typeof record.stripeWebhookSecret === "string") patch.stripeWebhookSecret = record.stripeWebhookSecret
+  if (typeof record.paypalClientId === "string") patch.paypalClientId = record.paypalClientId
+  if (typeof record.paypalSecret === "string") patch.paypalSecret = record.paypalSecret
+  if (record.paypalMode === "live" || record.paypalMode === "sandbox") patch.paypalMode = record.paypalMode
   if (typeof record.cronSecret === "string") patch.cronSecret = record.cronSecret
+  if (patch.paypalClientId !== undefined || patch.paypalSecret !== undefined || patch.paypalMode !== undefined) {
+    const current = readSendKeys()
+    const clientId = (patch.paypalClientId ?? current.paypalClientId).trim()
+    const secret = (patch.paypalSecret ?? current.paypalSecret).trim()
+    const live = (patch.paypalMode ?? current.paypalMode) === "live"
+    const token = await paypalAccessToken({ clientId, secret, live })
+    if (!token) {
+      return Response.json(
+        { ok: false, reason: "PayPal did not accept those keys. Sandbox keys stay off Live. Live keys need Live turned on." },
+        { status: 400 },
+      )
+    }
+  }
   const saved = saveSendKeys(patch)
   if (!saved.ok) return Response.json(saved, { status: 400 })
   return Response.json({ ok: true, ...sendKeyStatus() })

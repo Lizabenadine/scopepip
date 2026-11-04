@@ -14,6 +14,9 @@ const names = [
   "Zapier",
   "QuickBooks Online",
   "Stripe",
+  "PayPal",
+  "Paddle",
+  "Bank account",
   "Google Calendar",
   "Gmail",
   "Google Business Profile",
@@ -68,8 +71,11 @@ describe("featured integrations", () => {
     assert.equal(cards.find((item) => item.id === "google-business")?.status, "disconnected")
     assert.equal(cards.find((item) => item.id === "zapier")?.status, "disconnected")
     assert.equal(cards.find((item) => item.id === "stripe")?.status, "disconnected")
-    const paid = featuredIntegrations({}, { ...emptyHost, stripe: true })
+    const paid = featuredIntegrations({}, { ...emptyHost, stripe: true, paypal: true, paddle: true, bank: true })
     assert.equal(paid.find((item) => item.id === "stripe")?.status, "connected")
+    assert.equal(paid.find((item) => item.id === "paypal")?.status, "connected")
+    assert.equal(paid.find((item) => item.id === "paddle")?.status, "connected")
+    assert.equal(paid.find((item) => item.id === "bank")?.status, "connected")
     assert.equal(paid.find((item) => item.id === "gmail")?.status, "unavailable")
     assert.equal(cards.find((item) => item.id === "facebook-instagram")?.status, "disconnected")
   })
