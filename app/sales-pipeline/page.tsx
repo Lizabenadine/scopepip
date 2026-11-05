@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { SalesPipelineBoard } from "@/components/pipeline/sales-pipeline-board"
+import { PipelineBoard } from "@/components/pipeline/pipeline-board"
 
 export const metadata: Metadata = {
   title: "Sales Pipeline",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function SalesPipelinePage() {
-  return <SalesPipelineBoard />
+  return <PipelineBoard kind="sales" />
 }

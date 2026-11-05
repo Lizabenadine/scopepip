@@ -155,9 +155,16 @@ export function AuthForm({ mode, banner = null }: { mode: "login" | "signup"; ba
           />
         </div>
         <div>
-          <Label htmlFor="auth-password" className={labelClass}>
-            Password
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="auth-password" className={labelClass}>
+              Password
+            </Label>
+            {!signup ? (
+              <Link href="/forgot-password" className="text-sm font-medium text-primary">
+                Forgot password?
+              </Link>
+            ) : null}
+          </div>
           <Input
             id="auth-password"
             name="password"

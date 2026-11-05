@@ -33,6 +33,12 @@ export async function GET(request: NextRequest) {
   }
   if (!confirmed) return attachAuthCookies(failed, pending.pending, pending.cacheHeaders)
 
+  // For password recovery, redirect to the reset form — the user has not logged in yet.
+  if (type === "recovery") {
+    const reset = NextResponse.redirect(new URL("/reset-password", request.url))
+    return attachAuthCookies(reset, pending.pending, pending.cacheHeaders)
+  }
+
   const { data } = await pending.supabase.auth.getUser()
   const office = data.user?.email ? await sessionByEmail(data.user.email) : null
   if (!office) {

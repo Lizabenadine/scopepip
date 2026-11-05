@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useMemo, useState, type ReactNode } from "react"
 import { DispatchBoard } from "@/components/dispatch/dispatch-board"
-import { SalesPipelineBoard } from "@/components/pipeline/sales-pipeline-board"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
 import { officeCount, officeLabel, officeSalesNote } from "@/lib/office/dashboard-copy"
@@ -34,10 +33,6 @@ function todayIso(): string {
 }
 
 export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
-  if (kind === "sales") {
-    return <SalesPipelineBoard />
-  }
-
   const scope = useScope()
   const { language } = useFieldLanguage()
   const progressOnly = kind === "jobs" && scope.session?.role === "project_manager"
@@ -86,18 +81,18 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   }
 
   const title = fieldJobHeading(
-    progressOnly ? "Progress jobs" : "Jobs Pipeline",
+    progressOnly ? "Progress jobs" : kind === "sales" ? "Sales Pipeline" : "Jobs Pipeline",
     jobLanguage,
   )
-  const footerLabel = "Total Revenue"
+  const footerLabel = kind === "sales" ? "Total Value" : "Total Revenue"
   const visibleColumns = progressOnly
     ? columns.filter((column) => column.id === "project_in_progress")
     : columns
 
   return (
-    <div className="flex flex-col gap-4" data-testid="jobs-pipeline">
+    <div className="flex flex-col gap-4" data-testid={kind === "sales" ? "sales-pipeline" : "jobs-pipeline"}>
       {progressOnly ? null : <PipelineTabs kind={kind} crew={crew} onCrew={setCrew} language={jobLanguage} />}
-      {crew && !progressOnly ? (
+      {crew && kind === "jobs" && !progressOnly ? (
         <DispatchBoard />
       ) : (
         <>
@@ -106,6 +101,7 @@ export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
               <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
               <p className="text-sm text-muted-foreground">
                 {officeCount(visibleColumns.reduce((sum, column) => sum + column.cards.length, 0), jobLanguage)}
+                {kind === "sales" ? officeSalesNote(jobLanguage) : ""}
               </p>
             </div>
             {progressOnly ? null : (
