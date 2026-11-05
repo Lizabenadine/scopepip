@@ -37,7 +37,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
-import { roomsMissingColor } from "@/lib/estimate/finish"
 import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
 import { flushBook, useScope } from "@/lib/data/store"
 import { useFieldLanguage } from "@/hooks/use-field-language"
@@ -138,22 +137,6 @@ export function Estimator({
     }
     const saved = persist()
     if (!saved) return
-    const sentStage = stages.find((item) => item.slug === "estimate_sent")
-    const hold =
-      !sentStage ||
-      draft.clientStatus === "accepted" ||
-      stage?.slug === "scheduled" ||
-      stage?.slug === "completed" ||
-      stage?.id === sentStage.id
-    if (!hold && sentStage) {
-      moveStage(saved.id, sentStage.id)
-      patch({
-        id: saved.id,
-        clientId: saved.clientId,
-        stageId: sentStage.id,
-        clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
-      })
-    }
     if (mode === "new") router.push(`/estimates/${saved.id}`)
     await flushBook()
     try {
@@ -167,11 +150,27 @@ export function Estimator({
         setStatus(body?.reason || "The estimate could not be emailed.")
         return
       }
-      if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
-        placeOnColumn(saved.id, "proposal_sent")
-      }
       const link = `${window.location.origin}/p/${saved.publicToken}`
       if (body?.delivery === "sent") {
+        const sentStage = stages.find((item) => item.slug === "estimate_sent")
+        const hold =
+          !sentStage ||
+          draft.clientStatus === "accepted" ||
+          stage?.slug === "scheduled" ||
+          stage?.slug === "completed" ||
+          stage?.id === sentStage.id
+        if (!hold && sentStage) {
+          moveStage(saved.id, sentStage.id)
+          patch({
+            id: saved.id,
+            clientId: saved.clientId,
+            stageId: sentStage.id,
+            clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
+          })
+        }
+        if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
+          placeOnColumn(saved.id, "proposal_sent")
+        }
         setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
         return
       }
@@ -691,7 +690,9 @@ export function Estimator({
               </Button>
             </div>
           </section>
-          <section className="grid gap-3 sm:grid-cols-2">
+          <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <summary className="cursor-pointer text-sm font-semibold text-primary">Pricing & payment settings · hourly rate, tax, deposit, discounts</summary>
+            <section className="mt-4 grid gap-3 sm:grid-cols-2">
             {estimatorLogin ? null : (
             <div className="grid content-start gap-2">
               <NumberBox
@@ -788,7 +789,8 @@ export function Estimator({
                 patch({ settings: { ...draft.settings, surchargePercent } })
               }
             />
-          </section>
+            </section>
+          </details>
           <div className="grid gap-2">
             <Label htmlFor="client-note">Client note</Label>
             <textarea
@@ -879,16 +881,7 @@ export function Estimator({
           status={status}
           onAdvance={onAdvance}
           onExplain={() => setExplainOpen(true)}
-          details={
-            <CalculationPanel
-              quote={quote}
-              settings={draft.settings}
-              areas={draft.areas}
-              areaGroups={draft.areaGroups}
-              depositPercent={draft.settings.depositPercent ?? 30}
-              showCosts={!estimatorLogin}
-            />
-          }
+
         />
       </div>
       <PriceSummary

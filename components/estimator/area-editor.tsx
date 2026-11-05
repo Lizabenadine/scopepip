@@ -1,5 +1,4 @@
 "use client"
-
 import { useEffect, useState } from "react"
 import { useTypedNumber } from "@/hooks/use-typed-number"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
@@ -32,20 +31,19 @@ import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import type { AreaGroup, AreaInput, AreaOpening, EstimateKind, LineItemInput, ProductionRate, Substrate, SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
 export function AreaEditor({
-  areas,
-  areaGroups,
-  rates,
-  kind,
-  savedTemplates,
-  onDeleteSaved,
-  onSaveTemplate,
-  areaNames,
-  onAreaNames,
-  onChange,
-  onGroups,
-  onDuplicate,
+areas,
+areaGroups,
+rates,
+kind,
+savedTemplates,
+onDeleteSaved,
+onSaveTemplate,
+areaNames,
+onAreaNames,
+onChange,
+onGroups,
+onDuplicate,
 }: {
   areas: AreaInput[]
   areaGroups: AreaGroup[]
@@ -57,32 +55,31 @@ export function AreaEditor({
   areaNames: AreaName[]
   onAreaNames: (names: AreaName[]) => void
   onChange: (
-    areas: AreaInput[],
-    title?: string,
-    lineItems?: LineItemInput[],
-    rates?: ProductionRate[],
-    kind?: EstimateKind,
+areas: AreaInput[],
+title?: string,
+lineItems?: LineItemInput[],
+rates?: ProductionRate[],
+kind?: EstimateKind,
   ) => void
   onGroups: (groups: AreaGroup[]) => void
   onDuplicate: (areas: AreaInput[]) => void
 }) {
-  const [templatesOpen, setTemplatesOpen] = useState(false)
-  const [namesOpen, setNamesOpen] = useState(false)
-  const [roomDraft, setRoomDraft] = useState("")
-  const [focusAreaId, setFocusAreaId] = useState<string | null>(null)
-  const addRoom = (name: string) => {
-    const room = quickRoom(name, kind)
+const [templatesOpen, setTemplatesOpen] = useState(false)
+const [namesOpen, setNamesOpen] = useState(false)
+const [roomDraft, setRoomDraft] = useState("")
+const [focusAreaId, setFocusAreaId] = useState<string | null>(null)
+const addRoom = (name: string) => {
+const room = quickRoom(name, kind)
     if (!room) return
     onChange([...areas, room])
     setRoomDraft("")
     setFocusAreaId(room.id)
   }
-  const [groupDraft, setGroupDraft] = useState("")
-  const [groupError, setGroupError] = useState<string | null>(null)
-  const sections = sectionByGroup(areas, areaGroups, (area) => area.groupId, { includeEmpty: true })
-
-  const addGroup = () => {
-    const group = createAreaGroup(groupDraft)
+const [groupDraft, setGroupDraft] = useState("")
+const [groupError, setGroupError] = useState<string | null>(null)
+const sections = sectionByGroup(areas, areaGroups, (area) => area.groupId, { includeEmpty: true })
+const addGroup = () => {
+const group = createAreaGroup(groupDraft)
     if (!group) {
       setGroupError("Enter a group name, such as Upstairs.")
       return
@@ -91,7 +88,6 @@ export function AreaEditor({
     setGroupDraft("")
     setGroupError(null)
   }
-
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -160,7 +156,7 @@ export function AreaEditor({
               data-testid={`add-room-${template.id}`}
               className="rounded-full bg-muted px-3 py-1.5 text-sm"
               onClick={() => {
-                const room = areaFromTemplate(template.id)
+const room = areaFromTemplate(template.id)
                 if (!room) return
                 onChange([...areas, room])
                 setFocusAreaId(room.id)
@@ -174,6 +170,8 @@ export function AreaEditor({
           Type a name and press Enter. A known room brings its size and surfaces. A new name starts with walls, ceiling, and trim so the price moves as you type the size.
         </p>
       </div>
+      <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <summary className="cursor-pointer text-sm font-medium text-primary">Organize rooms into groups (optional)</summary>
       <div className="rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -209,6 +207,7 @@ export function AreaEditor({
         </p>
         {groupError ? <p className="mt-2 text-sm text-destructive">{groupError}</p> : null}
       </div>
+      </details>
       <AreaNamesDialog
         open={namesOpen}
         names={areaNames}
@@ -232,8 +231,8 @@ export function AreaEditor({
         </p>
       ) : null}
       {sections.map((section) => {
-        const groupIndex = section.groupId ? areaGroups.findIndex((group) => group.id === section.groupId) : -1
-        const showUngroupedLabel = section.groupId === null && areaGroups.length > 0 && section.items.length > 0
+const groupIndex = section.groupId ? areaGroups.findIndex((group) => group.id === section.groupId) : -1
+const showUngroupedLabel = section.groupId === null && areaGroups.length > 0 && section.items.length > 0
         return (
           <div key={section.groupId ?? "ungrouped"} className="flex flex-col gap-3">
             {section.groupId ? (
@@ -273,7 +272,7 @@ export function AreaEditor({
                     className="h-11 px-2 text-sm text-muted-foreground"
                     data-testid="remove-group"
                     onClick={() => {
-                      const removed = removeAreaGroup(areaGroups, areas, section.groupId!)
+const removed = removeAreaGroup(areaGroups, areas, section.groupId!)
                       onChange(removed.areas)
                       onGroups(removed.groups)
                     }}
@@ -288,7 +287,7 @@ export function AreaEditor({
             ) : null}
             {section.groupId && section.items.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border px-4 py-4 text-sm text-muted-foreground">
-                No rooms in this group yet. Choose it from a room&apos;s Group menu.
+                No rooms in this group yet. Choose it from a room's Group menu.
               </p>
             ) : null}
             {section.items.map((area) => (
@@ -302,25 +301,25 @@ export function AreaEditor({
                 focusLength={focusAreaId === area.id}
                 onFocused={() => setFocusAreaId(null)}
                 onKeepName={(name) => {
-                  const next = addAreaName(areaNames, name)
+const next = addAreaName(areaNames, name)
                   if (next) onAreaNames(next)
                 }}
                 onChange={(next) => onChange(areas.map((item) => (item.id === area.id ? next : item)))}
                 onPlace={(groupId) => onChange(placeArea(areas, area.id, groupId))}
                 onCopy={() => onDuplicate(insertAfter(areas, area.id, copyArea(area)))}
                 onRemove={() => {
-                  const nextAreas = areas.filter((item) => item.id !== area.id)
-                  const used = new Set(nextAreas.flatMap((item) => item.surfaces.map((surface) => surface.rateId)))
-                  const nextRates = rates.filter((rate) => !rate.oneOff || used.has(rate.id))
+const nextAreas = areas.filter((item) => item.id !== area.id)
+const used = new Set(nextAreas.flatMap((item) => item.surfaces.map((surface) => surface.rateId)))
+const nextRates = rates.filter((rate) => !rate.oneOff || used.has(rate.id))
                   onChange(nextAreas, undefined, undefined, nextRates)
                 }}
                 onApplyOneOff={(rate) => {
-                  const next = attachOneOffRate(areas, area.id, rates, rate)
+const next = attachOneOffRate(areas, area.id, rates, rate)
                   onChange(next.areas, undefined, undefined, next.rates)
                 }}
                 onToggleOneOff={(rate) => {
-                  const on = area.surfaces.some((surface) => surface.rateId === rate.id)
-                  const next = on
+const on = area.surfaces.some((surface) => surface.rateId === rate.id)
+const next = on
                     ? detachRateSurface(areas, area.id, rates, rate.id)
                     : attachOneOffRate(areas, area.id, rates, rate)
                   onChange(next.areas, undefined, undefined, next.rates)
@@ -333,22 +332,21 @@ export function AreaEditor({
     </section>
   )
 }
-
 function AreaCard({
-  area,
-  kind,
-  rates,
-  areaNames,
-  areaGroups,
-  focusLength,
-  onFocused,
-  onKeepName,
-  onChange,
-  onPlace,
-  onCopy,
-  onRemove,
-  onApplyOneOff,
-  onToggleOneOff,
+area,
+kind,
+rates,
+areaNames,
+areaGroups,
+focusLength,
+onFocused,
+onKeepName,
+onChange,
+onPlace,
+onCopy,
+onRemove,
+onApplyOneOff,
+onToggleOneOff,
 }: {
   area: AreaInput
   kind: EstimateKind
@@ -370,20 +368,20 @@ function AreaCard({
     document.getElementById(`${area.id}-length`)?.focus()
     onFocused()
   }, [focusLength, area.id, onFocused])
-  const measures = measureArea(area)
-  const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
+const measures = measureArea(area)
+const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
     onChange({
       ...area,
       surfaces: area.surfaces.map((item) => (item.id === surface.id ? { ...item, ...patch } : item)),
     })
   }
-  const toggle = (rate: ProductionRate) => {
+const toggle = (rate: ProductionRate) => {
     if (rate.oneOff) {
       onToggleOneOff(rate)
       return
     }
-    const existing = area.surfaces.find((surface) => sameSubstrateGroup(rates, surface, rate))
-    const surfaces = existing
+const existing = area.surfaces.find((surface) => sameSubstrateGroup(rates, surface, rate))
+const surfaces = existing
       ? area.surfaces.filter((surface) => !sameSubstrateGroup(rates, surface, rate))
       : [
           ...area.surfaces,
@@ -400,9 +398,14 @@ function AreaCard({
         ]
     onChange({ ...area, surfaces })
   }
-
   return (
-    <div className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
+    <details className="rounded-2xl border border-slate-200 bg-white shadow-sm" open={focusLength ? true : undefined}>
+      <summary className="cursor-pointer list-item px-4 py-4 text-sm font-semibold text-foreground">
+        <span>{area.name || "Untitled room"}</span>
+        <span className="ml-2 text-xs font-normal text-muted-foreground">{area.lengthFt} × {area.widthFt} × {area.heightFt} ft · {area.surfaces.length} selected surfaces</span>
+        <span className="ml-2 text-xs font-medium text-primary">Edit room</span>
+      </summary>
+      <div className="border-t border-border p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="grid flex-1 gap-2">
           <Label htmlFor={`${area.id}-name`}>Area</Label>
@@ -459,7 +462,7 @@ function AreaCard({
             type="button"
             onClick={() => onChange({ ...area, areaType })}
             className={
-              area.areaType === areaType
+area.areaType === areaType
                 ? "rounded-full bg-primary px-3 py-1.5 text-sm text-primary-foreground"
                 : "rounded-full bg-muted px-3 py-1.5 text-sm"
             }
@@ -495,8 +498,13 @@ function AreaCard({
         {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft trim
       </p>
       {kind === "interior" && area.areaType === "room" ? (
-        <RoomOpenings area={area} onChange={onChange} />
+        <details className="mt-3 rounded-xl border border-border p-3" open={undefined}>
+          <summary className="cursor-pointer text-sm font-medium">Doors & windows {area.openings?.length ? `(${area.openings.length})` : "(optional)"}</summary>
+          <RoomOpenings area={area} onChange={onChange} />
+        </details>
       ) : null}
+      <details className="mt-3 rounded-xl border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Paint color & sheen (optional)</summary>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <div className="grid gap-1">
           <Label htmlFor={`${area.id}-color`}>Color</Label>
@@ -538,6 +546,9 @@ function AreaCard({
           </select>
         </div>
       </div>
+      </details>
+      <details className="mt-3 rounded-xl border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium">Prep, repairs & access (advanced)</summary>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <div className="grid gap-1">
           <Label htmlFor={`${area.id}-prep`}>Prep intensity</Label>
@@ -574,7 +585,7 @@ function AreaCard({
             className="h-11 rounded-lg border border-input bg-transparent px-2"
             value={accessPreset(area.accessFactor)}
             onChange={(event) => {
-              const preset = event.target.value
+const preset = event.target.value
               if (preset === "1") onChange({ ...area, accessFactor: 1 })
               else if (preset === "1.25") onChange({ ...area, accessFactor: 1.25 })
               else onChange({ ...area, accessFactor: customAccess(area.accessFactor) })
@@ -596,20 +607,22 @@ function AreaCard({
           ) : null}
         </div>
       </div>
-      <h3 className="mt-4 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-        Surfaces
-      </h3>
+      </details>
+      <details className="mt-4 rounded-xl border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium">
+          Painting surfaces ({area.surfaces.length} selected)
+        </summary>
       <div className="mt-2 flex flex-col gap-3">
         {rateGroups(surfaceHeads(rates)).map((group) => (
           <div key={group.category} className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">{group.category}</p>
             {group.rates.map((rate) => {
-              const surface = area.surfaces.find((item) => sameSubstrateGroup(rates, item, rate))
-              const active = (surface && rates.find((item) => item.id === surface.rateId)) || rate
-              const choices = substrateChoices(rates, rate)
-              const chosen = surface?.substrate ?? substrateOf(active)
-              const unit = quantityUnit(active)
-              const roomQuantity = measuredQuantity(active, area, surface?.itemCount ?? 0)
+const surface = area.surfaces.find((item) => sameSubstrateGroup(rates, item, rate))
+const active = (surface && rates.find((item) => item.id === surface.rateId)) || rate
+const choices = substrateChoices(rates, rate)
+const chosen = surface?.substrate ?? substrateOf(active)
+const unit = quantityUnit(active)
+const roomQuantity = measuredQuantity(active, area, surface?.itemCount ?? 0)
               return (
                 <div key={rate.id} className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -630,7 +643,7 @@ function AreaCard({
                               aria-label={`${rate.internalLabel} substrate`}
                               value={chosen}
                               onChange={(event) => {
-                                const substrate = event.target.value as Substrate
+const substrate = event.target.value as Substrate
                                 onChange({
                                   ...area,
                                   surfaces: area.surfaces.map((item) =>
@@ -705,7 +718,9 @@ function AreaCard({
                         {SUBSTRATE_LABEL[substrateOf(active)].toLowerCase()} speed.
                       </p>
                     ) : null}
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <details className="rounded-lg border border-border p-3">
+                      <summary className="cursor-pointer text-xs font-medium text-primary">Advanced surface options · paint, coverage & overrides</summary>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <div className="grid gap-1">
                         <Label htmlFor={`${surface.id}-product`}>Paint</Label>
                         <Input
@@ -800,6 +815,7 @@ function AreaCard({
                         ) : null}
                       </span>
                     </label>
+                    </details>
                     </div>
                   ) : null}
                 </div>
@@ -808,34 +824,34 @@ function AreaCard({
           </div>
         ))}
       </div>
-      <div className="mt-3">
-        <OneOffRateForm kind={kind} onAdd={onApplyOneOff} />
+      </details>
+      <details className="mt-3 rounded-xl border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium text-primary">Custom production rate (optional)</summary>
+        <div className="mt-3"><OneOffRateForm kind={kind} onAdd={onApplyOneOff} /></div>
+      </details>
       </div>
-    </div>
+    </details>
   )
 }
-
 function finishCoatChoices(rate: ProductionRate, selected: number): number[] {
-  const counts = new Set([1, 2, 3, 4, 5, 6])
+const counts = new Set([1, 2, 3, 4, 5, 6])
   for (const entry of rate.coatRates) {
     if (entry.coats >= 1 && entry.coats <= 6) counts.add(entry.coats)
   }
   if (selected >= 1 && selected <= 6) counts.add(Math.round(selected))
   return [...counts].sort((left, right) => left - right)
 }
-
 function ratesForArea(rates: ProductionRate[], kind: EstimateKind, area: AreaInput): ProductionRate[] {
-  const allowed = ratesForKind(rates, kind)
-  const extras = rates.filter(
+const allowed = ratesForKind(rates, kind)
+const extras = rates.filter(
     (rate) => area.surfaces.some((surface) => surface.rateId === rate.id) && !allowed.some((item) => item.id === rate.id),
   )
   return [...allowed, ...extras]
 }
-
 function RoomOpenings({ area, onChange }: { area: AreaInput; onChange: (area: AreaInput) => void }) {
-  const openings = area.openings ?? []
-  const add = (kind: AreaOpening["kind"]) => {
-    const opening: AreaOpening = {
+const openings = area.openings ?? []
+const add = (kind: AreaOpening["kind"]) => {
+const opening: AreaOpening = {
       id: crypto.randomUUID(),
       kind,
       widthFt: kind === "door" ? 3 : 3,
@@ -845,7 +861,7 @@ function RoomOpenings({ area, onChange }: { area: AreaInput; onChange: (area: Ar
     }
     onChange({ ...area, openings: [...openings, opening] })
   }
-  const update = (id: string, patch: Partial<AreaOpening>) => {
+const update = (id: string, patch: Partial<AreaOpening>) => {
     onChange({
       ...area,
       openings: openings.map((opening) => (opening.id === id ? { ...opening, ...patch } : opening)),
@@ -913,35 +929,31 @@ function RoomOpenings({ area, onChange }: { area: AreaInput; onChange: (area: Ar
     </div>
   )
 }
-
 function rateGroups(rates: ProductionRate[]): { category: string; rates: ProductionRate[] }[] {
-  const groups: { category: string; rates: ProductionRate[] }[] = []
+const groups: { category: string; rates: ProductionRate[] }[] = []
   for (const rate of rates) {
-    const existing = groups.find((group) => group.category === rate.category)
+const existing = groups.find((group) => group.category === rate.category)
     if (existing) existing.rates.push(rate)
     else groups.push({ category: rate.category, rates: [rate] })
   }
   return groups
 }
-
 function accessPreset(factor: number | undefined): "1" | "1.25" | "custom" {
   if (factor === 1.25) return "1.25"
   if (factor === undefined || factor === 1) return "1"
   return "custom"
 }
-
 function customAccess(factor: number | undefined): number {
   if (factor && factor !== 1 && factor !== 1.25) return factor
   return 1.5
 }
-
 function OverrideField({
-  id,
-  label,
-  ariaLabel,
-  testId,
-  value,
-  onChange,
+id,
+label,
+ariaLabel,
+testId,
+value,
+onChange,
 }: {
   id: string
   label: string
@@ -950,8 +962,8 @@ function OverrideField({
   value: number | null
   onChange: (value: number | null) => void
 }) {
-  const [text, setText] = useState<string | null>(null)
-  const shown = text ?? (value === null ? "" : String(value))
+const [text, setText] = useState<string | null>(null)
+const shown = text ?? (value === null ? "" : String(value))
   return (
     <div className="grid gap-1">
       <Label htmlFor={id}>{label}</Label>
@@ -966,39 +978,37 @@ function OverrideField({
         onFocus={() => setText(value === null ? "" : String(value))}
         onBlur={() => setText(null)}
         onValueChange={(next) => {
-          const cleaned = decimalText(next)
+const cleaned = decimalText(next)
           setText(cleaned)
           if (cleaned === "" || cleaned === ".") {
             onChange(null)
             return
           }
-          const parsed = Number(cleaned)
+const parsed = Number(cleaned)
           if (Number.isFinite(parsed)) onChange(parsed)
         }}
       />
     </div>
   )
 }
-
 function decimalText(value: string): string {
-  const cleaned = value.replace(/[^0-9.]/g, "")
-  const dot = cleaned.indexOf(".")
+const cleaned = value.replace(/[^0-9.]/g, "")
+const dot = cleaned.indexOf(".")
   if (dot === -1) return cleaned
-  return `${cleaned.slice(0, dot + 1)}${cleaned.slice(dot + 1).replace(/\./g, "")}`
+  return `${cleaned.slice(0, dot + 1)}${cleaned.slice(dot + 1).replace(/\\./g, "")}`
 }
-
 function NumberField({
-  id,
-  label,
-  value,
-  onChange,
+id,
+label,
+value,
+onChange,
 }: {
   id: string
   label: string
   value: number
   onChange: (value: number) => void
 }) {
-  const typed = useTypedNumber(value, onChange)
+const typed = useTypedNumber(value, onChange)
   return (
     <div className="grid gap-1">
       <Label htmlFor={id}>{label}</Label>
