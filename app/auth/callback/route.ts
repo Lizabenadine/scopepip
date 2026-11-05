@@ -36,15 +36,31 @@ export async function GET(request: NextRequest) {
   const pending = authClientFromRequest(request)
   const code = request.nextUrl.searchParams.get("code")
   const tokenHash = request.nextUrl.searchParams.get("token_hash")
+  const resolvedType = type || (isRecovery ? ("recovery" as EmailOtpType) : null)
   let confirmed = false
+  let errorMessage: string | null = null
+
   if (code) {
     const exchanged = await pending.supabase.auth.exchangeCodeForSession(code)
     confirmed = !exchanged.error
-  } else if (tokenHash && type) {
-    const verified = await pending.supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+    if (exchanged.error) errorMessage = exchanged.error.message
+  } else if (tokenHash && resolvedType) {
+    const verified = await pending.supabase.auth.verifyOtp({ token_hash: tokenHash, type: resolvedType })
     confirmed = !verified.error
+    if (verified.error) errorMessage = verified.error.message
   }
-  if (!confirmed) return attachAuthCookies(failed, pending.pending, pending.cacheHeaders)
+
+  if (!confirmed) {
+    const failureUrl = isRecovery
+      ? new URL(
+          `/reset-password?error=recovery_failed&error_description=${encodeURIComponent(
+            errorMessage || "This password reset link is invalid or has expired.",
+          )}`,
+          request.url,
+        )
+      : new URL("/signup?confirm=error", request.url)
+    return attachAuthCookies(NextResponse.redirect(failureUrl), pending.pending, pending.cacheHeaders)
+  }
 
   // For password recovery, redirect to the reset form — the user has not logged in yet.
   if (isRecovery) {

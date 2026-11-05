@@ -27,6 +27,15 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const { error: updateAuthError } = await pending.supabase.auth.updateUser({ password })
+  if (updateAuthError) {
+    return attachAuthCookies(
+      NextResponse.json({ ok: false, reason: updateAuthError.message }, { status: 400 }),
+      pending.pending,
+      pending.cacheHeaders,
+    )
+  }
+
   await updateUserPassword(data.user.email, password)
 
   return attachAuthCookies(NextResponse.json({ ok: true }), pending.pending, pending.cacheHeaders)

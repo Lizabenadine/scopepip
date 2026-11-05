@@ -42,23 +42,11 @@ export function ResetPasswordForm() {
       return
     }
 
-    // 3. If query has a code, exchange it for session
+    // 3. If query has a code or token_hash, forward to /auth/callback for secure server-side verification
     const code = searchParams.get("code")
-    if (code && supabaseAuthConfigured()) {
-      try {
-        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
-        supabase.auth
-          .exchangeCodeForSession(code)
-          .then(({ error: exchangeError }) => {
-            if (exchangeError) {
-              setExpired(true)
-              setError(exchangeError.message || "This password reset link is invalid or has expired.")
-            }
-          })
-          .catch(() => {})
-      } catch {
-        // ignore
-      }
+    const tokenHash = searchParams.get("token_hash")
+    if (code || tokenHash) {
+      window.location.replace(`/auth/callback${window.location.search}`)
       return
     }
 
@@ -144,19 +132,30 @@ export function ResetPasswordForm() {
     setPending(true)
     setError(null)
     try {
-      const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
-      const { error: updateError } = await supabase.auth.updateUser({ password })
-      if (updateError) {
-        setError(updateError.message || "The password could not be updated.")
-        return
+      let clientUpdated = false
+      if (supabaseAuthConfigured()) {
+        try {
+          const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+          const { error: updateError } = await supabase.auth.updateUser({ password })
+          if (!updateError) {
+            clientUpdated = true
+          }
+        } catch {
+          // Continue to server-side update
+        }
       }
 
-      // Sync the new password to Scopepipe's accounts store
-      await fetch("/api/auth/reset-password", {
+      // Update password via server-side session cookies and sync Scopepipe directory
+      const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ password }),
-      }).catch(() => {})
+      })
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string } | null
+      if (!clientUpdated && (!res.ok || !payload?.ok)) {
+        setError(payload?.reason || "The password could not be updated. Please request a new reset link.")
+        return
+      }
 
       setSuccess(true)
       setTimeout(() => {
