@@ -16,13 +16,26 @@ function otpType(value: string | null): EmailOtpType | null {
 }
 
 export async function GET(request: NextRequest) {
-  const failed = NextResponse.redirect(new URL("/signup?confirm=error", request.url))
+  const next = request.nextUrl.searchParams.get("next")
+  const typeParam = request.nextUrl.searchParams.get("type")
+  const type = otpType(typeParam)
+  const isRecovery = type === "recovery" || next === "/reset-password" || next?.startsWith("/reset-password")
+
+  const errorParam = request.nextUrl.searchParams.get("error") || request.nextUrl.searchParams.get("error_description")
+  if (errorParam && isRecovery) {
+    const errorUrl = new URL("/reset-password", request.url)
+    errorUrl.search = request.nextUrl.search
+    return NextResponse.redirect(errorUrl)
+  }
+
+  const failed = NextResponse.redirect(
+    isRecovery ? new URL("/reset-password?error=recovery_failed", request.url) : new URL("/signup?confirm=error", request.url),
+  )
   if (!supabaseAuthConfigured()) return failed
 
   const pending = authClientFromRequest(request)
   const code = request.nextUrl.searchParams.get("code")
   const tokenHash = request.nextUrl.searchParams.get("token_hash")
-  const type = otpType(request.nextUrl.searchParams.get("type"))
   let confirmed = false
   if (code) {
     const exchanged = await pending.supabase.auth.exchangeCodeForSession(code)
@@ -34,7 +47,7 @@ export async function GET(request: NextRequest) {
   if (!confirmed) return attachAuthCookies(failed, pending.pending, pending.cacheHeaders)
 
   // For password recovery, redirect to the reset form — the user has not logged in yet.
-  if (type === "recovery") {
+  if (isRecovery) {
     const reset = NextResponse.redirect(new URL("/reset-password", request.url))
     return attachAuthCookies(reset, pending.pending, pending.cacheHeaders)
   }

@@ -11,7 +11,7 @@ process.env.ACCOUNTS_PATH = path.join(dir, "accounts.json")
 process.env.BOOKS_DIR = path.join(dir, "books")
 process.env.AUTH_SECRET = "test-secret"
 
-const { addProjectManager, login, publicProposal, readCompanyBook, saveAccountLanguage, signup, writeCompanyBook } = await import("./directory.ts")
+const { addProjectManager, login, publicProposal, readCompanyBook, saveAccountLanguage, signup, updateUserPassword, writeCompanyBook } = await import("./directory.ts")
 
 describe("accounts", () => {
   it("checks a password and a session token", () => {
@@ -213,5 +213,35 @@ describe("accounts", () => {
     assert.equal(signedIn.ok, true)
     if (!signedIn.ok) return
     assert.equal(signedIn.user.language, "es")
+  })
+
+  it("updates user password and permits normal login with the new password", async () => {
+    const created = await signup({
+      name: "Sam Trent",
+      email: "sam@trent.test",
+      password: "initial-password",
+      companyName: "Trent Painting",
+    })
+    assert.equal(created.ok, true)
+
+    // Initial password works
+    const firstLogin = await login({ email: "sam@trent.test", password: "initial-password" })
+    assert.equal(firstLogin.ok, true)
+
+    // Update password via password reset
+    const updated = await updateUserPassword("sam@trent.test", "new-secure-password-123")
+    assert.equal(updated, true)
+
+    // Old password no longer works
+    const oldLogin = await login({ email: "sam@trent.test", password: "initial-password" })
+    assert.equal(oldLogin.ok, false)
+
+    // New password allows normal login
+    const newLogin = await login({ email: "sam@trent.test", password: "new-secure-password-123" })
+    assert.equal(newLogin.ok, true)
+    if (newLogin.ok) {
+      assert.equal(newLogin.user.email, "sam@trent.test")
+      assert.equal(newLogin.user.name, "Sam Trent")
+    }
   })
 })

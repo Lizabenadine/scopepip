@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { createBrowserClient } from "@supabase/ssr"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,44 @@ export function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("")
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [expired, setExpired] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    // 1. Check URL hash for error details from Supabase (e.g. otp_expired, access_denied)
+    const hash = window.location.hash
+    if (hash) {
+      const params = new URLSearchParams(hash.replace(/^#/, ""))
+      const errorCode = params.get("error_code")
+      const errorDesc = params.get("error_description")
+      if (errorCode === "otp_expired" || params.get("error") === "access_denied" || errorCode?.includes("expired")) {
+        setExpired(true)
+        setError(errorDesc?.replace(/\+/g, " ") || "This password reset link has expired or has already been used.")
+        return
+      }
+    }
+
+    // 2. Check search parameters for error details
+    const searchParams = new URLSearchParams(window.location.search)
+    if (searchParams.get("error")) {
+      setExpired(true)
+      const desc = searchParams.get("error_description")
+      setError(desc?.replace(/\+/g, " ") || "This password reset link is invalid or has expired.")
+      return
+    }
+
+    // 3. Initialize Supabase browser client to parse recovery hash tokens immediately
+    if (supabaseAuthConfigured()) {
+      try {
+        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+        supabase.auth.getSession().catch(() => {})
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
 
   if (!supabaseAuthConfigured()) {
     return (
@@ -23,6 +61,50 @@ export function ResetPasswordForm() {
             Password reset is not available on this instance. Sign in with your existing password.
           </p>
           <Link href="/login" className="text-sm font-medium text-primary">Back to sign in</Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (expired) {
+    return (
+      <div className="mx-auto grid w-full max-w-md gap-6">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-semibold tracking-tight">Reset link expired</h1>
+          <p className="text-sm text-destructive">
+            {error || "This password reset link is invalid or has expired."}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            For security, password reset links can only be used once and expire quickly.
+          </p>
+          <Link
+            href="/forgot-password"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 font-medium text-primary-foreground"
+          >
+            Request a new password reset
+          </Link>
+          <Link href="/login" className="text-center text-sm font-medium text-slate-500 hover:text-slate-900">
+            Back to sign in
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div className="mx-auto grid w-full max-w-md gap-6">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-semibold tracking-tight">Password updated</h1>
+          <p className="text-sm text-muted-foreground">
+            Your password has been reset successfully. Redirecting you to sign in...
+          </p>
+          <Link
+            href="/login?confirmed=1"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 font-medium text-primary-foreground"
+          >
+            Sign in now
+          </Link>
         </div>
       </div>
     )
@@ -47,7 +129,18 @@ export function ResetPasswordForm() {
         setError(updateError.message || "The password could not be updated.")
         return
       }
-      window.location.assign("/login?confirmed=1")
+
+      // Sync the new password to Scopepipe's accounts store
+      await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password }),
+      }).catch(() => {})
+
+      setSuccess(true)
+      setTimeout(() => {
+        window.location.assign("/login?confirmed=1")
+      }, 1500)
     } catch {
       setError("The password could not be updated.")
     } finally {

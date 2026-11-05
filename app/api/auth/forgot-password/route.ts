@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
   }
 
   const origin = (request.headers.get("origin") || new URL(request.url).origin).replace(/\/$/, "")
-  const redirectTo = `${origin}/auth/callback?type=recovery`
+  const canonicalOrigin = origin.replace(/^https:\/\/scopepipe\.com/, "https://www.scopepipe.com")
+  const redirectTo = `${canonicalOrigin}/auth/callback?type=recovery&next=/reset-password`
   const pending = authClientFromRequest(request)
 
   const { error } = await pending.supabase.auth.resetPasswordForEmail(email, { redirectTo })

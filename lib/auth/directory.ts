@@ -400,6 +400,18 @@ export async function login(input: {
   return { ok: true, user: toSession(user, company) }
 }
 
+export async function updateUserPassword(email: string, password: string): Promise<boolean> {
+  const normalized = normalizeEmail(email)
+  const accounts = await readAccounts()
+  const index = accounts.users.findIndex((item) => item.email === normalized)
+  if (index < 0) return false
+  const updatedUser: StoredUser = { ...accounts.users[index], passwordHash: hashPassword(password) }
+  const users = accounts.users.slice()
+  users[index] = updatedUser
+  await writeAccounts({ ...accounts, users })
+  return true
+}
+
 export async function addProjectManager(
   ownerId: string,
   input: { name: string; email: string; password: string },
