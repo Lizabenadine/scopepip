@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
 import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
-import { interpretForgotPassword } from "@/lib/auth/forgot-password-auth"
+import { interpretForgotPassword, recoveryRedirectUrl } from "@/lib/auth/forgot-password-auth"
 
 export const runtime = "nodejs"
 
@@ -20,9 +20,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const origin = (request.headers.get("origin") || new URL(request.url).origin).replace(/\/$/, "")
-  const canonicalOrigin = origin.replace(/^https:\/\/scopepipe\.com/, "https://www.scopepipe.com")
-  const redirectTo = `${canonicalOrigin}/auth/callback?type=recovery&next=/reset-password`
+  const redirectTo = recoveryRedirectUrl(request.headers.get("host") || "", new URL(request.url).origin)
   const pending = authClientFromRequest(request)
 
   const { error } = await pending.supabase.auth.resetPasswordForEmail(email, { redirectTo })

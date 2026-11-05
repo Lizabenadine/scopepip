@@ -34,3 +34,38 @@ export function interpretForgotPassword({
 
   return { kind: "error", reason: "Could not send reset email. Please try again later." }
 }
+
+export function recoveryRedirectUrl(host: string, requestOrigin: string): string {
+  const isLocal = host.includes("localhost") || host.includes("127.0.0.1")
+  if (isLocal) {
+    return `${requestOrigin.replace(/\/$/, "")}/reset-password`
+  }
+  // Supabase Site URL is configured as https://scopepipe.com (apex).
+  // Using https://scopepipe.com/reset-password guarantees Supabase accepts
+  // the redirect without discarding the path to the root homepage.
+  return "https://scopepipe.com/reset-password"
+}
+
+export function isRecoveryHashOrQuery({
+  hash = "",
+  search = "",
+}: {
+  hash?: string
+  search?: string
+}): boolean {
+  const h = hash.replace(/^#/, "")
+  const s = search.replace(/^\?/, "")
+  const hParams = new URLSearchParams(h)
+  const sParams = new URLSearchParams(s)
+
+  return Boolean(
+    hParams.get("type") === "recovery" ||
+      hParams.get("access_token") ||
+      hParams.get("error_code") ||
+      hParams.get("error") ||
+      sParams.get("type") === "recovery" ||
+      sParams.get("next") === "/reset-password" ||
+      sParams.get("error_code") ||
+      sParams.get("error"),
+  )
+}

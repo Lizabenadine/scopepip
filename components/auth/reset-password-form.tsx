@@ -25,7 +25,8 @@ export function ResetPasswordForm() {
       const params = new URLSearchParams(hash.replace(/^#/, ""))
       const errorCode = params.get("error_code")
       const errorDesc = params.get("error_description")
-      if (errorCode === "otp_expired" || params.get("error") === "access_denied" || errorCode?.includes("expired")) {
+      const errorType = params.get("error")
+      if (errorCode || errorType) {
         setExpired(true)
         setError(errorDesc?.replace(/\+/g, " ") || "This password reset link has expired or has already been used.")
         return
@@ -34,14 +35,34 @@ export function ResetPasswordForm() {
 
     // 2. Check search parameters for error details
     const searchParams = new URLSearchParams(window.location.search)
-    if (searchParams.get("error")) {
+    if (searchParams.get("error") || searchParams.get("error_code")) {
       setExpired(true)
       const desc = searchParams.get("error_description")
       setError(desc?.replace(/\+/g, " ") || "This password reset link is invalid or has expired.")
       return
     }
 
-    // 3. Initialize Supabase browser client to parse recovery hash tokens immediately
+    // 3. If query has a code, exchange it for session
+    const code = searchParams.get("code")
+    if (code && supabaseAuthConfigured()) {
+      try {
+        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+        supabase.auth
+          .exchangeCodeForSession(code)
+          .then(({ error: exchangeError }) => {
+            if (exchangeError) {
+              setExpired(true)
+              setError(exchangeError.message || "This password reset link is invalid or has expired.")
+            }
+          })
+          .catch(() => {})
+      } catch {
+        // ignore
+      }
+      return
+    }
+
+    // 4. Initialize Supabase browser client to parse recovery hash tokens immediately
     if (supabaseAuthConfigured()) {
       try {
         const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())

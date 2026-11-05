@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { interpretForgotPassword } from "./forgot-password-auth.ts"
+import { interpretForgotPassword, isRecoveryHashOrQuery, recoveryRedirectUrl } from "./forgot-password-auth.ts"
 
 describe("forgot-password auth", () => {
   it("detects when auth is unconfigured", () => {
@@ -47,5 +47,52 @@ describe("forgot-password auth", () => {
     if (outcome.kind === "error") {
       assert.match(outcome.reason, /could not send the reset email/i)
     }
+  })
+
+  it("builds the correct recovery redirectTo URL for production and development", () => {
+    // Production www and apex both target https://scopepipe.com/reset-password to match Supabase Site URL
+    assert.equal(
+      recoveryRedirectUrl("www.scopepipe.com", "https://www.scopepipe.com"),
+      "https://scopepipe.com/reset-password",
+    )
+    assert.equal(
+      recoveryRedirectUrl("scopepipe.com", "https://scopepipe.com"),
+      "https://scopepipe.com/reset-password",
+    )
+
+    // Localhost uses local origin
+    assert.equal(
+      recoveryRedirectUrl("localhost:3000", "http://localhost:3000"),
+      "http://localhost:3000/reset-password",
+    )
+    assert.equal(
+      recoveryRedirectUrl("127.0.0.1:3000", "http://127.0.0.1:3000"),
+      "http://127.0.0.1:3000/reset-password",
+    )
+  })
+
+  it("detects recovery hash fragments and errors accurately", () => {
+    // Recovery hash with tokens
+    assert.equal(
+      isRecoveryHashOrQuery({ hash: "#access_token=token&refresh_token=refresh&type=recovery" }),
+      true,
+    )
+    // Error hash from expired/pre-fetched links
+    assert.equal(
+      isRecoveryHashOrQuery({ hash: "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid" }),
+      true,
+    )
+    // Recovery query params
+    assert.equal(
+      isRecoveryHashOrQuery({ search: "?type=recovery&code=abc" }),
+      true,
+    )
+    assert.equal(
+      isRecoveryHashOrQuery({ search: "?next=/reset-password&code=abc" }),
+      true,
+    )
+    // Unrelated hash or query
+    assert.equal(isRecoveryHashOrQuery({ hash: "#features", search: "?utm_source=google" }), false)
+    assert.equal(isRecoveryHashOrQuery({ hash: "", search: "" }), false)
   })
 })
