@@ -1,0 +1,51 @@
+import { NextResponse, type NextRequest } from "next/server"
+import { supabaseAuthConfigured } from "@/lib/supabase/env"
+import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
+import { interpretForgotPassword } from "@/lib/auth/forgot-password-auth"
+
+export const runtime = "nodejs"
+
+export async function POST(request: NextRequest) {
+  const body = (await request.json().catch(() => null)) as { email?: string } | null
+  const email = typeof body?.email === "string" ? body.email.trim() : ""
+  if (!email.includes("@")) {
+    return NextResponse.json({ ok: false, reason: "Enter your email address." }, { status: 400 })
+  }
+
+  if (!supabaseAuthConfigured()) {
+    console.error("Password reset requested, but Supabase Auth is not configured on this instance.")
+    return NextResponse.json(
+      { ok: false, reason: "Password reset is not available on this instance." },
+      { status: 503 },
+    )
+  }
+
+  const origin = (request.headers.get("origin") || new URL(request.url).origin).replace(/\/$/, "")
+  const redirectTo = `${origin}/auth/callback?type=recovery`
+  const pending = authClientFromRequest(request)
+
+  const { error } = await pending.supabase.auth.resetPasswordForEmail(email, { redirectTo })
+  const outcome = interpretForgotPassword({
+    configured: true,
+    error: error ? { message: error.message, status: error.status, code: error.code } : null,
+  })
+
+  if (outcome.kind === "rate_limit") {
+    return attachAuthCookies(
+      NextResponse.json({ ok: false, reason: outcome.reason }, { status: 429 }),
+      pending.pending,
+      pending.cacheHeaders,
+    )
+  }
+
+  if (outcome.kind === "error") {
+    console.error("Supabase resetPasswordForEmail failed:", error)
+    return attachAuthCookies(
+      NextResponse.json({ ok: false, reason: outcome.reason }, { status: 500 }),
+      pending.pending,
+      pending.cacheHeaders,
+    )
+  }
+
+  return attachAuthCookies(NextResponse.json({ ok: true }), pending.pending, pending.cacheHeaders)
+}

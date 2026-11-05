@@ -83,7 +83,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/book/") ||
     pathname === "/login" ||
     pathname === "/signup" ||
-    pathname === "/verify-email"
+    pathname === "/verify-email" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password"
 
   useEffect(() => {
     if (estimatorLimited) router.replace("/dashboard")
@@ -110,7 +112,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (publicProposal) {
     const authPage = pathname === "/signup" || pathname === "/verify-email"
-    const authHeader = authPage || pathname === "/login"
+    const authHeader = authPage || pathname === "/login" || pathname === "/forgot-password" || pathname === "/reset-password"
     return (
       <div className={authPage ? "min-h-dvh bg-[#0B0F17] text-white" : "min-h-dvh bg-background text-foreground"}>
         {authHeader ? <LogoHeader /> : null}
