@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { interpretForgotPassword, isRecoveryHashOrQuery, recoveryRedirectUrl } from "./forgot-password-auth.ts"
+import {
+  canonicalResetPasswordUrl,
+  interpretForgotPassword,
+  isRecoveryHashOrQuery,
+  recoveryRedirectUrl,
+} from "./forgot-password-auth.ts"
 
 describe("forgot-password auth", () => {
   it("detects when auth is unconfigured", () => {
@@ -94,5 +99,20 @@ describe("forgot-password auth", () => {
     // Unrelated hash or query
     assert.equal(isRecoveryHashOrQuery({ hash: "#features", search: "?utm_source=google" }), false)
     assert.equal(isRecoveryHashOrQuery({ hash: "", search: "" }), false)
+  })
+
+  it("normalizes reset-password destination to canonical www domain", () => {
+    assert.equal(
+      canonicalResetPasswordUrl("https://scopepipe.com/auth/callback").href,
+      "https://www.scopepipe.com/reset-password",
+    )
+    assert.equal(
+      canonicalResetPasswordUrl("https://www.scopepipe.com/auth/callback").href,
+      "https://www.scopepipe.com/reset-password",
+    )
+    assert.equal(
+      canonicalResetPasswordUrl("http://localhost:3000/auth/callback").href,
+      "http://localhost:3000/reset-password",
+    )
   })
 })

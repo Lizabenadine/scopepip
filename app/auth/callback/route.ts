@@ -3,6 +3,7 @@ import type { EmailOtpType } from "@supabase/supabase-js"
 import { authSecret, sessionByEmail } from "@/lib/auth/directory"
 import { sessionCookie } from "@/lib/auth/session"
 import { signSession } from "@/lib/auth/session-token"
+import { canonicalResetPasswordUrl } from "@/lib/auth/forgot-password-auth"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
 import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
 
@@ -23,13 +24,13 @@ export async function GET(request: NextRequest) {
 
   const errorParam = request.nextUrl.searchParams.get("error") || request.nextUrl.searchParams.get("error_description")
   if (errorParam && isRecovery) {
-    const errorUrl = new URL("/reset-password", request.url)
+    const errorUrl = canonicalResetPasswordUrl(request.url)
     errorUrl.search = request.nextUrl.search
     return NextResponse.redirect(errorUrl)
   }
 
   const failed = NextResponse.redirect(
-    isRecovery ? new URL("/reset-password?error=recovery_failed", request.url) : new URL("/signup?confirm=error", request.url),
+    isRecovery ? canonicalResetPasswordUrl(request.url) : new URL("/signup?confirm=error", request.url),
   )
   if (!supabaseAuthConfigured()) return failed
 
@@ -51,20 +52,22 @@ export async function GET(request: NextRequest) {
   }
 
   if (!confirmed) {
-    const failureUrl = isRecovery
-      ? new URL(
-          `/reset-password?error=recovery_failed&error_description=${encodeURIComponent(
-            errorMessage || "This password reset link is invalid or has expired.",
-          )}`,
-          request.url,
-        )
-      : new URL("/signup?confirm=error", request.url)
-    return attachAuthCookies(NextResponse.redirect(failureUrl), pending.pending, pending.cacheHeaders)
+    const failureTarget = canonicalResetPasswordUrl(request.url)
+    failureTarget.searchParams.set("error", "recovery_failed")
+    failureTarget.searchParams.set(
+      "error_description",
+      errorMessage || "This password reset link is invalid or has expired.",
+    )
+    return attachAuthCookies(
+      NextResponse.redirect(isRecovery ? failureTarget : new URL("/signup?confirm=error", request.url)),
+      pending.pending,
+      pending.cacheHeaders,
+    )
   }
 
   // For password recovery, redirect to the reset form — the user has not logged in yet.
   if (isRecovery) {
-    const reset = NextResponse.redirect(new URL("/reset-password", request.url))
+    const reset = NextResponse.redirect(canonicalResetPasswordUrl(request.url))
     return attachAuthCookies(reset, pending.pending, pending.cacheHeaders)
   }
 

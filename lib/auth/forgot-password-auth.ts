@@ -46,6 +46,14 @@ export function recoveryRedirectUrl(host: string, requestOrigin: string): string
   return "https://scopepipe.com/reset-password"
 }
 
+export function canonicalResetPasswordUrl(requestUrl: string): URL {
+  const url = new URL("/reset-password", requestUrl)
+  if (url.hostname === "scopepipe.com") {
+    url.hostname = "www.scopepipe.com"
+  }
+  return url
+}
+
 export function isRecoveryHashOrQuery({
   hash = "",
   search = "",
