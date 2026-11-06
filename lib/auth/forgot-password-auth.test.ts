@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { createClient } from "@supabase/supabase-js"
 import {
   canonicalResetPasswordUrl,
   interpretForgotPassword,
@@ -114,5 +115,113 @@ describe("forgot-password auth", () => {
       canonicalResetPasswordUrl("http://localhost:3000/auth/callback").href,
       "http://localhost:3000/reset-password",
     )
+  })
+
+  it("requests recovery without PKCE code_challenge, verifies token_hash once, and updates password with verified session", async () => {
+    const calls: { method: string; url: string; body: Record<string, unknown>; authHeader: string }[] = []
+
+    const mockFetch: typeof fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+      const method = init?.method || "GET"
+      const bodyText = typeof init?.body === "string" ? init.body : "{}"
+      const body = JSON.parse(bodyText) as Record<string, unknown>
+      const headers = new Headers(init?.headers)
+      const authHeader = headers.get("Authorization") || headers.get("authorization") || ""
+
+      const pathname = new URL(url).pathname
+      calls.push({ method, url, body, authHeader })
+
+      if (pathname.endsWith("/auth/v1/recover")) {
+        return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } })
+      }
+
+      if (pathname.endsWith("/auth/v1/verify")) {
+        return new Response(
+          JSON.stringify({
+            access_token: "verified-recovery-jwt",
+            token_type: "bearer",
+            expires_in: 3600,
+            refresh_token: "verified-refresh-token",
+            user: {
+              id: "user-123",
+              aud: "authenticated",
+              role: "authenticated",
+              email: "contractor@example.com",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+
+      if (pathname.endsWith("/auth/v1/user") && method === "PUT") {
+        return new Response(
+          JSON.stringify({
+            id: "user-123",
+            aud: "authenticated",
+            role: "authenticated",
+            email: "contractor@example.com",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+
+      return new Response(JSON.stringify({ error: "not_found" }), { status: 404 })
+    }
+
+    // 1. Forgot-password client: must not send PKCE code_challenge
+    const forgotClient = createClient("https://example.supabase.co", "anon-key", {
+      auth: {
+        flowType: "implicit",
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+      global: { fetch: mockFetch },
+    })
+
+    const recoverRes = await forgotClient.auth.resetPasswordForEmail("contractor@example.com", {
+      redirectTo: "https://scopepipe.com/reset-password",
+    })
+    assert.equal(recoverRes.error, null)
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].method, "POST")
+    assert.equal(calls[0].body.code_challenge, null)
+    assert.equal(calls[0].body.code_challenge_method, null)
+
+    // 2. Reset-password client: verifies token_hash once and updates password with resulting session
+    const resetClient = createClient("https://example.supabase.co", "anon-key", {
+      auth: {
+        flowType: "implicit",
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+      global: { fetch: mockFetch },
+    })
+
+    const verifyRes = await resetClient.auth.verifyOtp({
+      token_hash: "standard-64-char-token-hash",
+      type: "recovery",
+    })
+    assert.equal(verifyRes.error, null)
+    assert.equal(verifyRes.data.user?.email, "contractor@example.com")
+    assert.equal(verifyRes.data.session?.access_token, "verified-recovery-jwt")
+
+    const updateRes = await resetClient.auth.updateUser({
+      password: "NewSecurePassword123!",
+    })
+    assert.equal(updateRes.error, null)
+    assert.equal(updateRes.data.user?.email, "contractor@example.com")
+
+    // Verify exact network calls: 1 recover, 1 verify, 1 user update with Bearer verified-recovery-jwt
+    assert.equal(calls.length, 3)
+    assert.equal(calls[1].url.endsWith("/auth/v1/verify"), true)
+    assert.equal(calls[1].body.token_hash, "standard-64-char-token-hash")
+    assert.equal(calls[1].body.type, "recovery")
+
+    assert.equal(calls[2].url.endsWith("/auth/v1/user"), true)
+    assert.equal(calls[2].method, "PUT")
+    assert.equal(calls[2].authHeader, "Bearer verified-recovery-jwt")
+    assert.equal(calls[2].body.password, "NewSecurePassword123!")
   })
 })

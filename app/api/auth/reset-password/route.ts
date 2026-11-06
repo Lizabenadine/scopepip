@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { supabaseAuthConfigured } from "@/lib/supabase/env"
-import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
+import { createClient } from "@supabase/supabase-js"
+import { supabaseAuthConfigured, supabaseBrowserUrl, supabasePublishableKey } from "@/lib/supabase/env"
 import { updateUserPassword } from "@/lib/auth/directory"
 
 export const runtime = "nodejs"
@@ -32,46 +32,45 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const pending = authClientFromRequest(request)
+  const supabase = createClient(supabaseBrowserUrl(), supabasePublishableKey(), {
+    auth: {
+      flowType: "implicit",
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  })
 
-  // 1. Verify the one-time recovery token_hash with Supabase Auth
-  const { data: verifyData, error: verifyError } = await pending.supabase.auth.verifyOtp({
+  // 1. Verify the one-time recovery token_hash once with Supabase Auth
+  const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
     type: "recovery",
   })
 
-  if (verifyError || !verifyData.user?.email) {
-    return attachAuthCookies(
-      NextResponse.json(
-        {
-          ok: false,
-          reason: verifyError?.message || "This password reset link is invalid or has expired. Please request a new one.",
-        },
-        { status: 400 },
-      ),
-      pending.pending,
-      pending.cacheHeaders,
+  if (verifyError || !verifyData.session || !verifyData.user?.email) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: verifyError?.message || "This password reset link is invalid or has expired. Please request a new one.",
+      },
+      { status: 400 },
     )
   }
 
   const email = verifyData.user.email
 
   // 2. Update the user's password in Supabase Auth using the verified recovery session
-  const { data: updateData, error: updateError } = await pending.supabase.auth.updateUser({
+  const { data: updateData, error: updateError } = await supabase.auth.updateUser({
     password,
   })
 
   if (updateError || !updateData.user) {
-    return attachAuthCookies(
-      NextResponse.json(
-        {
-          ok: false,
-          reason: updateError?.message || "The password could not be updated. Please try again.",
-        },
-        { status: 400 },
-      ),
-      pending.pending,
-      pending.cacheHeaders,
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: updateError?.message || "The password could not be updated. Please try again.",
+      },
+      { status: 400 },
     )
   }
 
@@ -82,9 +81,5 @@ export async function POST(request: NextRequest) {
     // On Vercel without SUPABASE_SECRET_KEY, /var/task is read-only; Supabase Auth holds the updated password
   }
 
-  return attachAuthCookies(
-    NextResponse.json({ ok: true }),
-    pending.pending,
-    pending.cacheHeaders,
-  )
+  return NextResponse.json({ ok: true })
 }
