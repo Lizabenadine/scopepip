@@ -204,15 +204,19 @@ class SmtpSession {
     rawSocket.removeAllListeners("error")
     rawSocket.removeAllListeners("close")
     const tlsSocket = await new Promise<tls.TLSSocket>((resolve, reject) => {
+      const onError = (err: Error) => reject(err)
       const upgraded = tls.connect(
         {
           socket: rawSocket,
           servername: host,
           rejectUnauthorized,
         },
-        () => resolve(upgraded),
+        () => {
+          upgraded.removeListener("error", onError)
+          resolve(upgraded)
+        },
       )
-      upgraded.once("error", reject)
+      upgraded.once("error", onError)
     })
     this.socket = tlsSocket
     this.buffer = ""
@@ -228,17 +232,35 @@ class SmtpSession {
   }
 }
 
+function unquotePass(raw: string): string {
+  const trimmed = raw.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1)
+  }
+  return trimmed
+}
+
 export async function sendSmtpEmail(
   config: SmtpConfig,
   message: SmtpMessage,
 ): Promise<{ ok: true; detail: string } | { ok: false; detail: string }> {
   const to = extractEmailAddress(message.to)
   if (!to) return { ok: false, detail: "The client has no valid email address." }
-  const sender = formatSenderAddress(config.from || config.user, message.companyName)
+  const userAddress = extractEmailAddress(config.user)
+  const fromCandidate = extractEmailAddress(config.from) ? config.from : config.user
+  let sender = formatSenderAddress(fromCandidate, message.companyName)
   if (!sender.envelope) {
     return { ok: false, detail: "The sender email address is not configured." }
   }
-  const host = config.host.trim()
+  const host = config.host
+    .trim()
+    .replace(/^smtps?:\/\//i, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "")
+    .trim()
   const port = config.port || 465
   const secure = config.secure ?? port === 465
   const rejectUnauthorized = config.rejectUnauthorized ?? process.env.SMTP_ALLOW_SELF_SIGNED !== "true"
@@ -297,22 +319,34 @@ export async function sendSmtpEmail(
         }
       }
 
-      const plainToken = Buffer.from(`\0${config.user}\0${config.pass}`, "utf8").toString("base64")
+      const authUser = unquotePass(config.user)
+      const authPass = unquotePass(config.pass)
+      const plainToken = Buffer.from(`\0${authUser}\0${authPass}`, "utf8").toString("base64")
       let auth = await session.command(`AUTH PLAIN ${plainToken}`)
       if (auth.code !== 235 && /AUTH.*LOGIN/i.test(ehlo.text)) {
         const loginStep = await session.command("AUTH LOGIN")
         if (loginStep.code === 334) {
-          const userStep = await session.command(Buffer.from(config.user, "utf8").toString("base64"))
+          const userStep = await session.command(Buffer.from(authUser, "utf8").toString("base64"))
           if (userStep.code === 334) {
-            auth = await session.command(Buffer.from(config.pass, "utf8").toString("base64"))
+            auth = await session.command(Buffer.from(authPass, "utf8").toString("base64"))
           }
         }
       }
+
       if (auth.code !== 235) {
         return { ok: false, detail: `SMTP authentication failed (${auth.code}).` }
       }
 
-      const mailFrom = await session.command(`MAIL FROM:<${sender.envelope}>`)
+      let mailFrom = await session.command(`MAIL FROM:<${sender.envelope}>`)
+      if (
+        mailFrom.code !== 250 &&
+        userAddress &&
+        userAddress.toLowerCase() !== sender.envelope.toLowerCase()
+      ) {
+        await session.command("RSET").catch(() => undefined)
+        sender = formatSenderAddress(userAddress, message.companyName)
+        mailFrom = await session.command(`MAIL FROM:<${sender.envelope}>`)
+      }
       if (mailFrom.code !== 250) {
         return { ok: false, detail: `Sender rejected (${mailFrom.code}): ${mailFrom.text.slice(0, 120)}` }
       }

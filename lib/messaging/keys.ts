@@ -67,11 +67,27 @@ function savedKeys(): SendKeys {
 }
 
 function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : ""
+  if (typeof value !== "string") return ""
+  const trimmed = value.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
+function cleanHost(value: string): string {
+  return text(value)
+    .replace(/^smtps?:\/\//i, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "")
+    .trim()
 }
 
 function envOrSaved(name: string, saved: string): string {
-  const fromEnv = process.env[name]?.trim()
+  const fromEnv = text(process.env[name])
   return fromEnv || saved
 }
 
@@ -81,14 +97,15 @@ export function readSendKeys(): SendKeys {
   const smtpUser = envOrSaved("SMTP_USER", saved.smtpUser)
   const smtpPass = envOrSaved("SMTP_PASS", saved.smtpPass)
   const smtpHost =
-    envOrSaved("SMTP_HOST", saved.smtpHost) ||
+    cleanHost(envOrSaved("SMTP_HOST", saved.smtpHost)) ||
     (smtpUser && smtpPass ? "smtp.stackmail.com" : "")
-  const smtpPort = Number(process.env.SMTP_PORT?.trim() || "") || saved.smtpPort || 465
+  const envPort = Number(text(process.env.SMTP_PORT))
+  const smtpPort = (Number.isFinite(envPort) && envPort > 0 ? envPort : 0) || saved.smtpPort || 465
   const resendFrom = envOrSaved("FOLLOW_UP_FROM_EMAIL", saved.resendFrom)
+  const rawSmtpFrom = text(process.env.SMTP_FROM)
   const smtpFrom =
-    process.env.SMTP_FROM?.trim() ||
-    resendFrom ||
-    saved.smtpFrom ||
+    [rawSmtpFrom, resendFrom, saved.smtpFrom, smtpUser].find((candidate) => candidate.includes("@")) ||
+    rawSmtpFrom ||
     smtpUser
   return {
     smtpHost,

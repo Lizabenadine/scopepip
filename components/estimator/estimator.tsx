@@ -72,6 +72,11 @@ export function Estimator({
   const [saveOpen, setSaveOpen] = useState(false)
   const [templateName, setTemplateName] = useState("")
   const [templateError, setTemplateError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [sendFeedback, setSendFeedback] = useState<{
+    tone: "success" | "error"
+    message: string
+  } | null>(null)
 
   if (!estimator.ready) {
     return (
@@ -130,24 +135,37 @@ export function Estimator({
   }
 
   const sendEstimate = async () => {
+    if (sending) return
     const email = draft.clientEmail.trim()
     if (!email.includes("@") || /\s/.test(email)) {
-      setStatus("Add the client's email. They accept the estimate from the link in that email.")
+      const msg = "Add the client's email. They accept the estimate from the link in that email."
+      setStatus(msg)
+      setSendFeedback({ tone: "error", message: msg })
       return
     }
     const saved = persist()
     if (!saved) return
-    if (mode === "new") router.push(`/estimates/${saved.id}`)
-    await flushBook()
+    if (mode === "new" && typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/estimates/${saved.id}`)
+    }
+    setSending(true)
+    setSendFeedback(null)
     try {
+      await flushBook()
       const response = await fetch(`/api/proposals/${saved.id}/email`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          email,
+          clientName: draft.clientName,
+          estimate: saved,
+        }),
       })
       const body = (await response.json().catch(() => null)) as { detail?: string; reason?: string; delivery?: string } | null
       if (!response.ok || body?.delivery !== "sent") {
-        setStatus(body?.reason || body?.detail || "The estimate could not be emailed.")
+        const msg = body?.reason || body?.detail || "The estimate could not be emailed."
+        setStatus(msg)
+        setSendFeedback({ tone: "error", message: msg })
         return
       }
       const sentStage = stages.find((item) => item.slug === "estimate_sent")
@@ -169,9 +187,16 @@ export function Estimator({
       if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
         placeOnColumn(saved.id, "proposal_sent")
       }
-      setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
+      await flushBook()
+      const sentMessage = "Sent. The job is in Estimate Sent. The client accepts from the link in the email."
+      setStatus(sentMessage)
+      setSendFeedback({ tone: "success", message: sentMessage })
     } catch {
-      setStatus("The estimate could not be emailed.")
+      const msg = "The estimate could not be emailed."
+      setStatus(msg)
+      setSendFeedback({ tone: "error", message: msg })
+    } finally {
+      setSending(false)
     }
   }
 
@@ -303,18 +328,34 @@ export function Estimator({
                 autoComplete="email"
                 placeholder="name@email.com"
                 className="h-11 sm:max-w-sm"
-                onValueChange={(clientEmail) => patch({ clientEmail })}
+                onValueChange={(clientEmail) => {
+                  setSendFeedback(null)
+                  patch({ clientEmail })
+                }}
               />
               <button
                 type="button"
                 data-testid="send-estimate"
                 className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
-                disabled={disabled}
+                disabled={disabled || sending}
                 onClick={() => void sendEstimate()}
               >
-                Send estimate
+                {sending ? "Sending…" : "Send estimate"}
               </button>
             </div>
+            {sendFeedback ? (
+              <p
+                role={sendFeedback.tone === "error" ? "alert" : "status"}
+                data-testid="send-estimate-status"
+                className={
+                  sendFeedback.tone === "error"
+                    ? "text-sm font-medium text-red-600 dark:text-red-400"
+                    : "text-sm font-medium text-emerald-700 dark:text-emerald-400"
+                }
+              >
+                {sendFeedback.message}
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Sending emails the proposal and puts this job in Estimate Sent. The client opens the email and accepts from the link.
             </p>
