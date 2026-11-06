@@ -88,6 +88,7 @@ let current: Snapshot = SERVER_SNAPSHOT
 let bootstrapped = false
 let officeSession: OfficeSession | null = null
 let bookRevision = 0
+let lastSyncedState: ScopeState | null = null
 let saving = false
 let dirty = false
 const listeners = new Set<() => void>()
@@ -196,9 +197,149 @@ function persist(state: ScopeState) {
   if (!saving) void pumpBook()
 }
 
+function mergeById<T extends { id: string }>(first: T[] | undefined, second: T[] | undefined): T[] | undefined {
+  if (!first?.length && !second?.length) return first ?? second
+  const map = new Map<string, T>()
+  for (const item of first ?? []) map.set(item.id, item)
+  for (const item of second ?? []) map.set(item.id, item)
+  return Array.from(map.values())
+}
+
+function mergeEstimateConflict(base: Estimate | undefined, server: Estimate, local: Estimate): Estimate {
+  const localChanged = !base || JSON.stringify(local) !== JSON.stringify(base)
+  const serverChanged = !base || JSON.stringify(server) !== JSON.stringify(base)
+  if (!localChanged) return server
+  if (!serverChanged) return local
+  const primary = localChanged ? local : server
+  const serverPaid = server.paymentStatus === "paid" || server.paymentStatus === "deposit_paid"
+  return {
+    ...primary,
+    acceptedAt: server.acceptedAt ?? local.acceptedAt,
+    declinedAt: server.declinedAt ?? local.declinedAt,
+    signature: server.signature ?? local.signature,
+    depositReceipt: server.depositReceipt ?? local.depositReceipt,
+    paymentStatus: serverPaid ? server.paymentStatus : local.paymentStatus,
+    proposalOpens: mergeById(server.proposalOpens, local.proposalOpens),
+    proposalMessages: mergeById(server.proposalMessages, local.proposalMessages),
+    followUpLog: mergeById(server.followUpLog, local.followUpLog),
+    followUp: local.followUp ?? server.followUp,
+  }
+}
+
+function mergeBookConflict(base: ScopeState | null, server: ScopeState, local: ScopeState): ScopeState {
+  const baseEstMap = new Map((base?.estimates ?? []).map((item) => [item.id, item]))
+  const serverEstMap = new Map(server.estimates.map((item) => [item.id, item]))
+  const localEstMap = new Map(local.estimates.map((item) => [item.id, item]))
+  const estimateIds = new Set<string>([
+    ...local.estimates.map((item) => item.id),
+    ...server.estimates.map((item) => item.id),
+  ])
+  const estimates: Estimate[] = []
+  for (const id of estimateIds) {
+    const localEst = localEstMap.get(id)
+    const serverEst = serverEstMap.get(id)
+    const baseEst = baseEstMap.get(id)
+    if (localEst && serverEst) {
+      estimates.push(mergeEstimateConflict(baseEst, serverEst, localEst))
+    } else if (localEst && !serverEst) {
+      if (!baseEst || JSON.stringify(localEst) !== JSON.stringify(baseEst)) {
+        estimates.push(localEst)
+      }
+    } else if (serverEst && !localEst) {
+      if (!baseEst || JSON.stringify(serverEst) !== JSON.stringify(baseEst)) {
+        estimates.push(serverEst)
+      }
+    }
+  }
+
+  const baseClientMap = new Map((base?.clients ?? []).map((item) => [item.id, item]))
+  const serverClientMap = new Map(server.clients.map((item) => [item.id, item]))
+  const localClientMap = new Map(local.clients.map((item) => [item.id, item]))
+  const clientIds = new Set<string>([
+    ...local.clients.map((item) => item.id),
+    ...server.clients.map((item) => item.id),
+  ])
+  const clients: Client[] = []
+  for (const id of clientIds) {
+    const localClient = localClientMap.get(id)
+    const serverClient = serverClientMap.get(id)
+    const baseClient = baseClientMap.get(id)
+    if (localClient && serverClient) {
+      const localChanged = !baseClient || JSON.stringify(localClient) !== JSON.stringify(baseClient)
+      const chosen = localChanged ? localClient : serverClient
+      clients.push({
+        ...chosen,
+        messages: mergeById(serverClient.messages, localClient.messages),
+      })
+    } else if (localClient && !serverClient) {
+      if (!baseClient || JSON.stringify(localClient) !== JSON.stringify(baseClient)) {
+        clients.push(localClient)
+      }
+    } else if (serverClient && !localEstMap.size) {
+      clients.push(serverClient)
+    } else if (serverClient) {
+      if (!baseClient || JSON.stringify(serverClient) !== JSON.stringify(baseClient)) {
+        clients.push(serverClient)
+      }
+    }
+  }
+
+  const keptEstimateIds = new Set(estimates.map((item) => item.id))
+  const baseOrderMap = new Map((base?.workOrders ?? []).map((item) => [item.estimateId, item]))
+  const serverOrderMap = new Map(server.workOrders.map((item) => [item.estimateId, item]))
+  const localOrderMap = new Map(local.workOrders.map((item) => [item.estimateId, item]))
+  const orderIds = new Set<string>([
+    ...local.workOrders.map((item) => item.estimateId),
+    ...server.workOrders.map((item) => item.estimateId),
+  ])
+  const workOrders: WorkOrder[] = []
+  for (const estimateId of orderIds) {
+    if (!keptEstimateIds.has(estimateId)) continue
+    const localOrder = localOrderMap.get(estimateId)
+    const serverOrder = serverOrderMap.get(estimateId)
+    const baseOrder = baseOrderMap.get(estimateId)
+    if (localOrder && serverOrder) {
+      const localChanged = !baseOrder || JSON.stringify(localOrder) !== JSON.stringify(baseOrder)
+      const chosen = localChanged ? localOrder : serverOrder
+      workOrders.push({
+        ...chosen,
+        photos: mergeById(serverOrder.photos, localOrder.photos) ?? [],
+      })
+    } else if (localOrder) {
+      workOrders.push(localOrder)
+    } else if (serverOrder) {
+      workOrders.push(serverOrder)
+    }
+  }
+
+  const pickField = <K extends keyof ScopeState>(key: K): ScopeState[K] => {
+    if (!base) return local[key]
+    return JSON.stringify(local[key]) !== JSON.stringify(base[key]) ? local[key] : server[key]
+  }
+
+  return {
+    ...server,
+    clients,
+    estimates,
+    workOrders,
+    crews: pickField("crews"),
+    productionRates: pickField("productionRates"),
+    estimateSettings: pickField("estimateSettings"),
+    customColumns: pickField("customColumns"),
+    columnLabels: pickField("columnLabels"),
+    savedTemplates: pickField("savedTemplates"),
+    areaNames: pickField("areaNames"),
+    learnedPaces: pickField("learnedPaces"),
+    followUpSequences: pickField("followUpSequences"),
+    unmatchedTexts: mergeById(server.unmatchedTexts, local.unmatchedTexts),
+  }
+}
+
 async function pumpBook() {
   saving = true
+  let retriedConflict = false
   while (dirty && officeSession) {
+    await Promise.resolve()
     dirty = false
     const state = getSnapshot().state
     const revision = bookRevision
@@ -212,14 +353,25 @@ async function pumpBook() {
       if (response.status === 409) {
         const fresh = (await response.json()) as { revision?: number; state?: unknown }
         if (typeof fresh.revision === "number" && isScopeState(fresh.state)) {
+          const merged = withBookSubstrates(mergeBookConflict(lastSyncedState, fresh.state, getSnapshot().state))
           bookRevision = fresh.revision
+          lastSyncedState = fresh.state
+          const hasUnsavedLocalDiff = JSON.stringify(merged) !== JSON.stringify(fresh.state)
           current = {
-            state: fresh.state,
-            notice: "This book was updated somewhere else. The latest copy is showing.",
+            state: merged,
+            notice: retriedConflict
+              ? "This book was updated somewhere else. Your unsaved changes were preserved."
+              : current.notice,
             ready: true,
             session: officeSession,
           }
+          if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, merged)
           emit()
+          if (!retriedConflict && hasUnsavedLocalDiff) {
+            retriedConflict = true
+            dirty = true
+            continue
+          }
         }
         dirty = false
         break
@@ -227,6 +379,9 @@ async function pumpBook() {
       if (response.ok) {
         const saved = (await response.json()) as { revision?: number }
         if (typeof saved.revision === "number") bookRevision = saved.revision
+        lastSyncedState = state
+        retriedConflict = false
+        if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, state)
       } else if (response.status !== 409) {
         dirty = false
         break
@@ -241,11 +396,12 @@ async function pumpBook() {
 
 async function loadOfficeBook() {
   if (!officeSession) return
-  const response = await fetch("/api/account/book")
+  const response = await fetch("/api/account/book", { cache: "no-store" })
   if (!response.ok) {
     const cached = readBrowserBook(officeSession.companyId)
     const state = withBookSubstrates(cached?.state ?? createCompanyBook(officeSession.companyName))
     bookRevision = cached?.revision ?? 1
+    lastSyncedState = state
     if (!cached) saveBrowserBook(officeSession.companyId, bookRevision, state)
     current = { state, notice: null, ready: true, session: officeSession }
     emit()
@@ -263,12 +419,14 @@ async function loadOfficeBook() {
     return
   }
   bookRevision = payload.revision
+  lastSyncedState = payload.state
   let state = withBookSubstrates(payload.state)
   const cloud = await pullCloud().catch(() => null)
   if (cloud) {
     const merged = mergeCloud(state, cloud)
     if (merged.changed) state = merged.state
   }
+  saveBrowserBook(officeSession.companyId, bookRevision, state)
   current = { state, notice: null, ready: true, session: officeSession }
   if (state !== payload.state) persist(state)
   emit()
@@ -1347,13 +1505,23 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     void readCompanyProfile().then((profile) => {
       if (cancelled || !profile?.companyName.trim() || !getSnapshot().session) return
       const latest = getSnapshot().state
+      const nextName = profile.companyName.trim()
+      const nextEmail = profile.companyEmail.trim() || latest.estimateSettings.companyEmail
+      const nextLogo = profile.logoUrl.trim() || latest.estimateSettings.logoUrl
+      if (
+        nextName === latest.estimateSettings.companyName &&
+        nextEmail === latest.estimateSettings.companyEmail &&
+        nextLogo === latest.estimateSettings.logoUrl
+      ) {
+        return
+      }
       commit({
         ...latest,
         estimateSettings: {
           ...latest.estimateSettings,
-          companyName: profile.companyName.trim(),
-          companyEmail: profile.companyEmail.trim() || latest.estimateSettings.companyEmail,
-          logoUrl: profile.logoUrl.trim() || latest.estimateSettings.logoUrl,
+          companyName: nextName,
+          companyEmail: nextEmail,
+          logoUrl: nextLogo,
         },
       })
     })

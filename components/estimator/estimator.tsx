@@ -151,26 +151,26 @@ export function Estimator({
         return
       }
       const link = `${window.location.origin}/p/${saved.publicToken}`
+      const sentStage = stages.find((item) => item.slug === "estimate_sent")
+      const hold =
+        !sentStage ||
+        draft.clientStatus === "accepted" ||
+        stage?.slug === "scheduled" ||
+        stage?.slug === "completed" ||
+        stage?.id === sentStage.id
+      if (!hold && sentStage) {
+        moveStage(saved.id, sentStage.id)
+        patch({
+          id: saved.id,
+          clientId: saved.clientId,
+          stageId: sentStage.id,
+          clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
+        })
+      }
+      if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
+        placeOnColumn(saved.id, "proposal_sent")
+      }
       if (body?.delivery === "sent") {
-        const sentStage = stages.find((item) => item.slug === "estimate_sent")
-        const hold =
-          !sentStage ||
-          draft.clientStatus === "accepted" ||
-          stage?.slug === "scheduled" ||
-          stage?.slug === "completed" ||
-          stage?.id === sentStage.id
-        if (!hold && sentStage) {
-          moveStage(saved.id, sentStage.id)
-          patch({
-            id: saved.id,
-            clientId: saved.clientId,
-            stageId: sentStage.id,
-            clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
-          })
-        }
-        if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
-          placeOnColumn(saved.id, "proposal_sent")
-        }
         setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
         return
       }
@@ -185,12 +185,17 @@ export function Estimator({
     const saved = persist()
     if (!saved) return
     if (next.slug === "scheduled") {
+      patch({ id: saved.id, clientId: saved.clientId })
       setScheduleOpen(true)
-      if (mode === "new") router.push(`/estimates/${saved.id}`)
       return
     }
     moveStage(saved.id, next.id)
-    patch({ id: saved.id, clientId: saved.clientId, stageId: next.id })
+    patch({
+      id: saved.id,
+      clientId: saved.clientId,
+      stageId: next.id,
+      clientStatus: next.slug === "estimate_sent" && draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
+    })
     if (mode === "new") router.push(`/estimates/${saved.id}`)
   }
 

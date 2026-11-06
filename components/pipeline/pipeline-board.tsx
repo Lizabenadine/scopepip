@@ -8,6 +8,7 @@ import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
 import { officeCount, officeLabel, officeSalesNote } from "@/lib/office/dashboard-copy"
 import { DealCard } from "@/components/pipeline/deal-card"
 import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
+import { SalesPipelineBoard } from "@/components/pipeline/sales-pipeline-board"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SCOPE_VERSION } from "@/lib/data/seed"
@@ -33,6 +34,13 @@ function todayIso(): string {
 }
 
 export function PipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
+  if (kind === "sales") {
+    return <SalesPipelineBoard />
+  }
+  return <JobsPipelineBoard kind={kind} />
+}
+
+function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   const scope = useScope()
   const { language } = useFieldLanguage()
   const progressOnly = kind === "jobs" && scope.session?.role === "project_manager"

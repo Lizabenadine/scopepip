@@ -9,7 +9,7 @@ function workOrderPath(companyId: string): string {
 }
 
 async function readWorkOrders(supabase: SupabaseClient, companyId: string): Promise<CloudWorkOrder[]> {
-  const downloaded = await supabase.storage.from(BUCKET).download(workOrderPath(companyId))
+  const downloaded = await supabase.storage.from(BUCKET).download(workOrderPath(companyId), { cacheNonce: String(Date.now()) }, { cache: "no-store" })
   if (downloaded.error || !downloaded.data) return []
   try {
     const parsed = JSON.parse(await downloaded.data.text()) as unknown
@@ -23,6 +23,7 @@ async function readWorkOrders(supabase: SupabaseClient, companyId: string): Prom
 async function writeWorkOrders(supabase: SupabaseClient, companyId: string, orders: CloudWorkOrder[]): Promise<void> {
   const uploaded = await supabase.storage.from(BUCKET).upload(workOrderPath(companyId), JSON.stringify(orders), {
     upsert: true,
+    cacheControl: "0",
     contentType: "application/json",
   })
   if (uploaded.error) throw new Error(uploaded.error.message)

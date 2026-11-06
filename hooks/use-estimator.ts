@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
 import { applyLearnedPaces } from "@/lib/estimate/learned-pace"
 import { listActivity } from "@/lib/estimate/activity"
@@ -77,12 +77,23 @@ function buildInitialDraft(
     const estimate = scope.estimates.find((item) => item.id === estimateId)
     if (!estimate || !estimateId) return { draft: null, missing: true }
     const client = scope.clientById(estimate.clientId)
+    const cached = readSession(estimate.id)
+    const base = cached
+      ? {
+          ...cached,
+          stageId: estimate.stageId,
+          clientStatus: estimate.clientStatus,
+          acceptedAt: estimate.acceptedAt,
+          scheduledOn: estimate.scheduledOn,
+          signature: estimate.signature,
+          paymentStatus: estimate.paymentStatus,
+          depositReceipt: estimate.depositReceipt,
+          publicToken: estimate.publicToken,
+        }
+      : fromEstimate(estimate, client?.name ?? "", client?.email ?? "")
     return {
       missing: false,
-      draft: withSubstrateRates(
-        readSession(estimate.id) ?? fromEstimate(estimate, client?.name ?? "", client?.email ?? ""),
-        scope.productionRates,
-      ),
+      draft: withSubstrateRates(base, scope.productionRates),
     }
   }
 
@@ -141,11 +152,6 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
     setStatus(null)
   }
 
-  useEffect(() => {
-    if (!draft) return
-    sessionStorage.setItem(draftKey(draft.id), JSON.stringify(draft))
-  }, [draft])
-
   const pacedAreas = draft
     ? applyLearnedPaces(draft.areas, scope.learnedPaces, draft.id, lockedAreaIds)
     : null
@@ -177,17 +183,32 @@ export function useEstimator(mode: "new" | "edit", estimateId?: string) {
 
   const patch = (partial: Partial<EstimateDraft>) => {
     setStatus(null)
-    setDraft((current) => (current ? { ...current, ...partial } : current))
+    setDraft((current) => {
+      if (!current) return current
+      const updated = { ...current, ...partial }
+      try {
+        sessionStorage.setItem(draftKey(updated.id), JSON.stringify(updated))
+      } catch {
+        // Ignore storage quota errors
+      }
+      return updated
+    })
   }
 
   const writeLine = (id: string, partial: Partial<LineItemInput>) => {
     setStatus(null)
     setDraft((current) => {
       if (!current) return current
-      return {
+      const updated = {
         ...current,
         lineItems: current.lineItems.map((item) => (item.id === id ? { ...item, ...partial } : item)),
       }
+      try {
+        sessionStorage.setItem(draftKey(updated.id), JSON.stringify(updated))
+      } catch {
+        // Ignore storage quota errors
+      }
+      return updated
     })
   }
 

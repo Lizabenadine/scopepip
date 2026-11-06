@@ -10,7 +10,10 @@ export async function GET(request: Request) {
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   const book = await readCompanyBook(session.companyId)
   if (!book) return Response.json({ reason: "This company has no book." }, { status: 404 })
-  return Response.json({ revision: book.revision, state: book.state })
+  return Response.json(
+    { revision: book.revision, state: book.state },
+    { headers: { "cache-control": "no-store" } },
+  )
 }
 
 export async function PUT(request: Request) {

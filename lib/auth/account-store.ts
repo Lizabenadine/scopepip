@@ -18,7 +18,7 @@ export async function readJsonFile(localPath: string, remoteKey: string): Promis
       return null
     }
   }
-  const { data, error } = await admin.storage.from(BUCKET).download(remoteKey)
+  const { data, error } = await admin.storage.from(BUCKET).download(remoteKey, { cacheNonce: String(Date.now()) }, { cache: "no-store" })
   if (error || !data) return null
   return data.text()
 }
@@ -37,6 +37,7 @@ export async function writeJsonFile(localPath: string, remoteKey: string, text: 
   }
   const { error } = await admin.storage.from(BUCKET).upload(remoteKey, new Blob([text], { type: "application/json" }), {
     upsert: true,
+    cacheControl: "0",
     contentType: "application/json",
   })
   if (error) throw new Error(error.message)
