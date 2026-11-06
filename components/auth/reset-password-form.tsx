@@ -14,7 +14,6 @@ export function ResetPasswordForm() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [expired, setExpired] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -27,7 +26,6 @@ export function ResetPasswordForm() {
       const errorDesc = params.get("error_description")
       const errorType = params.get("error")
       if (errorCode || errorType) {
-        setExpired(true)
         setError(errorDesc?.replace(/\+/g, " ") || "This password reset link has expired or has already been used.")
         return
       }
@@ -36,7 +34,6 @@ export function ResetPasswordForm() {
     // 2. Check search parameters for error details
     const searchParams = new URLSearchParams(window.location.search)
     if (searchParams.get("error") || searchParams.get("error_code")) {
-      setExpired(true)
       const desc = searchParams.get("error_description")
       setError(desc?.replace(/\+/g, " ") || "This password reset link is invalid or has expired.")
       return
@@ -49,7 +46,6 @@ export function ResetPasswordForm() {
         const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
         supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then(({ error: otpError }) => {
           if (otpError) {
-            setExpired(true)
             setError(otpError.message || "This password reset link is invalid or has expired.")
           }
         }).catch(() => {})
@@ -65,11 +61,9 @@ export function ResetPasswordForm() {
         const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
         supabase.auth.exchangeCodeForSession(code).then(({ error: codeError }) => {
           if (codeError) {
-            // Check if already authenticated via cookies or hash before showing expired
             supabase.auth.getSession().then(({ data }) => {
               if (!data.session) {
-                // If verifier is missing (e.g. reset requested server-side), do not block form render;
-                // password submission will authenticate via server-side session cookies.
+                // Keep the form available for server-side update on submit
               }
             }).catch(() => {})
           }
@@ -104,38 +98,13 @@ export function ResetPasswordForm() {
     )
   }
 
-  if (expired) {
-    return (
-      <div className="mx-auto grid w-full max-w-md gap-6">
-        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">Reset link expired</h1>
-          <p className="text-sm text-destructive">
-            {error || "This password reset link is invalid or has expired."}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            For security, password reset links can only be used once and expire quickly.
-          </p>
-          <Link
-            href="/forgot-password"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 font-medium text-primary-foreground"
-          >
-            Request a new password reset
-          </Link>
-          <Link href="/login" className="text-center text-sm font-medium text-slate-500 hover:text-slate-900">
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
   if (success) {
     return (
       <div className="mx-auto grid w-full max-w-md gap-6">
         <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h1 className="text-2xl font-semibold tracking-tight">Password updated</h1>
           <p className="text-sm text-muted-foreground">
-            Your password has been reset successfully. Redirecting you to sign in...
+            Your password has been reset successfully. You can now sign in with your new password.
           </p>
           <Link
             href="/login?confirmed=1"
@@ -189,7 +158,7 @@ export function ResetPasswordForm() {
       setSuccess(true)
       setTimeout(() => {
         window.location.assign("/login?confirmed=1")
-      }, 1500)
+      }, 30000)
     } catch {
       setError("The password could not be updated.")
     } finally {
@@ -234,7 +203,14 @@ export function ResetPasswordForm() {
             autoComplete="new-password"
           />
         </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <p>{error}</p>
+            <Link href="/forgot-password" className="mt-1 inline-block text-xs font-medium underline">
+              Request a new password reset link
+            </Link>
+          </div>
+        ) : null}
         <Button type="submit" className="h-11" disabled={pending} data-testid="reset-submit">
           {pending ? "Saving" : "Set password"}
         </Button>
