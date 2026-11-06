@@ -146,11 +146,10 @@ export function Estimator({
         body: JSON.stringify({ email }),
       })
       const body = (await response.json().catch(() => null)) as { detail?: string; reason?: string; delivery?: string } | null
-      if (!response.ok) {
-        setStatus(body?.reason || "The estimate could not be emailed.")
+      if (!response.ok || body?.delivery !== "sent") {
+        setStatus(body?.reason || body?.detail || "The estimate could not be emailed.")
         return
       }
-      const link = `${window.location.origin}/p/${saved.publicToken}`
       const sentStage = stages.find((item) => item.slug === "estimate_sent")
       const hold =
         !sentStage ||
@@ -170,11 +169,7 @@ export function Estimator({
       if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
         placeOnColumn(saved.id, "proposal_sent")
       }
-      if (body?.delivery === "sent") {
-        setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
-        return
-      }
-      setStatus(`${body?.detail ?? "The link is ready."} They accept here: ${link}`)
+      setStatus("Sent. The job is in Estimate Sent. The client accepts from the link in the email.")
     } catch {
       setStatus("The estimate could not be emailed.")
     }

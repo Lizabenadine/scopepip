@@ -35,8 +35,12 @@ export function ProposalEmail({ estimateId, hasEmail }: { estimateId: string; ha
           setNote("")
           void fetch(`/api/proposals/${estimateId}/email`, { method: "POST" })
             .then(async (response) => {
-              const body = (await response.json().catch(() => null)) as { detail?: string; reason?: string } | null
-              if (response.ok) placeInSent()
+              const body = (await response.json().catch(() => null)) as {
+                detail?: string
+                reason?: string
+                delivery?: string
+              } | null
+              if (response.ok && body?.delivery === "sent") placeInSent()
               setNote(body?.detail || body?.reason || "The proposal email could not be prepared.")
             })
             .catch(() => setNote("The proposal email could not be prepared."))

@@ -2,6 +2,11 @@ import fs from "node:fs"
 import path from "node:path"
 
 export interface SendKeys {
+  smtpHost: string
+  smtpPort: number
+  smtpUser: string
+  smtpPass: string
+  smtpFrom: string
   resendKey: string
   resendFrom: string
   twilioSid: string
@@ -15,6 +20,11 @@ export interface SendKeys {
 }
 
 const EMPTY: SendKeys = {
+  smtpHost: "",
+  smtpPort: 465,
+  smtpUser: "",
+  smtpPass: "",
+  smtpFrom: "",
   resendKey: "",
   resendFrom: "",
   twilioSid: "",
@@ -35,6 +45,11 @@ function savedKeys(): SendKeys {
   try {
     const parsed = JSON.parse(fs.readFileSync(keysFile(), "utf8")) as Partial<SendKeys>
     return {
+      smtpHost: text(parsed.smtpHost),
+      smtpPort: Number(parsed.smtpPort) || 465,
+      smtpUser: text(parsed.smtpUser),
+      smtpPass: text(parsed.smtpPass),
+      smtpFrom: text(parsed.smtpFrom),
       resendKey: text(parsed.resendKey),
       resendFrom: text(parsed.resendFrom),
       twilioSid: text(parsed.twilioSid),
@@ -63,9 +78,26 @@ function envOrSaved(name: string, saved: string): string {
 /** Env values win. A saved key is used when the host has not set that variable. */
 export function readSendKeys(): SendKeys {
   const saved = savedKeys()
+  const smtpUser = envOrSaved("SMTP_USER", saved.smtpUser)
+  const smtpPass = envOrSaved("SMTP_PASS", saved.smtpPass)
+  const smtpHost =
+    envOrSaved("SMTP_HOST", saved.smtpHost) ||
+    (smtpUser && smtpPass ? "smtp.stackmail.com" : "")
+  const smtpPort = Number(process.env.SMTP_PORT?.trim() || "") || saved.smtpPort || 465
+  const resendFrom = envOrSaved("FOLLOW_UP_FROM_EMAIL", saved.resendFrom)
+  const smtpFrom =
+    process.env.SMTP_FROM?.trim() ||
+    resendFrom ||
+    saved.smtpFrom ||
+    smtpUser
   return {
+    smtpHost,
+    smtpPort,
+    smtpUser,
+    smtpPass,
+    smtpFrom,
     resendKey: envOrSaved("RESEND_API_KEY", saved.resendKey),
-    resendFrom: envOrSaved("FOLLOW_UP_FROM_EMAIL", saved.resendFrom),
+    resendFrom,
     twilioSid: envOrSaved("TWILIO_ACCOUNT_SID", saved.twilioSid),
     twilioToken: envOrSaved("TWILIO_AUTH_TOKEN", saved.twilioToken),
     twilioFrom: envOrSaved("TWILIO_FROM_NUMBER", saved.twilioFrom),
@@ -90,9 +122,12 @@ export function sendKeyStatus(): {
   stripe: boolean
 } {
   const keys = readSendKeys()
+  const smtpReady = Boolean(keys.smtpHost && keys.smtpUser && keys.smtpPass && keys.smtpFrom.includes("@"))
+  const resendReady = Boolean(keys.resendKey && keys.resendFrom.includes("@"))
+  const activeFrom = smtpReady ? keys.smtpFrom : resendReady ? keys.resendFrom : keys.resendFrom
   return {
-    email: Boolean(keys.resendKey && keys.resendFrom.includes("@")),
-    emailFrom: keys.resendFrom.includes("@") ? keys.resendFrom : "",
+    email: smtpReady || resendReady,
+    emailFrom: activeFrom.includes("@") ? activeFrom : "",
     text: Boolean(keys.twilioSid && keys.twilioToken && keys.twilioFrom),
     textFrom: keys.twilioFrom ? `···${keys.twilioFrom.slice(-4)}` : "",
     supabase: keys.supabaseSecret.length >= 20,

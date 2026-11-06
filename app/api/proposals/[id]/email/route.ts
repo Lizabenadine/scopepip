@@ -32,6 +32,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
   })
   if ("error" in mail) return Response.json({ ok: false, reason: mail.error }, { status: 400 })
-  const result = await sendProposalEmail({ to: mail.to, subject: mail.subject, body: mail.text, pdf: mail.pdf })
-  return Response.json({ ok: result.delivery === "sent" || result.delivery === "logged", ...result })
+  const result = await sendProposalEmail({
+    to: mail.to,
+    subject: mail.subject,
+    body: mail.text,
+    pdf: mail.pdf,
+    filename: mail.filename,
+    companyName: book.state.estimateSettings.companyName,
+    replyTo: book.state.estimateSettings.companyEmail,
+  })
+  if (result.delivery !== "sent") {
+    return Response.json(
+      { ok: false, reason: result.detail, ...result },
+      { status: result.delivery === "logged" ? 503 : 502 },
+    )
+  }
+  return Response.json({ ok: true, ...result })
 }
