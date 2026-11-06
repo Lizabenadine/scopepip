@@ -14,74 +14,118 @@ export function ResetPasswordForm() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(true)
+  const [isValidToken, setIsValidToken] = useState(false)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-
-    // 1. Check URL hash for error details from Supabase (e.g. otp_expired, access_denied)
-    const hash = window.location.hash
-    if (hash) {
-      const params = new URLSearchParams(hash.replace(/^#/, ""))
-      const errorCode = params.get("error_code")
-      const errorDesc = params.get("error_description")
-      const errorType = params.get("error")
-      if (errorCode || errorType) {
-        setError(errorDesc?.replace(/\+/g, " ") || "This password reset link has expired or has already been used.")
+    async function handlePasswordReset() {
+      if (typeof window === "undefined") {
+        setIsVerifying(false)
         return
       }
-    }
 
-    // 2. Check search parameters for error details
-    const searchParams = new URLSearchParams(window.location.search)
-    if (searchParams.get("error") || searchParams.get("error_code")) {
-      const desc = searchParams.get("error_description")
-      setError(desc?.replace(/\+/g, " ") || "This password reset link is invalid or has expired.")
-      return
-    }
+      // 1. Check URL hash for error details from Supabase (e.g. otp_expired, access_denied)
+      const hash = window.location.hash
+      if (hash) {
+        const params = new URLSearchParams(hash.replace(/^#/, ""))
+        const errorCode = params.get("error_code")
+        const errorDesc = params.get("error_description")
+        const errorType = params.get("error")
+        if (errorCode || errorType) {
+          setError(errorDesc?.replace(/\+/g, " ") || "This password reset link has expired or has already been used.")
+          setIsValidToken(false)
+          setIsVerifying(false)
+          return
+        }
+      }
 
-    // 3. If query has a token_hash, verify it in the background to establish the recovery session
-    const tokenHash = searchParams.get("token_hash")
-    if (tokenHash && supabaseAuthConfigured()) {
-      try {
-        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
-        supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then(({ error: otpError }) => {
-          if (otpError) {
-            setError(otpError.message || "This password reset link is invalid or has expired.")
+      // 2. Check search parameters for error details
+      const searchParams = new URLSearchParams(window.location.search)
+      if (searchParams.get("error") || searchParams.get("error_code")) {
+        const desc = searchParams.get("error_description")
+        setError(desc?.replace(/\+/g, " ") || "This password reset link is invalid or has expired.")
+        setIsValidToken(false)
+        setIsVerifying(false)
+        return
+      }
+
+      // 3. Give Supabase a moment to process the hash parameters from the email link
+      if (hash && hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.replace(/^#/, ""))
+        const at = params.get("access_token")
+        const rt = params.get("refresh_token")
+        if (at && supabaseAuthConfigured()) {
+          try {
+            const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+            await supabase.auth.setSession({ access_token: at, refresh_token: rt || "" }).catch(() => {})
+          } catch {
+            // ignore
           }
-        }).catch(() => {})
-      } catch {
-        // ignore
+        }
+        setIsValidToken(true)
+        setIsVerifying(false)
+        return
       }
-    }
 
-    // 4. If query has a code, exchange it in the background to establish the recovery session
-    const code = searchParams.get("code")
-    if (code && supabaseAuthConfigured()) {
-      try {
-        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
-        supabase.auth.exchangeCodeForSession(code).then(({ error: codeError }) => {
-          if (codeError) {
-            supabase.auth.getSession().then(({ data }) => {
-              if (!data.session) {
-                // Keep the form available for server-side update on submit
-              }
-            }).catch(() => {})
+      // 4. Check search query for token_hash
+      const tokenHash = searchParams.get("token_hash")
+      if (tokenHash) {
+        if (supabaseAuthConfigured()) {
+          try {
+            const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+            const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+            if (otpError) {
+              setError(otpError.message || "This password reset link is invalid or has expired.")
+              setIsValidToken(false)
+              setIsVerifying(false)
+              return
+            }
+          } catch {
+            // ignore
           }
-        }).catch(() => {})
-      } catch {
-        // ignore
+        }
+        setIsValidToken(true)
+        setIsVerifying(false)
+        return
       }
+
+      // 5. Check search query for PKCE code
+      const code = searchParams.get("code")
+      if (code) {
+        if (supabaseAuthConfigured()) {
+          try {
+            const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+            await supabase.auth.exchangeCodeForSession(code).catch(() => {})
+          } catch {
+            // ignore
+          }
+        }
+        setIsValidToken(true)
+        setIsVerifying(false)
+        return
+      }
+
+      // 6. Fallback check for active session or code exchange
+      if (supabaseAuthConfigured()) {
+        try {
+          const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+          const { data } = await supabase.auth.getSession()
+          if (data?.session) {
+            setIsValidToken(true)
+            setIsVerifying(false)
+            return
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Only show expired/invalid AFTER verification attempt finishes, not instantly
+      setIsValidToken(false)
+      setIsVerifying(false)
     }
 
-    // 5. Initialize Supabase browser client to parse recovery hash tokens immediately
-    if (supabaseAuthConfigured()) {
-      try {
-        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
-        supabase.auth.getSession().catch(() => {})
-      } catch {
-        // ignore
-      }
-    }
+    handlePasswordReset()
   }, [])
 
   if (!supabaseAuthConfigured()) {
@@ -93,6 +137,37 @@ export function ResetPasswordForm() {
             Password reset is not available on this instance. Sign in with your existing password.
           </p>
           <Link href="/login" className="text-sm font-medium text-primary">Back to sign in</Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (isVerifying) {
+    return (
+      <div className="mx-auto grid w-full max-w-md gap-6">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+          <h1 className="text-xl font-semibold tracking-tight">Verifying reset session...</h1>
+          <p className="text-sm text-muted-foreground">Please wait while we verify your password reset link.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isValidToken) {
+    return (
+      <div className="mx-auto grid w-full max-w-md gap-6">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-semibold tracking-tight">Reset link expired or invalid</h1>
+          <p className="text-sm text-muted-foreground">
+            {error || "This password reset link has expired or has already been used. Please request a new link to reset your password."}
+          </p>
+          <Link
+            href="/forgot-password"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 font-medium text-primary-foreground"
+          >
+            Request a new password reset link
+          </Link>
+          <Link href="/login" className="text-center text-sm font-medium text-primary">Back to sign in</Link>
         </div>
       </div>
     )
@@ -130,10 +205,28 @@ export function ResetPasswordForm() {
     setPending(true)
     setError(null)
     try {
+      let hashAccessToken = ""
+      let hashRefreshToken = ""
+      if (typeof window !== "undefined" && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+        hashAccessToken = hashParams.get("access_token") || ""
+        hashRefreshToken = hashParams.get("refresh_token") || ""
+      }
+      const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null
+      const tokenHash = searchParams?.get("token_hash") || ""
+
       let clientUpdated = false
       if (supabaseAuthConfigured()) {
         try {
           const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+          if (hashAccessToken) {
+            await supabase.auth.setSession({
+              access_token: hashAccessToken,
+              refresh_token: hashRefreshToken || "",
+            }).catch(() => {})
+          } else if (tokenHash) {
+            await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).catch(() => {})
+          }
           const { error: updateError } = await supabase.auth.updateUser({ password })
           if (!updateError) {
             clientUpdated = true
@@ -143,11 +236,16 @@ export function ResetPasswordForm() {
         }
       }
 
-      // Update password via server-side session cookies and sync Scopepipe directory
+      // Update password via server-side session cookies / tokens and sync Scopepipe directory
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({
+          password,
+          accessToken: hashAccessToken || undefined,
+          refreshToken: hashRefreshToken || undefined,
+          tokenHash: tokenHash || undefined,
+        }),
       })
       const payload = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string } | null
       if (!clientUpdated && (!res.ok || !payload?.ok)) {
