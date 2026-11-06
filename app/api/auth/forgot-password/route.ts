@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 1. Generate database-backed token
-  const token = await createPasswordResetToken(email)
+  const token = createPasswordResetToken(email)
   const host = request.headers.get("host") || "www.scopepipe.com"
   const proto = host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https"
   const canonicalHost = host.includes("localhost") || host.includes("127.0.0.1") ? host : "www.scopepipe.com"

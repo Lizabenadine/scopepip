@@ -3,7 +3,7 @@ import { supabaseAuthConfigured } from "@/lib/supabase/env"
 import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
 import { updateUserPassword } from "@/lib/auth/directory"
 import { supabaseAdmin } from "@/lib/supabase/admin"
-import { verifyPasswordResetToken, markResetTokenUsed } from "@/lib/auth/password-reset-store"
+import { verifyPasswordResetToken } from "@/lib/auth/password-reset-store"
 
 export const runtime = "nodejs"
 
@@ -27,15 +27,12 @@ export async function POST(request: NextRequest) {
 
   let email: string | undefined
   let userId: string | undefined
-  let verifiedCustomToken = false
 
   // 1. Check custom database-backed token store
   if (activeToken) {
-    const customResult = await verifyPasswordResetToken(activeToken)
+    const customResult = verifyPasswordResetToken(activeToken)
     if (customResult.valid && customResult.email) {
       email = customResult.email
-      userId = customResult.userId
-      verifiedCustomToken = true
     }
   }
 
@@ -120,11 +117,6 @@ export async function POST(request: NextRequest) {
 
   // 6. Update local Scopepipe account directory store
   await updateUserPassword(email, password)
-
-  // 7. Mark custom token used
-  if (verifiedCustomToken && activeToken) {
-    await markResetTokenUsed(activeToken)
-  }
 
   return attachAuthCookies(NextResponse.json({ ok: true, email }), pending.pending, pending.cacheHeaders)
 }

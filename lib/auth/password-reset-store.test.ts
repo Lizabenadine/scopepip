@@ -2,34 +2,29 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   createPasswordResetToken,
-  markResetTokenUsed,
   verifyPasswordResetToken,
 } from "./password-reset-store.ts"
 
 describe("password reset store", () => {
-  it("creates, verifies, and consumes a reset token", async () => {
+  it("creates and verifies a tamper-proof reset token", () => {
     const email = "contractor@example.com"
-    const token = await createPasswordResetToken(email)
+    const token = createPasswordResetToken(email)
     assert.equal(typeof token, "string")
-    assert.equal(token.length, 64)
+    assert.equal(token.includes("."), true)
 
     // Verification succeeds
-    const verified = await verifyPasswordResetToken(token)
+    const verified = verifyPasswordResetToken(token)
     assert.equal(verified.valid, true)
     assert.equal(verified.email, email)
 
-    // Marking as used prevents reuse
-    const marked = await markResetTokenUsed(token)
-    assert.equal(marked, true)
-
-    const recheck = await verifyPasswordResetToken(token)
-    assert.equal(recheck.valid, false)
-    assert.match(recheck.reason || "", /already been used/i)
+    // Tampered token fails
+    const tampered = `${token}x`
+    const tamperedResult = verifyPasswordResetToken(tampered)
+    assert.equal(tamperedResult.valid, false)
   })
 
-  it("rejects unknown or invalid tokens", async () => {
-    const result = await verifyPasswordResetToken("unknown-token-123")
+  it("rejects unknown or invalid tokens", () => {
+    const result = verifyPasswordResetToken("unknown-token-123")
     assert.equal(result.valid, false)
-    assert.match(result.reason || "", /invalid or has already been used/i)
   })
 })
