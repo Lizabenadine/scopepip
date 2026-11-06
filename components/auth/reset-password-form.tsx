@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createBrowserClient } from "@supabase/ssr"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,34 @@ export function ResetPasswordForm() {
   const [success, setSuccess] = useState(false)
   const [isVerifying, setIsVerifying] = useState(true)
   const [isValidToken, setIsValidToken] = useState(false)
+
+  // Persist tokens across the entire component lifecycle so they are not lost
+  // when Supabase clears window.location.hash from the URL bar on load.
+  const tokenStateRef = useRef<{ accessToken: string; refreshToken: string; tokenHash: string }>({
+    accessToken: "",
+    refreshToken: "",
+    tokenHash: "",
+  })
+
+  // Capture immediately on render before any external script clears the URL fragment
+  if (typeof window !== "undefined") {
+    if (!tokenStateRef.current.accessToken && window.location.hash) {
+      const params = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+      const at = params.get("access_token")
+      const rt = params.get("refresh_token")
+      if (at) {
+        tokenStateRef.current.accessToken = at
+        tokenStateRef.current.refreshToken = rt || ""
+      }
+    }
+    if (!tokenStateRef.current.tokenHash && window.location.search) {
+      const params = new URLSearchParams(window.location.search)
+      const th = params.get("token_hash")
+      if (th) {
+        tokenStateRef.current.tokenHash = th
+      }
+    }
+  }
 
   useEffect(() => {
     async function handlePasswordReset() {
@@ -49,11 +77,15 @@ export function ResetPasswordForm() {
         return
       }
 
-      // 3. Give Supabase a moment to process the hash parameters from the email link
+      // 3. Capture and preserve hash parameters from the email link
       if (hash && hash.includes("access_token")) {
         const params = new URLSearchParams(hash.replace(/^#/, ""))
         const at = params.get("access_token")
         const rt = params.get("refresh_token")
+        if (at) {
+          tokenStateRef.current.accessToken = at
+          tokenStateRef.current.refreshToken = rt || ""
+        }
         if (at && supabaseAuthConfigured()) {
           try {
             const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
@@ -70,6 +102,7 @@ export function ResetPasswordForm() {
       // 4. Check search query for token_hash
       const tokenHash = searchParams.get("token_hash")
       if (tokenHash) {
+        tokenStateRef.current.tokenHash = tokenHash
         if (supabaseAuthConfigured()) {
           try {
             const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
@@ -105,12 +138,20 @@ export function ResetPasswordForm() {
         return
       }
 
-      // 6. Fallback check for active session or code exchange
+      // 6. Fallback check for active session or preserved token in ref
+      if (tokenStateRef.current.accessToken) {
+        setIsValidToken(true)
+        setIsVerifying(false)
+        return
+      }
+
       if (supabaseAuthConfigured()) {
         try {
           const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
           const { data } = await supabase.auth.getSession()
           if (data?.session) {
+            tokenStateRef.current.accessToken = data.session.access_token
+            tokenStateRef.current.refreshToken = data.session.refresh_token || ""
             setIsValidToken(true)
             setIsVerifying(false)
             return
@@ -205,28 +246,48 @@ export function ResetPasswordForm() {
     setPending(true)
     setError(null)
     try {
-      let hashAccessToken = ""
-      let hashRefreshToken = ""
+      let at = tokenStateRef.current.accessToken
+      let rt = tokenStateRef.current.refreshToken
+      let th = tokenStateRef.current.tokenHash
+
+      // Check URL again in case it is still present
       if (typeof window !== "undefined" && window.location.hash) {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
-        hashAccessToken = hashParams.get("access_token") || ""
-        hashRefreshToken = hashParams.get("refresh_token") || ""
+        const hashAt = hashParams.get("access_token")
+        const hashRt = hashParams.get("refresh_token")
+        if (hashAt) {
+          at = hashAt
+          rt = hashRt || rt
+        }
       }
-      const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null
-      const tokenHash = searchParams?.get("token_hash") || ""
+      if (typeof window !== "undefined" && window.location.search) {
+        const searchParams = new URLSearchParams(window.location.search)
+        const searchTh = searchParams.get("token_hash")
+        if (searchTh) {
+          th = searchTh
+        }
+      }
 
       let clientUpdated = false
       if (supabaseAuthConfigured()) {
         try {
           const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
-          if (hashAccessToken) {
+          if (at) {
             await supabase.auth.setSession({
-              access_token: hashAccessToken,
-              refresh_token: hashRefreshToken || "",
+              access_token: at,
+              refresh_token: rt || "",
             }).catch(() => {})
-          } else if (tokenHash) {
-            await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).catch(() => {})
+          } else if (th) {
+            await supabase.auth.verifyOtp({ token_hash: th, type: "recovery" }).catch(() => {})
           }
+
+          // Check if browser client has an active session token to pass
+          const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+          if (sessionData?.session?.access_token) {
+            at = sessionData.session.access_token
+            rt = sessionData.session.refresh_token || rt
+          }
+
           const { error: updateError } = await supabase.auth.updateUser({ password })
           if (!updateError) {
             clientUpdated = true
@@ -242,9 +303,9 @@ export function ResetPasswordForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           password,
-          accessToken: hashAccessToken || undefined,
-          refreshToken: hashRefreshToken || undefined,
-          tokenHash: tokenHash || undefined,
+          accessToken: at || undefined,
+          refreshToken: rt || undefined,
+          tokenHash: th || undefined,
         }),
       })
       const payload = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string } | null
