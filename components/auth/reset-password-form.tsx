@@ -1,67 +1,22 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-function readHashAndStorageTokens(): { accessToken: string; refreshToken: string; hashError: string } {
-  if (typeof window === "undefined") {
-    return { accessToken: "", refreshToken: "", hashError: "" }
-  }
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
-  let accessToken = hashParams.get("access_token") || ""
-  let refreshToken = hashParams.get("refresh_token") || ""
-  const hashError = hashParams.get("error_description") || hashParams.get("error") || ""
-
-  try {
-    if (accessToken) {
-      window.sessionStorage.setItem("scopepipe_recovery_access_token", accessToken)
-    } else {
-      accessToken = window.sessionStorage.getItem("scopepipe_recovery_access_token") || ""
-    }
-    if (refreshToken) {
-      window.sessionStorage.setItem("scopepipe_recovery_refresh_token", refreshToken)
-    } else {
-      refreshToken = window.sessionStorage.getItem("scopepipe_recovery_refresh_token") || ""
-    }
-  } catch {
-    // ignore storage errors
-  }
-
-  return { accessToken, refreshToken, hashError }
-}
-
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
-  const token = searchParams.get("token") || ""
   const tokenHash = searchParams.get("token_hash") || ""
-  const code = searchParams.get("code") || ""
-
-  const capturedRef = useRef<{ accessToken: string; refreshToken: string }>({
-    accessToken: "",
-    refreshToken: "",
-  })
+  const initialError = (searchParams.get("error_description") || searchParams.get("error") || "").replace(/\+/g, " ")
 
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(initialError || null)
   const [success, setSuccess] = useState(false)
-
-  useEffect(() => {
-    const { accessToken, refreshToken, hashError } = readHashAndStorageTokens()
-    if (accessToken) capturedRef.current.accessToken = accessToken
-    if (refreshToken) capturedRef.current.refreshToken = refreshToken
-
-    const queryError = searchParams.get("error_description") || searchParams.get("error") || ""
-    const hasAnyToken = Boolean(token || tokenHash || code || accessToken)
-    if (!hasAnyToken && (hashError || queryError)) {
-      setError((hashError || queryError).replace(/\+/g, " "))
-    }
-  }, [searchParams, token, tokenHash, code])
 
   if (success) {
     return (
@@ -92,24 +47,21 @@ export function ResetPasswordForm() {
       setError("The passwords do not match.")
       return
     }
+    if (!tokenHash) {
+      setError("Missing password reset token. Please open the reset link from your email.")
+      return
+    }
+
     setPending(true)
     setError(null)
-
-    const live = readHashAndStorageTokens()
-    const accessToken = live.accessToken || capturedRef.current.accessToken
-    const refreshToken = live.refreshToken || capturedRef.current.refreshToken
 
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          token_hash: tokenHash,
           password,
-          token,
-          tokenHash,
-          code,
-          accessToken,
-          refreshToken,
         }),
       })
 
@@ -117,13 +69,6 @@ export function ResetPasswordForm() {
       if (!res.ok || !payload?.ok) {
         setError(payload?.reason || "This password reset link is invalid or has expired.")
         return
-      }
-
-      try {
-        window.sessionStorage.removeItem("scopepipe_recovery_access_token")
-        window.sessionStorage.removeItem("scopepipe_recovery_refresh_token")
-      } catch {
-        // ignore
       }
 
       setSuccess(true)
