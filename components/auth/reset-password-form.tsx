@@ -42,15 +42,44 @@ export function ResetPasswordForm() {
       return
     }
 
-    // 3. If query has a code or token_hash, forward to /auth/callback for secure server-side verification
-    const code = searchParams.get("code")
+    // 3. If query has a token_hash, verify it in the background to establish the recovery session
     const tokenHash = searchParams.get("token_hash")
-    if (code || tokenHash) {
-      window.location.replace(`/auth/callback${window.location.search}`)
-      return
+    if (tokenHash && supabaseAuthConfigured()) {
+      try {
+        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then(({ error: otpError }) => {
+          if (otpError) {
+            setExpired(true)
+            setError(otpError.message || "This password reset link is invalid or has expired.")
+          }
+        }).catch(() => {})
+      } catch {
+        // ignore
+      }
     }
 
-    // 4. Initialize Supabase browser client to parse recovery hash tokens immediately
+    // 4. If query has a code, exchange it in the background to establish the recovery session
+    const code = searchParams.get("code")
+    if (code && supabaseAuthConfigured()) {
+      try {
+        const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())
+        supabase.auth.exchangeCodeForSession(code).then(({ error: codeError }) => {
+          if (codeError) {
+            // Check if already authenticated via cookies or hash before showing expired
+            supabase.auth.getSession().then(({ data }) => {
+              if (!data.session) {
+                // If verifier is missing (e.g. reset requested server-side), do not block form render;
+                // password submission will authenticate via server-side session cookies.
+              }
+            }).catch(() => {})
+          }
+        }).catch(() => {})
+      } catch {
+        // ignore
+      }
+    }
+
+    // 5. Initialize Supabase browser client to parse recovery hash tokens immediately
     if (supabaseAuthConfigured()) {
       try {
         const supabase = createBrowserClient(supabaseBrowserUrl(), supabasePublishableKey())

@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
   const next = request.nextUrl.searchParams.get("next")
   const typeParam = request.nextUrl.searchParams.get("type")
   const type = otpType(typeParam)
-  const isRecovery = type === "recovery" || next === "/reset-password" || next?.startsWith("/reset-password")
+  const tokenHash = request.nextUrl.searchParams.get("token_hash")
+  const isRecovery = type === "recovery" || Boolean(tokenHash) || next === "/reset-password" || next?.startsWith("/reset-password")
 
   const errorParam = request.nextUrl.searchParams.get("error") || request.nextUrl.searchParams.get("error_description")
   if (errorParam && isRecovery) {
@@ -36,7 +37,6 @@ export async function GET(request: NextRequest) {
 
   const pending = authClientFromRequest(request)
   const code = request.nextUrl.searchParams.get("code")
-  const tokenHash = request.nextUrl.searchParams.get("token_hash")
   const resolvedType = type || (isRecovery ? ("recovery" as EmailOtpType) : null)
   let confirmed = false
   let errorMessage: string | null = null
