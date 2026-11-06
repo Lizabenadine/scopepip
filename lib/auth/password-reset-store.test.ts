@@ -17,6 +17,13 @@ describe("password reset store", () => {
     assert.equal(verified.valid, true)
     assert.equal(verified.email, email)
 
+    // Verification with embedded accessToken succeeds
+    const tokenWithAccess = createPasswordResetToken(email, "sb-access-token-123")
+    const verifiedWithAccess = verifyPasswordResetToken(tokenWithAccess)
+    assert.equal(verifiedWithAccess.valid, true)
+    assert.equal(verifiedWithAccess.email, email)
+    assert.equal(verifiedWithAccess.accessToken, "sb-access-token-123")
+
     // Tampered token fails
     const tampered = `${token}x`
     const tamperedResult = verifyPasswordResetToken(tampered)

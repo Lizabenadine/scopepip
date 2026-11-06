@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { supabaseAuthConfigured } from "@/lib/supabase/env"
-import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
-import { interpretForgotPassword } from "@/lib/auth/forgot-password-auth"
+import { createClient } from "@supabase/supabase-js"
+import { supabaseAuthConfigured, supabaseBrowserUrl, supabasePublishableKey } from "@/lib/supabase/env"
+import { interpretForgotPassword, recoveryRedirectUrl } from "@/lib/auth/forgot-password-auth"
 import { createPasswordResetToken } from "@/lib/auth/password-reset-store"
 import { readSendKeys } from "@/lib/messaging/keys"
 
@@ -14,12 +14,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, reason: "Enter your email address." }, { status: 400 })
   }
 
-  // 1. Generate database-backed token
+  // 1. Generate signed reset token for direct URL reset
   const token = createPasswordResetToken(email)
   const host = request.headers.get("host") || "www.scopepipe.com"
   const proto = host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https"
   const canonicalHost = host.includes("localhost") || host.includes("127.0.0.1") ? host : "www.scopepipe.com"
-  const resetUrl = `${proto}://${canonicalHost}/reset-password?token=${token}`
+  const customResetUrl = `${proto}://${canonicalHost}/reset-password?token=${token}`
 
   // 2. If Resend is configured, send the custom reset email with query parameters
   const keys = readSendKeys()
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
           html: `
             <h2>Reset your password</h2>
             <p>Click the link below to set a new password for your Scopepipe account:</p>
-            <p><a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background-color:#0284c7;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Reset Password</a></p>
-            <p>Or paste this link into your browser:<br/><a href="${resetUrl}">${resetUrl}</a></p>
+            <p><a href="${customResetUrl}" style="display:inline-block;padding:12px 24px;background-color:#0284c7;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Reset Password</a></p>
+            <p>Or paste this link into your browser:<br/><a href="${customResetUrl}">${customResetUrl}</a></p>
             <p>This link expires in 1 hour.</p>
           `,
         }),
@@ -53,33 +53,34 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 3. Trigger Supabase resetPasswordForEmail with redirectTo pointing to custom resetUrl
+  // 3. Trigger Supabase resetPasswordForEmail using implicit flow (no PKCE code_challenge)
+  // and canonical allowlisted redirect URL (https://scopepipe.com/reset-password)
   if (supabaseAuthConfigured()) {
-    const pending = authClientFromRequest(request)
-    const { error } = await pending.supabase.auth.resetPasswordForEmail(email, { redirectTo: resetUrl })
+    const supabase = createClient(supabaseBrowserUrl(), supabasePublishableKey(), {
+      auth: {
+        flowType: "implicit",
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    })
+    const redirectTo = recoveryRedirectUrl(host, new URL(request.url).origin)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
     const outcome = interpretForgotPassword({
       configured: true,
       error: error ? { message: error.message, status: error.status, code: error.code } : null,
     })
 
     if (!sentViaResend && outcome.kind === "rate_limit") {
-      return attachAuthCookies(
-        NextResponse.json({ ok: false, reason: outcome.reason }, { status: 429 }),
-        pending.pending,
-        pending.cacheHeaders,
-      )
+      return NextResponse.json({ ok: false, reason: outcome.reason }, { status: 429 })
     }
 
     if (!sentViaResend && outcome.kind === "error") {
       console.error("Supabase resetPasswordForEmail failed:", error)
-      return attachAuthCookies(
-        NextResponse.json({ ok: false, reason: outcome.reason }, { status: 500 }),
-        pending.pending,
-        pending.cacheHeaders,
-      )
+      return NextResponse.json({ ok: false, reason: outcome.reason }, { status: 500 })
     }
 
-    return attachAuthCookies(NextResponse.json({ ok: true }), pending.pending, pending.cacheHeaders)
+    return NextResponse.json({ ok: true })
   }
 
   return NextResponse.json({ ok: true })

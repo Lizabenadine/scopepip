@@ -1,15 +1,49 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+function readHashAndStorageTokens(): { accessToken: string; refreshToken: string; hashError: string } {
+  if (typeof window === "undefined") {
+    return { accessToken: "", refreshToken: "", hashError: "" }
+  }
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+  let accessToken = hashParams.get("access_token") || ""
+  let refreshToken = hashParams.get("refresh_token") || ""
+  const hashError = hashParams.get("error_description") || hashParams.get("error") || ""
+
+  try {
+    if (accessToken) {
+      window.sessionStorage.setItem("scopepipe_recovery_access_token", accessToken)
+    } else {
+      accessToken = window.sessionStorage.getItem("scopepipe_recovery_access_token") || ""
+    }
+    if (refreshToken) {
+      window.sessionStorage.setItem("scopepipe_recovery_refresh_token", refreshToken)
+    } else {
+      refreshToken = window.sessionStorage.getItem("scopepipe_recovery_refresh_token") || ""
+    }
+  } catch {
+    // ignore storage errors
+  }
+
+  return { accessToken, refreshToken, hashError }
+}
+
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
-  const token = searchParams.get("token") || searchParams.get("token_hash") || ""
+  const token = searchParams.get("token") || ""
+  const tokenHash = searchParams.get("token_hash") || ""
+  const code = searchParams.get("code") || ""
+
+  const capturedRef = useRef<{ accessToken: string; refreshToken: string }>({
+    accessToken: "",
+    refreshToken: "",
+  })
 
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
@@ -17,27 +51,17 @@ export function ResetPasswordForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  if (!token) {
-    return (
-      <div className="mx-auto grid w-full max-w-md gap-6">
-        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h1 className="text-2xl font-semibold tracking-tight">Reset link required</h1>
-          <p className="text-sm text-muted-foreground">
-            Please use the password reset link that was sent to your email.
-          </p>
-          <Link
-            href="/forgot-password"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-4 font-medium text-primary-foreground"
-          >
-            Request a password reset link
-          </Link>
-          <Link href="/login" className="text-center text-sm font-medium text-primary">
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    const { accessToken, refreshToken, hashError } = readHashAndStorageTokens()
+    if (accessToken) capturedRef.current.accessToken = accessToken
+    if (refreshToken) capturedRef.current.refreshToken = refreshToken
+
+    const queryError = searchParams.get("error_description") || searchParams.get("error") || ""
+    const hasAnyToken = Boolean(token || tokenHash || code || accessToken)
+    if (!hasAnyToken && (hashError || queryError)) {
+      setError((hashError || queryError).replace(/\+/g, " "))
+    }
+  }, [searchParams, token, tokenHash, code])
 
   if (success) {
     return (
@@ -71,17 +95,35 @@ export function ResetPasswordForm() {
     setPending(true)
     setError(null)
 
+    const live = readHashAndStorageTokens()
+    const accessToken = live.accessToken || capturedRef.current.accessToken
+    const refreshToken = live.refreshToken || capturedRef.current.refreshToken
+
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({
+          password,
+          token,
+          tokenHash,
+          code,
+          accessToken,
+          refreshToken,
+        }),
       })
 
       const payload = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string } | null
       if (!res.ok || !payload?.ok) {
         setError(payload?.reason || "This password reset link is invalid or has expired.")
         return
+      }
+
+      try {
+        window.sessionStorage.removeItem("scopepipe_recovery_access_token")
+        window.sessionStorage.removeItem("scopepipe_recovery_refresh_token")
+      } catch {
+        // ignore
       }
 
       setSuccess(true)

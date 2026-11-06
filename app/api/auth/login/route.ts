@@ -1,9 +1,12 @@
-import { login, updateUserPassword } from "@/lib/auth/directory"
+import { login, sessionByEmail, updateUserPassword } from "@/lib/auth/directory"
+import { slugifyCompanyName } from "@/lib/auth/company-slug"
+import { hashPassword } from "@/lib/auth/password"
 import { isUserRole } from "@/lib/auth/role"
 import { jsonWithOfficeSession, jsonWithSession } from "@/lib/auth/request"
 import type { OfficeSession } from "@/lib/auth/session"
+import { trialEndsAt } from "@/lib/billing/access"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
-import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
+import { authClientFromRequest } from "@/lib/supabase/pending-cookies"
 import type { NextRequest } from "next/server"
 
 export const runtime = "nodejs"
@@ -35,12 +38,41 @@ export async function POST(request: NextRequest) {
         password,
       })
       if (!error && data.user) {
-        await updateUserPassword(email, password)
+        try {
+          await updateUserPassword(email, password)
+        } catch {
+          // On Vercel without SUPABASE_SECRET_KEY, /var/task is read-only
+        }
         result = await login({
           email,
           password,
           role: body?.role && isUserRole(body.role) ? body.role : undefined,
         })
+        if (!result.ok) {
+          const existingSession = await sessionByEmail(email)
+          const meta = (data.user.user_metadata || {}) as { full_name?: string; company_name?: string }
+          const fallbackCompanyName =
+            body?.hostedUser?.companyName || existingSession?.companyName || meta.company_name || "ScopePipe"
+          const fallbackUser: OfficeSession = body?.hostedUser ||
+            existingSession || {
+              id: data.user.id,
+              name: meta.full_name || email.trim().split("@")[0] || "Owner",
+              email: email.trim().toLowerCase(),
+              role: body?.role && isUserRole(body.role) ? body.role : "owner",
+              companyId: data.user.id,
+              companyName: fallbackCompanyName,
+              companySlug: slugifyCompanyName(fallbackCompanyName),
+              subscriptionStatus: "trialing",
+              trialEndsAt: trialEndsAt(new Date()),
+              authUserId: data.user.id,
+            }
+          return jsonWithOfficeSession(fallbackUser, {
+            ok: true,
+            user: fallbackUser,
+            hosted: true,
+            passwordHash: hashPassword(password),
+          })
+        }
       }
     } catch {
       // Continue with original result

@@ -1,12 +1,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import { authSecret } from "./directory.ts"
 
-export function createPasswordResetToken(email: string): string {
+export function createPasswordResetToken(email: string, accessToken?: string): string {
   const normalized = email.toLowerCase().trim()
   const exp = Date.now() + 60 * 60 * 1000 // 1 hour
   const payload = Buffer.from(
     JSON.stringify({
       email: normalized,
+      ...(accessToken ? { accessToken } : {}),
       exp,
       salt: randomBytes(8).toString("hex"),
     }),
@@ -18,7 +19,7 @@ export function createPasswordResetToken(email: string): string {
 
 export function verifyPasswordResetToken(
   token: string,
-): { valid: boolean; email?: string; reason?: string } {
+): { valid: boolean; email?: string; accessToken?: string; reason?: string } {
   if (!token || typeof token !== "string" || !token.includes(".")) {
     return { valid: false, reason: "This reset link is invalid or malformed." }
   }
@@ -39,6 +40,7 @@ export function verifyPasswordResetToken(
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
       email?: string
+      accessToken?: string
       exp?: number
     }
 
@@ -50,7 +52,7 @@ export function verifyPasswordResetToken(
       return { valid: false, reason: "This reset link has expired. Please request a new one." }
     }
 
-    return { valid: true, email: data.email }
+    return { valid: true, email: data.email, accessToken: data.accessToken }
   } catch {
     return { valid: false, reason: "This reset link is invalid." }
   }
