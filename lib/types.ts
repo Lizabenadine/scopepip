@@ -121,6 +121,8 @@ export interface EstimateSettings {
   logoUrl?: string
   /** Number customers text. Blank until the office saves one. */
   businessPhone?: string
+  /** Contractor license or registration shown on proposals when configured. */
+  companyLicense?: string
   /** Page where a finished customer leaves a review. Blank leaves the ask without a link. */
   reviewUrl?: string
   /** Missing means the proposal shows a payment estimate. */
@@ -334,6 +336,16 @@ export interface ProposalTestimonial {
   detail: string
 }
 
+/** Reusable contractor-customizable proposal sections for Interior, Exterior, or Cabinets & Specialty. */
+export interface ProposalKindTemplate {
+  scopeOverview?: string
+  preparation?: string
+  materials?: string
+  exclusions?: string
+  warranty?: string
+  paymentTerms?: string
+}
+
 /** Company pages around the quote. Blank contract or wording uses the built-in text. */
 export interface ProposalPages {
   coverLine?: string
@@ -342,6 +354,7 @@ export interface ProposalPages {
   contractTerms?: string
   acceptWording?: string
   declineWording?: string
+  templates?: Partial<Record<EstimateKind, ProposalKindTemplate>>
 }
 
 export const INBOUND_LEAD_SOURCES = ["website", "thumbtack", "angi", "google_lsa", "facebook"] as const

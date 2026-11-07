@@ -109,8 +109,28 @@ function pdfText(value: string): string {
 
 function chunk(lines: string[], size: number): string[][] {
   const pages: string[][] = []
-  for (let index = 0; index < lines.length; index += size) pages.push(lines.slice(index, index + size))
-  return pages
+  let index = 0
+  const minChunk = Math.max(12, Math.floor(size * 0.65))
+  while (index < lines.length) {
+    while (index < lines.length && lines[index] === "" && pages.length > 0) {
+      index++
+    }
+    if (index >= lines.length) break
+    if (lines.length - index <= size) {
+      pages.push(lines.slice(index))
+      break
+    }
+    let breakAt = index + size
+    for (let probe = index + size; probe >= index + minChunk; probe--) {
+      if (lines[probe] === "") {
+        breakAt = probe
+        break
+      }
+    }
+    pages.push(lines.slice(index, breakAt))
+    index = breakAt
+  }
+  return pages.length > 0 ? pages : [[""]]
 }
 
 function round(value: number): string {

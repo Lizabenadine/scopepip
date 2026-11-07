@@ -1,6 +1,10 @@
 import { CompanyMark } from "@/components/brand/company-mark"
 import { money } from "@/lib/format"
-import type { ProposalPageRef } from "@/lib/proposals/document"
+import type {
+  ProposalPageRef,
+  ResolvedProposalKindTemplate,
+  ScheduledProposalProduct,
+} from "@/lib/proposals/document"
 import type { ProposalPhoto, ProposalTestimonial } from "@/lib/types"
 
 export function ProposalPager({ pages }: { pages: ProposalPageRef[] }) {
@@ -30,10 +34,13 @@ export function ProposalCover({
   title,
   jobAddress,
   companyEmail,
+  companyPhone,
+  companyLicense,
   preparedOn,
   expiresOn,
   total,
   coverLine,
+  templateLabel,
   page,
   pageCount,
 }: {
@@ -43,10 +50,13 @@ export function ProposalCover({
   title: string
   jobAddress: string
   companyEmail: string
+  companyPhone?: string
+  companyLicense?: string
   preparedOn: string
   expiresOn: string | null
   total: number
   coverLine: string
+  templateLabel?: string
   page: number
   pageCount: number
 }) {
@@ -65,7 +75,14 @@ export function ProposalCover({
           className="font-display text-3xl leading-none tracking-tight text-primary"
           imageClassName="h-16"
         />
-        <p className="mt-6 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Proposal</p>
+        {companyLicense ? (
+          <p data-testid="proposal-company-license" className="mt-2 text-xs font-medium text-muted-foreground">
+            {companyLicense}
+          </p>
+        ) : null}
+        <p className="mt-6 text-xs font-semibold tracking-[0.14em] text-primary uppercase">
+          {templateLabel ? `Proposal · ${templateLabel}` : "Proposal"}
+        </p>
         <h1 className="mt-2 font-display text-4xl leading-none tracking-tight sm:text-5xl">{title || "Painting proposal"}</h1>
         {coverLine ? (
           <p data-testid="proposal-cover-line" className="mt-4 max-w-xl text-base leading-7">
@@ -78,13 +95,14 @@ export function ProposalCover({
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Prepared for</p>
           <p className="mt-1 text-lg font-medium">{clientName}</p>
           <p className="text-sm">{jobAddress || "Job site not set"}</p>
-          {companyEmail ? <p className="mt-2 text-sm text-muted-foreground">{companyEmail}</p> : null}
+          {companyPhone ? <p className="mt-2 text-sm text-muted-foreground">{companyPhone}</p> : null}
+          {companyEmail ? <p className="mt-1 text-sm text-muted-foreground">{companyEmail}</p> : null}
           <p className="mt-2 text-sm text-muted-foreground">Prepared {preparedOn}</p>
           {expiresOn ? <p className="text-sm text-muted-foreground">Price holds through {expiresOn}</p> : null}
         </div>
         <div className="sm:text-right">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Investment</p>
-          <p data-testid="proposal-cover-total" className="mt-1 font-display text-4xl text-price tabular-nums">
+          <p data-testid="proposal-cover-total" className="mt-1 font-display text-4xl text-primary tabular-nums">
             {money(total)}
           </p>
         </div>
@@ -187,6 +205,103 @@ export function ProposalTermsPage({
         ))}
       </ol>
       <PageMark label="Terms" page={page} pageCount={pageCount} />
+    </section>
+  )
+}
+
+export function ProposalTemplateSections({
+  template,
+  scheduledProducts,
+}: {
+  template: ResolvedProposalKindTemplate
+  scheduledProducts: ScheduledProposalProduct[]
+}) {
+  return (
+    <section
+      data-testid="proposal-template-sections"
+      data-proposal-section="Preparation and specifications"
+      className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+    >
+      <div>
+        <p className="text-xs font-semibold tracking-[0.14em] text-primary uppercase">{template.label}</p>
+        <h2 className="mt-1 text-xl font-semibold">Preparation, Materials, Exclusions &amp; Warranty</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{template.scopeOverview}</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div
+          data-testid="proposal-section-preparation"
+          className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+        >
+          <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">
+            Preparation Procedures
+          </h3>
+          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-6 text-slate-800">
+            {template.preparation.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div
+          data-testid="proposal-section-materials"
+          className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+        >
+          <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">
+            Materials &amp; Paint System
+          </h3>
+          {scheduledProducts.length > 0 ? (
+            <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase">Scheduled Products on This Job</p>
+              <ul className="mt-1.5 space-y-1 text-sm text-slate-900" data-testid="proposal-scheduled-products">
+                {scheduledProducts.map((product) => (
+                  <li key={product.productName}>
+                    <span className="font-semibold">{product.productName}</span>
+                    {product.details.length > 0 ? (
+                      <span className="text-slate-600"> — {product.details.join("; ")}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-6 text-slate-800">
+            {template.materials.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div
+        data-testid="proposal-section-exclusions"
+        className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+      >
+        <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">Exclusions</h3>
+        <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-6 text-slate-800">
+          {template.exclusions.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div
+          data-testid="proposal-section-warranty"
+          className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+        >
+          <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">Warranty</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-800">{template.warranty}</p>
+        </div>
+
+        <div
+          data-testid="proposal-section-payment-terms"
+          className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+        >
+          <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">Payment Terms</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-800">{template.paymentTerms}</p>
+        </div>
+      </div>
     </section>
   )
 }

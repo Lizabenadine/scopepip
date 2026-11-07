@@ -283,4 +283,87 @@ describe("proposalMail", () => {
       else process.env.SEND_KEYS_PATH = previous.keysPath
     }
   })
+
+  it("populates job-specific measurements, coats, products, deposit, and custom contractor template sections into the PDF while keeping internal rates and crew notes private", () => {
+    const state = createSeedState()
+    const base = state.estimates.find((item) => item.id === "est-ortiz")
+    const client = state.clients.find((item) => item.id === base?.clientId)
+    assert.ok(base && client)
+
+    const estimate = {
+      ...base,
+      estimateKind: "exterior" as const,
+      crewNote: "Internal crew gate code 4491 - do not show customer",
+      areas: base.areas.map((area) => ({
+        ...area,
+        colorName: "Alabaster",
+        colorCode: "SW 7008",
+        sheen: "Satin",
+        crewNote: "Use 32ft ladder on north gable",
+      })),
+    }
+
+    const customSettings = {
+      ...state.estimateSettings,
+      companyLicense: "Licensed, Bonded & Insured",
+      businessPhone: "(503) 555-0140",
+      companyEmail: "office@northwall.example.com",
+      proposalPages: {
+        templates: {
+          exterior: {
+            scopeOverview: "Complete exterior weatherproofing and repainting.",
+            preparation: "Power wash all siding\nScrape and prime bare cedar",
+            materials: "Duration Exterior Acrylic Latex",
+            exclusions: "Detached garage and wood fence",
+            warranty: "Custom 5-year exterior workmanship warranty.",
+            paymentTerms: "30% deposit upon acceptance, 70% upon final walkthrough.",
+          },
+        },
+      },
+    }
+
+    const mail = proposalMail({
+      estimate,
+      clientName: client.name,
+      clientEmail: client.email,
+      language: "en",
+      companyName: "Northwall Paint",
+      paymentMethods: state.paymentMethods,
+      origin: "https://scopepipe.com",
+      estimateSettings: customSettings,
+    })
+
+    assert.ok(!("error" in mail))
+    if ("error" in mail) return
+    const pdf = new TextDecoder().decode(mail.pdf)
+
+    // Branding, template label, room dimensions, color/sheen, coats, and paint products
+    assert.match(pdf, /Northwall Paint/)
+    assert.match(pdf, /Licensed, Bonded & Insured/)
+    assert.match(pdf, /office@northwall\.example\.com/)
+    assert.match(pdf, /Exterior Painting/)
+    assert.match(pdf, /Unit 4 \\\(22 x 18 x 8 ft\\\)/)
+    assert.match(pdf, /Alabaster/)
+    assert.match(pdf, /SW 7008/)
+    assert.match(pdf, /Wall paint/)
+    assert.match(pdf, /Trim paint/)
+
+    // Custom contractor template sections
+    assert.match(pdf, /Complete exterior weatherproofing and repainting\./)
+    assert.match(pdf, /Power wash all siding/)
+    assert.match(pdf, /Duration Exterior Acrylic Latex/)
+    assert.match(pdf, /Detached garage and wood fence/)
+    assert.match(pdf, /Custom 5-year exterior workmanship warranty\./)
+    assert.match(pdf, /30% deposit upon acceptance, 70% upon final walkthrough\./)
+    assert.match(pdf, /Deposit due \\\(30%\\\)/)
+    assert.match(pdf, /Balance after the job/)
+
+    // Strict privacy: never expose internal crew notes, hourly rates, or costs
+    assert.equal(pdf.includes("4491"), false)
+    assert.equal(pdf.includes("32ft ladder"), false)
+    assert.equal(pdf.includes("sales rate"), false)
+    assert.equal(pdf.includes("per hour"), false)
+    assert.equal(pdf.includes("laborCost"), false)
+    assert.equal(pdf.includes("grossProfit"), false)
+  })
 })

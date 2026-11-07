@@ -9,6 +9,7 @@ import {
   ProposalPager,
   ProposalPhotoPage,
   ProposalSignatureCopy,
+  ProposalTemplateSections,
   ProposalTermsPage,
   ProposalTestimonialPage,
   pageNumber,
@@ -26,7 +27,11 @@ import { sectionByGroup } from "@/lib/estimate/groups"
 import type { Estimate, EstimateSettings, PaymentMethod } from "@/lib/types"
 import { jobDate, money, moneyExact } from "@/lib/format"
 import { financingTerms, monthlyPayment } from "@/lib/financing/offer"
-import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
+import {
+  proposalDocument,
+  proposalPageList,
+  scheduledProductsFromAreas,
+} from "@/lib/proposals/document"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { proposalFigures } from "@/lib/proposals/figures"
@@ -259,8 +264,9 @@ function ProposalDocument({
     estimate.settings.expiryDays > 0
       ? new Date(new Date(estimate.createdAt).getTime() + estimate.settings.expiryDays * 86400000)
       : null
-  const pagesDocument = proposalDocument(estimateSettings)
+  const pagesDocument = proposalDocument(estimateSettings, estimate.estimateKind)
   const pages = proposalPageList(pagesDocument)
+  const scheduledProducts = scheduledProductsFromAreas(quote.areas)
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
   const [confirmDecline, setConfirmDecline] = useState(false)
   const preparedOn = jobDate(estimate.createdAt.slice(0, 10))
@@ -305,10 +311,13 @@ function ProposalDocument({
         title={estimate.title}
         jobAddress={estimate.jobAddress}
         companyEmail={companyEmail}
+        companyPhone={estimateSettings.businessPhone?.trim() || ""}
+        companyLicense={estimateSettings.companyLicense?.trim() || ""}
         preparedOn={preparedOn}
         expiresOn={expiresOn}
         total={quote.total}
         coverLine={pagesDocument.coverLine}
+        templateLabel={pagesDocument.template.label}
         page={pageNumber(pages, "proposal-page-cover")}
         pageCount={pages.length}
       />
@@ -328,6 +337,8 @@ function ProposalDocument({
           clientName={clientName}
           jobAddress={estimate.jobAddress}
           orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
+          templateLabel={pagesDocument.template.label}
+          scopeOverview={pagesDocument.template.scopeOverview}
           sections={sectionByGroup(
             quote.areas.filter((area) => area.surfaces.length > 0),
             estimate.areaGroups,
@@ -399,13 +410,18 @@ function ProposalDocument({
         </section>
       ) : null}
 
+      <ProposalTemplateSections
+        template={pagesDocument.template}
+        scheduledProducts={scheduledProducts}
+      />
+
       <section data-proposal-section="Price" className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <TotalRow label="Subtotal" value={money(quote.subtotal)} />
         {quote.discount > 0 ? <TotalRow label="Discount" value={money(quote.discount)} /> : null}
         {quote.tax > 0 ? <TotalRow label="Tax" value={money(quote.tax)} /> : null}
         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
           <p className="font-medium">Total</p>
-          <p data-testid="proposal-total" className="font-display text-4xl text-price tabular-nums">
+          <p data-testid="proposal-total" className="font-display text-4xl text-primary tabular-nums">
             {money(quote.total)}
           </p>
         </div>

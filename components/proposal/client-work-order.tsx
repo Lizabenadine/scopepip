@@ -14,6 +14,8 @@ export function ClientWorkOrder({
   jobAddress,
   orderNumber,
   sections,
+  templateLabel,
+  scopeOverview,
 }: {
   companyName: string
   logoUrl?: string | null
@@ -21,6 +23,8 @@ export function ClientWorkOrder({
   jobAddress: string
   orderNumber: string
   sections: AreaSection<PricedArea>[]
+  templateLabel?: string
+  scopeOverview?: string
 }) {
   const { language } = useFieldLanguage()
   const say = (text: string) => translatePainting(text, language)
@@ -42,16 +46,28 @@ export function ClientWorkOrder({
             testId="client-work-order-brand"
           />
           <p className="mt-1 text-xs text-slate-500">
-            {spanish ? "Orden de trabajo para el cliente" : "Work order for the client"}
+            {templateLabel ? say(templateLabel) : spanish ? "Alcance del proyecto" : "Project scope of work"}
           </p>
         </div>
         <div className="text-right">
           <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold tracking-wider text-cyan-800 uppercase">
-            {spanish ? "Orden de Trabajo" : "Work Order"}
+            {templateLabel ? say(templateLabel) : spanish ? "Propuesta" : "Proposal Scope"}
           </span>
           <p className="mt-2 text-sm font-semibold text-slate-800">#{orderNumber}</p>
         </div>
       </div>
+
+      {scopeOverview ? (
+        <div
+          data-testid="proposal-scope-overview"
+          className="mt-6 rounded-lg border border-slate-200 bg-slate-50/80 p-4 text-sm leading-6 text-slate-700"
+        >
+          <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+            {spanish ? "Resumen del Alcance" : "Standard Scope of Work"}
+          </p>
+          <p className="mt-1">{say(scopeOverview)}</p>
+        </div>
+      ) : null}
 
       <div className="my-6 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
         <div>
@@ -91,13 +107,11 @@ export function ClientWorkOrder({
                 area.areaType === "room"
                   ? `${area.lengthFt} × ${area.widthFt} × ${area.heightFt} ft`
                   : `${area.lengthFt} × ${area.heightFt} ft`
-              const prep = [area.prepLevel !== "none" ? `${area.prepLevel} prep` : "", area.crewNote.trim()]
-                .filter(Boolean)
-                .join(". ")
+              const prep = area.prepLevel !== "none" ? `${area.prepLevel} prep` : ""
               return (
                 <section key={area.id} className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
                   <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                    <h4 className="text-base font-bold text-cyan-800">{say(area.name)}</h4>
+                    <h4 className="text-base font-bold text-primary">{say(area.name)}</h4>
                     <span className="text-sm font-semibold text-slate-950">{money(area.clientPrice)}</span>
                   </div>
                   <p className="text-xs text-slate-500">{size}</p>
@@ -113,7 +127,7 @@ export function ClientWorkOrder({
                         <div className="mb-1 flex justify-between gap-3 text-xs text-slate-500">
                           <span>{say(surface.clientLabel)}</span>
                           {surface.showCoats && surface.coatCount > 0 ? (
-                            <span className="font-semibold text-cyan-700">{say(`${surface.coatCount} coats`)}</span>
+                            <span className="font-semibold text-primary">{say(`${surface.coatCount} coats`)}</span>
                           ) : null}
                         </div>
                         {surface.productName === "Prep" ? null : (
@@ -129,8 +143,8 @@ export function ClientWorkOrder({
                     ))}
                   </div>
                   {prep ? (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
-                      <span className="mb-1 block font-bold tracking-wider text-amber-800 uppercase">
+                    <div className="rounded-lg border border-slate-200 bg-slate-100 p-3 text-xs text-slate-900">
+                      <span className="mb-1 block font-bold tracking-wider text-primary uppercase">
                         {spanish ? "Instrucciones de Preparación" : "Prep Instructions"}
                       </span>
                       {say(prep)}

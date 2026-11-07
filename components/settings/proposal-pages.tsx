@@ -8,14 +8,57 @@ import { useScope } from "@/lib/data/store"
 import {
   DEFAULT_ACCEPT_WORDING,
   DEFAULT_DECLINE_WORDING,
+  DEFAULT_PROPOSAL_TEMPLATES,
+  PROPOSAL_TEMPLATE_KINDS,
+  PROPOSAL_TEMPLATE_LABELS,
   contractTermsText,
   proposalDocument,
+  templateLinesText,
 } from "@/lib/proposals/document"
-import type { ProposalPages, ProposalPhoto, ProposalTestimonial } from "@/lib/types"
+import type {
+  EstimateKind,
+  ProposalKindTemplate,
+  ProposalPages,
+  ProposalPhoto,
+  ProposalTestimonial,
+} from "@/lib/types"
+
+type EditableTemplates = Record<EstimateKind, Required<ProposalKindTemplate>>
+
+function buildInitialTemplates(current: ReturnType<typeof proposalDocument>): EditableTemplates {
+  return {
+    interior: {
+      scopeOverview: current.templates.interior.scopeOverview,
+      preparation: templateLinesText(current.templates.interior.preparation),
+      materials: templateLinesText(current.templates.interior.materials),
+      exclusions: templateLinesText(current.templates.interior.exclusions),
+      warranty: current.templates.interior.warranty,
+      paymentTerms: current.templates.interior.paymentTerms,
+    },
+    exterior: {
+      scopeOverview: current.templates.exterior.scopeOverview,
+      preparation: templateLinesText(current.templates.exterior.preparation),
+      materials: templateLinesText(current.templates.exterior.materials),
+      exclusions: templateLinesText(current.templates.exterior.exclusions),
+      warranty: current.templates.exterior.warranty,
+      paymentTerms: current.templates.exterior.paymentTerms,
+    },
+    cabinets: {
+      scopeOverview: current.templates.cabinets.scopeOverview,
+      preparation: templateLinesText(current.templates.cabinets.preparation),
+      materials: templateLinesText(current.templates.cabinets.materials),
+      exclusions: templateLinesText(current.templates.cabinets.exclusions),
+      warranty: current.templates.cabinets.warranty,
+      paymentTerms: current.templates.cabinets.paymentTerms,
+    },
+  }
+}
 
 export function ProposalPagesEditor() {
   const scope = useScope()
   const current = proposalDocument(scope.estimateSettings)
+  const [activeKind, setActiveKind] = useState<EstimateKind>("interior")
+  const [templates, setTemplates] = useState<EditableTemplates>(() => buildInitialTemplates(current))
   const [coverLine, setCoverLine] = useState(scope.estimateSettings.proposalPages?.coverLine ?? "")
   const [terms, setTerms] = useState(
     scope.estimateSettings.proposalPages?.contractTerms?.trim() || contractTermsText(current.contractTerms),
@@ -33,6 +76,35 @@ export function ProposalPagesEditor() {
   const [saved, setSaved] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
 
+  const activeTemplate = templates[activeKind]
+
+  const patchActiveTemplate = (patch: Partial<Required<ProposalKindTemplate>>) => {
+    setSaved(false)
+    setTemplates((prev) => ({
+      ...prev,
+      [activeKind]: {
+        ...prev[activeKind],
+        ...patch,
+      },
+    }))
+  }
+
+  const resetActiveTemplate = () => {
+    const defaults = DEFAULT_PROPOSAL_TEMPLATES[activeKind]
+    setSaved(false)
+    setTemplates((prev) => ({
+      ...prev,
+      [activeKind]: {
+        scopeOverview: defaults.scopeOverview,
+        preparation: templateLinesText(defaults.preparation),
+        materials: templateLinesText(defaults.materials),
+        exclusions: templateLinesText(defaults.exclusions),
+        warranty: defaults.warranty,
+        paymentTerms: defaults.paymentTerms,
+      },
+    }))
+  }
+
   const save = () => {
     const pages: ProposalPages = {
       coverLine: coverLine.trim(),
@@ -41,6 +113,32 @@ export function ProposalPagesEditor() {
       contractTerms: terms.trim(),
       acceptWording: acceptWording.trim() || DEFAULT_ACCEPT_WORDING,
       declineWording: declineWording.trim() || DEFAULT_DECLINE_WORDING,
+      templates: {
+        interior: {
+          scopeOverview: templates.interior.scopeOverview.trim(),
+          preparation: templates.interior.preparation.trim(),
+          materials: templates.interior.materials.trim(),
+          exclusions: templates.interior.exclusions.trim(),
+          warranty: templates.interior.warranty.trim(),
+          paymentTerms: templates.interior.paymentTerms.trim(),
+        },
+        exterior: {
+          scopeOverview: templates.exterior.scopeOverview.trim(),
+          preparation: templates.exterior.preparation.trim(),
+          materials: templates.exterior.materials.trim(),
+          exclusions: templates.exterior.exclusions.trim(),
+          warranty: templates.exterior.warranty.trim(),
+          paymentTerms: templates.exterior.paymentTerms.trim(),
+        },
+        cabinets: {
+          scopeOverview: templates.cabinets.scopeOverview.trim(),
+          preparation: templates.cabinets.preparation.trim(),
+          materials: templates.cabinets.materials.trim(),
+          exclusions: templates.cabinets.exclusions.trim(),
+          warranty: templates.cabinets.warranty.trim(),
+          paymentTerms: templates.cabinets.paymentTerms.trim(),
+        },
+      },
     }
     scope.updateEstimateSettings({ ...scope.estimateSettings, proposalPages: pages })
     setSaved(true)
@@ -49,10 +147,131 @@ export function ProposalPagesEditor() {
   return (
     <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="proposal-pages-editor">
       <div>
-        <h2 className="text-lg font-semibold">Proposal pages</h2>
+        <h2 className="text-lg font-semibold">Proposal pages &amp; standard templates</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          The customer proposal opens on a cover, then the scope, then any photo pages and testimonials, then the contract, then the signature. Accept and decline wording sits under the signature.
+          Save your reusable Scope of Work, Preparation Procedures, Materials, Exclusions, Warranty, and Payment Terms once for Interior, Exterior, and Cabinets &amp; Specialty Painting. Scopepipe automatically combines the matching template with each job&apos;s rooms, surfaces, coats, paint products, and pricing.
         </p>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4" data-testid="proposal-standard-templates">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold">Standard Painting Proposal Templates</h3>
+            <p className="text-xs text-muted-foreground">
+              Default warranties, materials, exclusions, and payment terms are editable examples—customize them to match your company policies.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="reset-proposal-template"
+            className="text-xs font-medium text-primary hover:underline"
+            onClick={resetActiveTemplate}
+          >
+            Reset {PROPOSAL_TEMPLATE_LABELS[activeKind]} to example wording
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Proposal template type">
+          {PROPOSAL_TEMPLATE_KINDS.map((kind) => {
+            const selected = kind === activeKind
+            return (
+              <button
+                key={kind}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                data-testid={`proposal-template-${kind}`}
+                onClick={() => setActiveKind(kind)}
+                className={
+                  selected
+                    ? "rounded-full bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground"
+                    : "rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                }
+              >
+                {PROPOSAL_TEMPLATE_LABELS[kind]}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1">
+            <Label htmlFor="proposal-template-scope-overview">
+              {PROPOSAL_TEMPLATE_LABELS[activeKind]} — Standard Scope of Work Overview
+            </Label>
+            <textarea
+              id="proposal-template-scope-overview"
+              data-testid="proposal-template-scope-overview"
+              value={activeTemplate.scopeOverview}
+              rows={2}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm leading-6 outline-none"
+              onChange={(event) => patchActiveTemplate({ scopeOverview: event.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-1">
+            <Label htmlFor="proposal-template-preparation">Preparation Procedures (one procedure per line)</Label>
+            <textarea
+              id="proposal-template-preparation"
+              data-testid="proposal-template-preparation"
+              value={activeTemplate.preparation}
+              rows={5}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm leading-6 outline-none"
+              onChange={(event) => patchActiveTemplate({ preparation: event.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-1">
+            <Label htmlFor="proposal-template-materials">Materials &amp; Paint System (one item per line)</Label>
+            <textarea
+              id="proposal-template-materials"
+              data-testid="proposal-template-materials"
+              value={activeTemplate.materials}
+              rows={3}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm leading-6 outline-none"
+              onChange={(event) => patchActiveTemplate({ materials: event.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              The specific paint products and coat counts selected in the estimator are automatically listed alongside these standard material specifications.
+            </p>
+          </div>
+
+          <div className="grid gap-1">
+            <Label htmlFor="proposal-template-exclusions">Exclusions (one item per line)</Label>
+            <textarea
+              id="proposal-template-exclusions"
+              data-testid="proposal-template-exclusions"
+              value={activeTemplate.exclusions}
+              rows={3}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm leading-6 outline-none"
+              onChange={(event) => patchActiveTemplate({ exclusions: event.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-1">
+            <Label htmlFor="proposal-template-warranty">Warranty (editable example)</Label>
+            <textarea
+              id="proposal-template-warranty"
+              data-testid="proposal-template-warranty"
+              value={activeTemplate.warranty}
+              rows={2}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm leading-6 outline-none"
+              onChange={(event) => patchActiveTemplate({ warranty: event.target.value })}
+            />
+          </div>
+
+          <div className="grid gap-1">
+            <Label htmlFor="proposal-template-payment-terms">Payment Terms (editable example)</Label>
+            <textarea
+              id="proposal-template-payment-terms"
+              data-testid="proposal-template-payment-terms"
+              value={activeTemplate.paymentTerms}
+              rows={2}
+              className="rounded-lg border border-input bg-white px-3 py-2 text-sm leading-6 outline-none"
+              onChange={(event) => patchActiveTemplate({ paymentTerms: event.target.value })}
+            />
+          </div>
+        </div>
       </div>
       <div className="grid gap-1">
         <Label htmlFor="proposal-cover-line">Cover line</Label>

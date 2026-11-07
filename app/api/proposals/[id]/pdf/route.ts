@@ -25,6 +25,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     paymentMethods: book.state.paymentMethods,
     origin: new URL(request.url).origin,
     logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
+    estimateSettings: book.state.estimateSettings,
   })
   if ("error" in mail) return Response.json({ ok: false, reason: mail.error }, { status: 400 })
   return new Response(Buffer.from(mail.pdf), {

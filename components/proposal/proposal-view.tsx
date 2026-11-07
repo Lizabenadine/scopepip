@@ -6,6 +6,7 @@ import {
   ProposalPager,
   ProposalPhotoPage,
   ProposalSignatureCopy,
+  ProposalTemplateSections,
   ProposalTermsPage,
   ProposalTestimonialPage,
   pageNumber,
@@ -17,8 +18,12 @@ import { officeLabel } from "@/lib/office/dashboard-copy"
 import { translatePainting, paintingText } from "@/lib/field/terms"
 import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
-import { hoursLabel, jobDate, money } from "@/lib/format"
-import { proposalDocument, proposalPageList } from "@/lib/proposals/document"
+import { jobDate, money } from "@/lib/format"
+import {
+  proposalDocument,
+  proposalPageList,
+  scheduledProductsFromAreas,
+} from "@/lib/proposals/document"
 import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { ProposalLinePhoto } from "@/components/proposal/line-photo"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
@@ -56,8 +61,9 @@ export function ProposalView({ id }: { id: string }) {
       ? new Date(new Date(sent).getTime() + estimate.settings.expiryDays * 86400000)
       : null
   const companyName = displayCompanyName(scope.estimateSettings.companyName)
-  const pagesDocument = proposalDocument(scope.estimateSettings)
+  const pagesDocument = proposalDocument(scope.estimateSettings, estimate.estimateKind)
   const pages = proposalPageList(pagesDocument)
+  const scheduledProducts = scheduledProductsFromAreas(quote.areas)
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
   const depositPercent = clampDepositPercent(estimate.settings.depositPercent)
   const deposit = depositAmount(quote.total, depositPercent)
@@ -101,10 +107,13 @@ export function ProposalView({ id }: { id: string }) {
         title={estimate.title || "Estimate"}
         jobAddress={estimate.jobAddress}
         companyEmail={scope.estimateSettings.companyEmail?.trim() || ""}
+        companyPhone={scope.estimateSettings.businessPhone?.trim() || ""}
+        companyLicense={scope.estimateSettings.companyLicense?.trim() || ""}
         preparedOn={jobDate(sent.slice(0, 10))}
         expiresOn={expires ? jobDate(expires.toISOString().slice(0, 10)) : null}
         total={quote.total}
         coverLine={pagesDocument.coverLine}
+        templateLabel={pagesDocument.template.label}
         page={pageNumber(pages, "proposal-page-cover")}
         pageCount={pages.length}
       />
@@ -116,6 +125,8 @@ export function ProposalView({ id }: { id: string }) {
         clientName={client?.name || "Client"}
         jobAddress={estimate.jobAddress}
         orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
+        templateLabel={pagesDocument.template.label}
+        scopeOverview={pagesDocument.template.scopeOverview}
         sections={sectionByGroup(
           quote.areas.filter((area) => area.surfaces.length > 0),
           estimate.areaGroups,
@@ -142,13 +153,17 @@ export function ProposalView({ id }: { id: string }) {
           ))}
         </section>
       ) : null}
+      <ProposalTemplateSections
+        template={pagesDocument.template}
+        scheduledProducts={scheduledProducts}
+      />
       <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <Row label="Subtotal" value={money(quote.subtotal)} />
         {quote.discount > 0 ? <Row label="Discount" value={money(quote.discount)} /> : null}
         {quote.tax > 0 ? <Row label="Tax" value={money(quote.tax)} /> : null}
         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
           <p className="font-medium">Total</p>
-          <p className="font-display text-3xl text-price tabular-nums">{money(quote.total)}</p>
+          <p className="font-display text-3xl text-primary tabular-nums">{money(quote.total)}</p>
         </div>
         <div className="mt-2 flex items-baseline justify-between">
           <p className="text-sm text-muted-foreground">Deposit required ({depositPercent}%)</p>
@@ -162,9 +177,6 @@ export function ProposalView({ id }: { id: string }) {
             </p>
           </div>
         ) : null}
-        <p className="mt-2 text-xs text-muted-foreground">
-          {hoursLabel(quote.allocatedHours)} · sales rate {money(quote.salesRate)} per hour
-        </p>
         {quote.surcharge > 0 ? (
           <p className="mt-2 text-sm">
             {quote.paymentMethodLabel} adds {money(quote.surcharge)}. Amount due {money(quote.amountDue)}.
