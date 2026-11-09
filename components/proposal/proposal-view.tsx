@@ -67,9 +67,14 @@ export function ProposalView({ id }: { id: string }) {
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
   const depositPercent = clampDepositPercent(estimate.settings.depositPercent)
   const deposit = depositAmount(quote.total, depositPercent)
+  const rawBrandColor = scope.estimateSettings.brandColor?.trim() || estimate.settings.brandColor?.trim() || ""
+  const brandColor = /^#[0-9a-fA-F]{6}$/.test(rawBrandColor) ? rawBrandColor : undefined
 
   return (
-    <article className="mx-auto flex max-w-3xl flex-col gap-6 pb-8">
+    <article
+      className="mx-auto flex max-w-3xl flex-col gap-6 pb-8"
+      style={brandColor ? ({ "--primary": brandColor } as React.CSSProperties) : undefined}
+    >
       <div className="flex items-center justify-between gap-3 text-sm">
         <Link href={`/estimates/${estimate.id}`} className="text-muted-foreground">
           Back to estimate

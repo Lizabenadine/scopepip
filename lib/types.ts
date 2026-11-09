@@ -119,6 +119,8 @@ export interface EstimateSettings {
   companyEmail?: string
   /** Public logo. Blank shows the company name. */
   logoUrl?: string
+  /** Primary brand accent color (#RRGGBB) shown on proposals and PDFs. */
+  brandColor?: string
   /** Number customers text. Blank until the office saves one. */
   businessPhone?: string
   /** Contractor license or registration shown on proposals when configured. */

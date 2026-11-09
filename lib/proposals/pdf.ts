@@ -3,11 +3,12 @@ import type { PdfLogo } from "../brand/logo-pdf.ts"
 const PAGE_LINES = 44
 
 /** A one-column letter PDF. A logo, when present, sits above the first page. */
-export function textPdf(lines: string[], logo?: PdfLogo | null): Uint8Array {
+export function textPdf(lines: string[], logo?: PdfLogo | null, brandColor?: string): Uint8Array {
   const pages = chunk(lines.length > 0 ? lines : [""], PAGE_LINES)
   const objects = new Map<number, Uint8Array>()
   const kids: number[] = []
   let nextId = logo ? 5 : 4
+  const rgb = parseBrandRgb(brandColor)
   pages.forEach((page, index) => {
     const pageId = nextId
     const contentId = nextId + 1
@@ -18,7 +19,7 @@ export function textPdf(lines: string[], logo?: PdfLogo | null): Uint8Array {
       ? "<< /Font << /F1 3 0 R >> /XObject << /Im1 4 0 R >> >>"
       : "<< /Font << /F1 3 0 R >> >>"
     objects.set(pageId, ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${contentId} 0 R /Resources ${resources} >>`))
-    const stream = pageStream(page, drawLogo ? logoStart(logo!) : 750, drawLogo ? logoDraw(logo!) : "")
+    const stream = pageStream(page, drawLogo ? logoStart(logo!) : 736, drawLogo ? logoDraw(logo!) : "", rgb)
     objects.set(contentId, streamObject(ascii(stream)))
   })
   objects.set(1, ascii("<< /Type /Catalog /Pages 2 0 R >>"))
@@ -81,8 +82,31 @@ function streamObject(stream: Uint8Array): Uint8Array {
   return out
 }
 
-function pageStream(lines: string[], startY: number, prefix: string): string {
-  const commands = [prefix.trim(), "BT", "/F1 11 Tf", `54 ${Math.round(startY)} Td`, "15 TL"].filter(Boolean)
+function parseBrandRgb(brandColor?: string): [string, string, string] {
+  const trimmed = brandColor?.trim() ?? ""
+  const hex = /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed.slice(1) : "1f4d3d"
+  const r = round(parseInt(hex.slice(0, 2), 16) / 255)
+  const g = round(parseInt(hex.slice(2, 4), 16) / 255)
+  const b = round(parseInt(hex.slice(4, 6), 16) / 255)
+  return [r, g, b]
+}
+
+function pageStream(lines: string[], startY: number, prefix: string, rgb: [string, string, string]): string {
+  const [r, g, b] = rgb
+  const bgCommands = [
+    "q",
+    "0.922 0.898 0.851 rg",
+    "0 0 612 792 re f",
+    "0.988 0.98 0.965 rg",
+    "34 28 544 736 re f",
+    `${r} ${g} ${b} RG`,
+    "1.5 w",
+    "34 28 544 736 re S",
+    `${r} ${g} ${b} rg`,
+    "34 758 544 6 re f",
+    "Q",
+  ].join("\n")
+  const commands = [bgCommands, prefix.trim(), "BT", "0.09 0.098 0.11 rg", "/F1 11 Tf", `54 ${Math.round(startY)} Td`, "15 TL"].filter(Boolean)
   lines.forEach((line, index) => {
     commands.push(`(${pdfText(line)}) Tj`)
     if (index < lines.length - 1) commands.push("T*")

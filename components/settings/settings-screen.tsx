@@ -205,17 +205,73 @@ function PaymentFields() {
   )
 }
 
+const BRAND_COLOR_PRESETS = [
+  { label: "Forest Green", value: "#1f4d3d" },
+  { label: "Deep Navy", value: "#1e3a8a" },
+  { label: "Bright Blue", value: "#0284c7" },
+  { label: "Slate Charcoal", value: "#1e293b" },
+  { label: "Craftsman Rust", value: "#9a3412" },
+  { label: "Burgundy", value: "#7f1d1d" },
+] as const
+
 function BrandPanel() {
-  const { estimateSettings } = useScope()
+  const { estimateSettings, updateEstimateSettings } = useScope()
   const name = displayCompanyName(estimateSettings.companyName)
+  const currentBrandColor = /^#[0-9a-fA-F]{6}$/.test(estimateSettings.brandColor?.trim() ?? "")
+    ? estimateSettings.brandColor!.trim()
+    : "#1f4d3d"
+
+  function setBrandColor(hex: string) {
+    updateEstimateSettings({ ...estimateSettings, brandColor: hex })
+  }
+
   return (
-    <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-      <h2 className="text-lg font-semibold">Brand</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Proposals, crew sheets, invoices, and the proposal PDF show this logo. Without a logo they show {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
-      </p>
-      <CompanyLogoField />
-    </section>
+    <div className="flex flex-col gap-6">
+      <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
+        <h2 className="text-lg font-semibold">Brand</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Proposals, crew sheets, invoices, and the proposal PDF show this logo. Without a logo they show {name}. Change that name on the Company tab. The office header keeps the ScopePipe wordmark.
+        </p>
+        <CompanyLogoField />
+      </section>
+      <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
+        <h2 className="text-lg font-semibold">Primary brand color</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Used for proposal borders, surface badges, bullets, and signature highlights on your homeowner proposals and PDFs.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">
+            <input
+              type="color"
+              value={currentBrandColor}
+              data-testid="company-brand-color"
+              onChange={(event) => setBrandColor(event.currentTarget.value)}
+              className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent p-0"
+            />
+            <span className="font-mono text-xs uppercase">{currentBrandColor}</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            {BRAND_COLOR_PRESETS.map((preset) => {
+              const activeColor = currentBrandColor.toLowerCase() === preset.value.toLowerCase()
+              return (
+                <button
+                  key={preset.value}
+                  type="button"
+                  onClick={() => setBrandColor(preset.value)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                    activeColor ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                  )}
+                >
+                  <span className="h-3 w-3 rounded-full border border-black/15" style={{ backgroundColor: preset.value }} />
+                  {preset.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+    </div>
   )
 }
 

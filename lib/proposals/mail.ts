@@ -80,6 +80,7 @@ export function proposalMail(input: {
           businessPhone: input.estimateSettings.businessPhone ?? input.estimate.settings.businessPhone,
           companyLicense: input.estimateSettings.companyLicense ?? input.estimate.settings.companyLicense,
           logoUrl: input.estimateSettings.logoUrl ?? input.estimate.settings.logoUrl,
+          brandColor: input.estimateSettings.brandColor ?? input.estimate.settings.brandColor,
         }
       : {}),
     ...(input.estimateSettings?.proposalPages
@@ -213,7 +214,7 @@ export function proposalMail(input: {
     subject: subject.slice(0, 180),
     text,
     filename: "proposal.pdf",
-    pdf: textPdf(lines.flatMap((line) => wrap(line)), input.logo),
+    pdf: textPdf(lines.flatMap((line) => wrap(line)), input.logo, effectiveSettings.brandColor),
   }
 }
 

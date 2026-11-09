@@ -1,6 +1,7 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
+import { htmlPdf } from "@/lib/proposals/htmlPdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
 import type { Estimate } from "@/lib/types"
@@ -48,25 +49,46 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const postedName = typeof body?.clientName === "string" ? body.clientName.trim() : ""
   const originHeader = request.headers.get("origin")
   const origin = originHeader?.replace(/\/$/, "") || new URL(request.url).origin
+  const language = client?.language === "es" ? "es" : "en"
+  const resolvedClientName = client?.name || postedName
+  const resolvedClientEmail = posted.includes("@") ? posted : (client?.email ?? "")
   const mail = proposalMail({
     estimate,
-    clientName: client?.name || postedName,
-    clientEmail: posted.includes("@") ? posted : (client?.email ?? ""),
-    language: client?.language === "es" ? "es" : "en",
+    clientName: resolvedClientName,
+    clientEmail: resolvedClientEmail,
+    language,
     companyName: book.state.estimateSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin,
     logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
+    estimateSettings: book.state.estimateSettings,
   })
   if ("error" in mail) {
     console.error("[proposal-email] Invalid mail parameters", { estimateId: id, reason: mail.error })
     return Response.json({ ok: false, reason: mail.error }, { status: 400 })
   }
+
+  let pdfAttachment = mail.pdf
+  try {
+    pdfAttachment = await htmlPdf({
+      estimate,
+      clientName: resolvedClientName,
+      clientEmail: mail.to,
+      language,
+      companyName: book.state.estimateSettings.companyName,
+      companyEmail: book.state.estimateSettings.companyEmail || session.email,
+      paymentMethods: book.state.paymentMethods,
+      estimateSettings: book.state.estimateSettings,
+    })
+  } catch {
+    // Fallback to mail.pdf when headless Chromium is unavailable in serverless environments
+  }
+
   const result = await sendProposalEmail({
     to: mail.to,
     subject: mail.subject,
     body: mail.text,
-    pdf: mail.pdf,
+    pdf: pdfAttachment,
     filename: mail.filename,
     companyName: book.state.estimateSettings.companyName,
     replyTo: book.state.estimateSettings.companyEmail,

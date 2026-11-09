@@ -199,7 +199,7 @@ export function PublicProposal({
   )
 }
 
-function ProposalDocument({
+export function ProposalDocument({
   estimate,
   clientName,
   companyName,
@@ -294,8 +294,14 @@ function ProposalDocument({
     })
   }
 
+  const rawBrandColor = estimateSettings.brandColor?.trim() || estimate.settings.brandColor?.trim() || ""
+  const brandColor = /^#[0-9a-fA-F]{6}$/.test(rawBrandColor) ? rawBrandColor : undefined
+
   return (
-    <article className="flex flex-col gap-8">
+    <article
+      className="flex flex-col gap-8"
+      style={brandColor ? ({ "--primary": brandColor } as React.CSSProperties) : undefined}
+    >
       <div className="flex items-center justify-end gap-3">
         <button type="button" className="text-sm font-medium text-primary" onClick={() => window.print()}>
           Print
