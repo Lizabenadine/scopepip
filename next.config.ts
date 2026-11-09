@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core", "puppeteer"],
+  outputFileTracingIncludes: {
+    "/api/proposals/[id]/email": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/proposals/[id]/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+  },
   async redirects() {
     return [
       { source: "/mark.svg", destination: "/scopepipe-mark.png", permanent: false },

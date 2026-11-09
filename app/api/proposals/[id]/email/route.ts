@@ -1,11 +1,13 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
+import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
 import { htmlPdf } from "@/lib/proposals/htmlPdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
 import type { Estimate } from "@/lib/types"
 
 export const runtime = "nodejs"
+export const maxDuration = 60
 
 function isEstimateMatch(value: unknown, expectedId: string): value is Estimate {
   if (!value || typeof value !== "object") return false
@@ -59,6 +61,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     companyName: book.state.estimateSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin,
+    logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
     estimateSettings: book.state.estimateSettings,
   })
   if ("error" in mail) {
@@ -66,17 +69,29 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return Response.json({ ok: false, reason: mail.error }, { status: 400 })
   }
 
-  const pdfAttachment = await htmlPdf({
-    estimate,
-    clientName: resolvedClientName,
-    clientEmail: mail.to,
-    clientPhone: client?.phone ?? "",
-    language,
-    companyName: book.state.estimateSettings.companyName,
-    companyEmail: book.state.estimateSettings.companyEmail || session.email,
-    paymentMethods: book.state.paymentMethods,
-    estimateSettings: book.state.estimateSettings,
-  })
+  let pdfAttachment = mail.pdf
+  let pdfRenderer: "styled" | "fallback" = "styled"
+  let pdfError: string | undefined
+  try {
+    pdfAttachment = await htmlPdf({
+      estimate,
+      clientName: resolvedClientName,
+      clientEmail: mail.to,
+      clientPhone: client?.phone ?? "",
+      language,
+      companyName: book.state.estimateSettings.companyName,
+      companyEmail: book.state.estimateSettings.companyEmail || session.email,
+      paymentMethods: book.state.paymentMethods,
+      estimateSettings: book.state.estimateSettings,
+    })
+  } catch (err) {
+    pdfRenderer = "fallback"
+    pdfError = err instanceof Error ? err.message : String(err)
+    console.error("[proposal-email] Styled PDF generation failed; using fallback PDF", {
+      estimateId: id,
+      error: pdfError,
+    })
+  }
 
   const result = await sendProposalEmail({
     to: mail.to,
@@ -94,9 +109,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       detail: result.detail,
     })
     return Response.json(
-      { ok: false, reason: result.detail, ...result },
+      { ok: false, reason: result.detail, ...result, pdfRenderer, ...(pdfError ? { pdfError } : {}) },
       { status: result.delivery === "logged" ? 503 : 502 },
     )
   }
-  return Response.json({ ok: true, ...result })
+  return Response.json({ ok: true, ...result, pdfRenderer, ...(pdfError ? { pdfError } : {}) })
 }

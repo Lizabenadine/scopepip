@@ -1,6 +1,46 @@
-import puppeteer from "puppeteer"
 import type { Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { renderProposalHtml } from "./renderHtml.ts"
+
+async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | undefined> {
+  const trimmed = logoUrl?.trim() ?? ""
+  if (!trimmed) return undefined
+  if (/^data:image\/(png|jpeg|webp|gif);base64,/i.test(trimmed)) return trimmed
+  if (!/^https?:\/\//i.test(trimmed)) return undefined
+  try {
+    const response = await fetch(trimmed, { signal: AbortSignal.timeout(5000) })
+    if (!response.ok) return trimmed
+    const contentType = (response.headers.get("content-type") || "image/png").split(";")[0].trim()
+    if (!/^image\/(png|jpeg|webp|gif)$/i.test(contentType)) return trimmed
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (bytes.byteLength === 0 || bytes.byteLength > 2 * 1024 * 1024) return trimmed
+    return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`
+  } catch {
+    return trimmed
+  }
+}
+
+async function launchBrowser() {
+  const isServerlessLinux = Boolean(
+    process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.platform === "linux",
+  )
+  if (isServerlessLinux) {
+    const chromium = (await import("@sparticuz/chromium")).default
+    const puppeteerCore = (await import("puppeteer-core")).default
+    chromium.setGraphicsMode = false
+    const executablePath = await chromium.executablePath()
+    return puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: { width: 1024, height: 1320 },
+      executablePath,
+      headless: true,
+    })
+  }
+  const puppeteer = (await import("puppeteer")).default
+  return puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  })
+}
 
 /**
  * Render a proposal to PDF using the approved Standard Interior Proposal HTML/CSS design.
@@ -20,10 +60,18 @@ export async function htmlPdf(input: {
   origin?: string
   html?: string
 }): Promise<Uint8Array> {
+  const rawLogoUrl = input.estimateSettings?.logoUrl ?? input.estimate.settings.logoUrl
+  const resolvedLogoUrl = await inlineLogoDataUrl(rawLogoUrl)
+  const effectiveSettings: EstimateSettings = {
+    ...input.estimate.settings,
+    ...(input.estimateSettings ?? {}),
+    ...(resolvedLogoUrl ? { logoUrl: resolvedLogoUrl } : {}),
+  }
+
   const htmlContent =
     input.html ??
     renderProposalHtml({
-      estimate: input.estimate,
+      estimate: { ...input.estimate, settings: effectiveSettings },
       clientName: input.clientName,
       clientEmail: input.clientEmail,
       clientPhone: input.clientPhone,
@@ -31,7 +79,7 @@ export async function htmlPdf(input: {
       companyName: input.companyName,
       companyEmail: input.companyEmail,
       paymentMethods: input.paymentMethods,
-      estimateSettings: input.estimateSettings,
+      estimateSettings: effectiveSettings,
     })
 
   // Guard against rendering an error or invalid-link page
@@ -39,10 +87,7 @@ export async function htmlPdf(input: {
     throw new Error("Refusing to generate PDF: proposal HTML is missing required proposal content.")
   }
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  })
+  const browser = await launchBrowser()
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: 1024, height: 1320 })
