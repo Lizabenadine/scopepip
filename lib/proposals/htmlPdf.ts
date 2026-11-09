@@ -39,7 +39,10 @@ export async function htmlPdf(input: {
     throw new Error("Refusing to generate PDF: proposal HTML is missing required proposal content.")
   }
 
-  const browser = await puppeteer.launch({ headless: true })
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  })
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: 1024, height: 1320 })

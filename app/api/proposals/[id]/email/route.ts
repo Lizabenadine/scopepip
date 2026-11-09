@@ -1,6 +1,5 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
-import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
 import { htmlPdf } from "@/lib/proposals/htmlPdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
@@ -60,7 +59,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     companyName: book.state.estimateSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin,
-    logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
     estimateSettings: book.state.estimateSettings,
   })
   if ("error" in mail) {
@@ -68,21 +66,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return Response.json({ ok: false, reason: mail.error }, { status: 400 })
   }
 
-  let pdfAttachment = mail.pdf
-  try {
-    pdfAttachment = await htmlPdf({
-      estimate,
-      clientName: resolvedClientName,
-      clientEmail: mail.to,
-      language,
-      companyName: book.state.estimateSettings.companyName,
-      companyEmail: book.state.estimateSettings.companyEmail || session.email,
-      paymentMethods: book.state.paymentMethods,
-      estimateSettings: book.state.estimateSettings,
-    })
-  } catch {
-    // Fallback to mail.pdf when headless Chromium is unavailable in serverless environments
-  }
+  const pdfAttachment = await htmlPdf({
+    estimate,
+    clientName: resolvedClientName,
+    clientEmail: mail.to,
+    clientPhone: client?.phone ?? "",
+    language,
+    companyName: book.state.estimateSettings.companyName,
+    companyEmail: book.state.estimateSettings.companyEmail || session.email,
+    paymentMethods: book.state.paymentMethods,
+    estimateSettings: book.state.estimateSettings,
+  })
 
   const result = await sendProposalEmail({
     to: mail.to,
