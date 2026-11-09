@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core", "puppeteer"],
   outputFileTracingIncludes: {
-    "/api/proposals/[id]/email": ["./node_modules/@sparticuz/chromium/bin/**/*"],
-    "/api/proposals/[id]/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/proposals/[id]/email/route": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/proposals/[id]/pdf/route": ["./node_modules/@sparticuz/chromium/bin/**/*"],
   },
   async redirects() {
     return [

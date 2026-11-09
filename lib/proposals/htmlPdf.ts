@@ -1,5 +1,27 @@
+import fs from "node:fs"
+import path from "node:path"
 import type { Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { renderProposalHtml } from "./renderHtml.ts"
+
+const CHROMIUM_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar"
+
+function resolveLocalChromiumBinDir(): string | undefined {
+  const candidates = [
+    path.join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin"),
+    "/var/task/node_modules/@sparticuz/chromium/bin",
+  ]
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(path.join(candidate, "chromium.br"))) {
+        return candidate
+      }
+    } catch {
+      // Ignore permission or missing directory errors
+    }
+  }
+  return undefined
+}
 
 async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | undefined> {
   const trimmed = logoUrl?.trim() ?? ""
@@ -27,7 +49,8 @@ async function launchBrowser() {
     const chromium = (await import("@sparticuz/chromium")).default
     const puppeteerCore = (await import("puppeteer-core")).default
     chromium.setGraphicsMode = false
-    const executablePath = await chromium.executablePath()
+    const localBinDir = resolveLocalChromiumBinDir()
+    const executablePath = await chromium.executablePath(localBinDir ?? CHROMIUM_PACK_URL)
     return puppeteerCore.launch({
       args: chromium.args,
       defaultViewport: { width: 1024, height: 1320 },
