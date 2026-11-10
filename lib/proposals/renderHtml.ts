@@ -19,6 +19,7 @@ export interface RenderProposalHtmlInput {
   companyEmail?: string
   paymentMethods: PaymentMethod[]
   estimateSettings?: EstimateSettings
+  origin?: string
 }
 
 function escapeHtml(value: string): string {
@@ -81,9 +82,15 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
   const language = input.language ?? "en"
   const say = (text: string) => translatePainting(text, language)
+  const resolvedLogoCandidate =
+    input.estimateSettings?.logoUrl?.trim() ||
+    input.estimate.settings.logoUrl?.trim() ||
+    ""
+  const safeLogoCandidate = /scopepipe-logo/i.test(resolvedLogoCandidate) ? "" : resolvedLogoCandidate
   const effectiveSettings: EstimateSettings = {
     ...input.estimate.settings,
     ...(input.estimateSettings ?? {}),
+    logoUrl: safeLogoCandidate,
     proposalPages: {
       ...input.estimate.settings.proposalPages,
       ...(input.estimateSettings?.proposalPages ?? {}),
@@ -148,8 +155,31 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
   const financing = financingTerms(effectiveSettings)
   const monthly = financing.enabled ? monthlyPayment(quote.total, financing.aprPercent, financing.months) : 0
 
-  const accepted = input.estimate.clientStatus === "accepted" && input.estimate.signature
+  const accepted = Boolean(
+    input.estimate.clientStatus === "accepted" &&
+      input.estimate.signature &&
+      input.estimate.signature.signedName.trim().length > 0 &&
+      input.estimate.signature.signaturePayload.trim().length > 0,
+  )
   const signerDisplay = accepted ? input.estimate.signature!.signedName : input.clientName.trim() || "Homeowner"
+  const baseOrigin = (input.origin?.trim() || "https://www.scopepipe.com").replace(/\/$/, "")
+  const publicToken = input.estimate.publicToken?.trim() || input.estimate.id
+  const proposalUrl = `${baseOrigin}/p/${publicToken}${language === "es" ? "?lang=es" : ""}`
+  const signatureBoxHtml =
+    accepted && input.estimate.signature
+      ? input.estimate.signature.signaturePayload.startsWith("data:image/")
+        ? `<div style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); margin: 10px 0; padding: 6px 0;" data-testid="signature-accepted">
+            <img src="${escapeHtml(input.estimate.signature.signaturePayload)}" alt="Signature of ${escapeHtml(input.estimate.signature.signedName)}" style="max-height: 52px; width: auto; object-fit: contain;" />
+            <span style="font-size: 11px; color: var(--ink-soft); margin-top: 4px;">Signed by ${escapeHtml(input.estimate.signature.signedName)}${input.estimate.signature.signedAt ? ` · ${escapeHtml(jobDate(input.estimate.signature.signedAt.slice(0, 10)))}` : ""}</span>
+          </div>`
+        : `<div style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); margin: 10px 0; padding: 6px 0;" data-testid="signature-accepted">
+            <div class="signature-cursive" style="margin: 0; border-bottom: none;">${escapeHtml(input.estimate.signature.signedName)}</div>
+            <span style="font-size: 11px; color: var(--ink-soft); margin-top: 2px;">Signed by ${escapeHtml(input.estimate.signature.signedName)}${input.estimate.signature.signedAt ? ` · ${escapeHtml(jobDate(input.estimate.signature.signedAt.slice(0, 10)))}` : ""}</span>
+          </div>`
+      : `<div style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-bottom: 1px solid var(--line); margin: 10px 0; padding: 8px 0;" data-testid="signature-online-prompt">
+          <p style="font-size: 15px; font-weight: 700; color: var(--brand);">Review and sign online</p>
+          <a href="${escapeHtml(proposalUrl)}" style="font-family: var(--mono); font-size: 12px; color: var(--brand); text-decoration: underline; word-break: break-all;" data-testid="proposal-sign-link">${escapeHtml(proposalUrl)}</a>
+        </div>`
 
   const preferredMethod =
     input.paymentMethods.find((m) => m.id === effectiveSettings.paymentMethodId)?.label ??
@@ -962,7 +992,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
       <div class="signature-pad">
         <p class="eyebrow">Electronic Signature</p>
-        <div class="signature-cursive">${escapeHtml(signerDisplay)}</div>
+        ${signatureBoxHtml}
         <p style="font-size: 12px; color: var(--ink-soft);" data-testid="accept-wording">
           ${escapeHtml(say(document.acceptWording))}
         </p>

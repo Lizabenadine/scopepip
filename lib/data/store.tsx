@@ -1503,9 +1503,9 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     if (!snapshot.session) return
     let cancelled = false
     void readCompanyProfile().then((profile) => {
-      if (cancelled || !profile?.companyName.trim() || !getSnapshot().session) return
+      if (cancelled || (!profile?.companyName.trim() && !profile?.logoUrl.trim()) || !getSnapshot().session) return
       const latest = getSnapshot().state
-      const nextName = profile.companyName.trim()
+      const nextName = profile.companyName.trim() || latest.estimateSettings.companyName
       const nextEmail = profile.companyEmail.trim() || latest.estimateSettings.companyEmail
       const nextLogo = profile.logoUrl.trim() || latest.estimateSettings.logoUrl
       if (

@@ -1,7 +1,7 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
-import { htmlPdf } from "@/lib/proposals/htmlPdf"
+import { htmlPdf, resolveCompanyLogoDataUrl } from "@/lib/proposals/htmlPdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
 import type { Estimate } from "@/lib/types"
@@ -53,16 +53,26 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const language = client?.language === "es" ? "es" : "en"
   const resolvedClientName = client?.name || postedName
   const resolvedClientEmail = posted.includes("@") ? posted : (client?.email ?? "")
+  const resolvedLogoUrl = await resolveCompanyLogoDataUrl({
+    estimateSettings: book.state.estimateSettings,
+    estimate,
+    companyId: session.companyId,
+    authUserId: session.authUserId,
+  })
+  const effectiveSettings = {
+    ...book.state.estimateSettings,
+    logoUrl: resolvedLogoUrl ?? "",
+  }
   const mail = proposalMail({
     estimate,
     clientName: resolvedClientName,
     clientEmail: resolvedClientEmail,
     language,
-    companyName: book.state.estimateSettings.companyName,
+    companyName: effectiveSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin,
-    logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
-    estimateSettings: book.state.estimateSettings,
+    logo: await pdfLogoFromUrl(resolvedLogoUrl),
+    estimateSettings: effectiveSettings,
   })
   if ("error" in mail) {
     console.error("[proposal-email] Invalid mail parameters", { estimateId: id, reason: mail.error })
@@ -79,10 +89,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       clientEmail: mail.to,
       clientPhone: client?.phone ?? "",
       language,
-      companyName: book.state.estimateSettings.companyName,
-      companyEmail: book.state.estimateSettings.companyEmail || session.email,
+      companyName: effectiveSettings.companyName,
+      companyEmail: effectiveSettings.companyEmail || session.email,
       paymentMethods: book.state.paymentMethods,
-      estimateSettings: book.state.estimateSettings,
+      estimateSettings: effectiveSettings,
+      origin,
+      companyId: session.companyId,
+      authUserId: session.authUserId,
     })
   } catch (err) {
     pdfRenderer = "fallback"

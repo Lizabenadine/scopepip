@@ -108,8 +108,8 @@ export function proposalMail(input: {
   const subject = input.language === "es" ? `Propuesta para ${place}` : `Proposal for ${place}`
   const text =
     input.language === "es"
-      ? `Hola ${client},\n\nSu propuesta de ${company} para ${place} está lista.\n\nÁbrala aquí:\n${link}\n\nEl PDF de esta propuesta va adjunto. Responda si quiere un cambio, o abra el enlace para aceptarla.\n\nTotal: ${total}\n\n${company}`
-      : `Hi ${client},\n\nYour proposal from ${company} for ${place} is ready.\n\nOpen it here:\n${link}\n\nThe PDF of this proposal is attached. Reply if you want a change, or open the link to accept it.\n\nTotal: ${total}\n\n${company}`
+      ? `Hola ${client},\n\nSu propuesta de ${company} para ${place} está lista.\n\nRevise y firme su propuesta:\n${link}\n\nEl PDF de esta propuesta va adjunto. Responda si quiere un cambio, o abra el enlace para aceptarla.\n\nTotal: ${total}\n\n${company}`
+      : `Hi ${client},\n\nYour proposal from ${company} for ${place} is ready.\n\nReview & Sign Proposal:\n${link}\n\nThe PDF of this proposal is attached. Reply if you want a change, or open the link to accept it.\n\nTotal: ${total}\n\n${company}`
   const say = (value: string) => translatePainting(value, input.language)
   const lines: string[] = [
     company,

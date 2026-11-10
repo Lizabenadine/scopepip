@@ -33,7 +33,7 @@ async function browserUpload(file: File): Promise<string | null> {
 export async function uploadCompanyLogo(file: File): Promise<string> {
   const reason = logoFileError(file)
   if (reason) throw new Error(reason)
-  const fromBrowser = await browserUpload(file)
+  const fromBrowser = await browserUpload(file).catch(() => null)
   if (fromBrowser) return fromBrowser
 
   const body = new FormData()

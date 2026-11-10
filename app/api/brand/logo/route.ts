@@ -24,23 +24,56 @@ export async function POST(request: Request) {
   if (!admin) return Response.json({ ok: false, reason: "storage-off" })
 
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const { error } = await admin.storage.from(BUCKET).upload(`${session.companyId}/logo`, bytes, {
+  let { error } = await admin.storage.from(BUCKET).upload(`${session.companyId}/logo`, bytes, {
     contentType: file.type,
     upsert: true,
   })
+  if (error && /bucket not found/i.test(error.message)) {
+    await admin.storage.createBucket(BUCKET, { public: true }).catch(() => undefined)
+    const retry = await admin.storage.from(BUCKET).upload(`${session.companyId}/logo`, bytes, {
+      contentType: file.type,
+      upsert: true,
+    })
+    error = retry.error
+  }
   if (error) {
     const message = /bucket not found/i.test(error.message)
       ? "The company-assets bucket is not on this project yet."
       : "The logo could not be saved."
     return Response.json({ ok: false, reason: message }, { status: 502 })
   }
-  return Response.json({ ok: true, url: publicLogoUrl(session.companyId) })
+  const url = publicLogoUrl(session.companyId)
+  if (session.authUserId) {
+    try {
+      await admin
+        .from("profiles")
+        .update({ logo_url: url, updated_at: new Date().toISOString() })
+        .eq("user_id", session.authUserId)
+    } catch {
+      // Ignore profile update error
+    }
+  }
+  return Response.json({ ok: true, url })
 }
 
 export async function DELETE(request: Request) {
   const session = await sessionFromRequest(request)
   if (!session) return Response.json({ ok: false }, { status: 401 })
   const admin = supabaseAdmin()
-  if (admin) await admin.storage.from(BUCKET).remove([`${session.companyId}/logo`]).catch(() => undefined)
+  if (admin) {
+    const paths = [`${session.companyId}/logo`]
+    if (session.authUserId) paths.push(`${session.authUserId}/logo`)
+    await admin.storage.from(BUCKET).remove(paths).catch(() => undefined)
+    if (session.authUserId) {
+      try {
+        await admin
+          .from("profiles")
+          .update({ logo_url: "", updated_at: new Date().toISOString() })
+          .eq("user_id", session.authUserId)
+      } catch {
+        // Ignore profile update error
+      }
+    }
+  }
   return Response.json({ ok: true })
 }

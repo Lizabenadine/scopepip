@@ -1,7 +1,7 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
-import { htmlPdf } from "@/lib/proposals/htmlPdf"
+import { htmlPdf, resolveCompanyLogoDataUrl } from "@/lib/proposals/htmlPdf"
 import { proposalMail } from "@/lib/proposals/mail"
 
 export const runtime = "nodejs"
@@ -19,6 +19,17 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!book || !estimate) return Response.json({ ok: false, reason: "This proposal is not on file." }, { status: 404 })
   const client = book.state.clients.find((item) => item.id === estimate.clientId)
   const language = client?.language === "es" ? "es" : "en"
+  const origin = request.headers.get("origin")?.replace(/\/$/, "") || new URL(request.url).origin
+  const resolvedLogoUrl = await resolveCompanyLogoDataUrl({
+    estimateSettings: book.state.estimateSettings,
+    estimate,
+    companyId: session.companyId,
+    authUserId: session.authUserId,
+  })
+  const effectiveSettings = {
+    ...book.state.estimateSettings,
+    logoUrl: resolvedLogoUrl ?? "",
+  }
 
   try {
     const styledPdf = await htmlPdf({
@@ -27,10 +38,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       clientEmail: client?.email ?? "",
       clientPhone: client?.phone ?? "",
       language,
-      companyName: book.state.estimateSettings.companyName,
-      companyEmail: book.state.estimateSettings.companyEmail || session.email,
+      companyName: effectiveSettings.companyName,
+      companyEmail: effectiveSettings.companyEmail || session.email,
       paymentMethods: book.state.paymentMethods,
-      estimateSettings: book.state.estimateSettings,
+      estimateSettings: effectiveSettings,
+      origin,
+      companyId: session.companyId,
+      authUserId: session.authUserId,
     })
     return new Response(Buffer.from(styledPdf), {
       headers: {
@@ -50,11 +64,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       clientName: client?.name ?? "",
       clientEmail: client?.email?.includes("@") ? client.email : "preview@scopepipe.invalid",
       language,
-      companyName: book.state.estimateSettings.companyName,
+      companyName: effectiveSettings.companyName,
       paymentMethods: book.state.paymentMethods,
-      origin: new URL(request.url).origin,
-      logo: await pdfLogoFromUrl(book.state.estimateSettings.logoUrl),
-      estimateSettings: book.state.estimateSettings,
+      origin,
+      logo: await pdfLogoFromUrl(resolvedLogoUrl),
+      estimateSettings: effectiveSettings,
     })
     if ("error" in mail) return Response.json({ ok: false, reason: mail.error }, { status: 400 })
     return new Response(Buffer.from(mail.pdf), {

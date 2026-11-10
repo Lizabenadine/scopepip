@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { DEFAULT_ESTIMATE_SETTINGS } from "../defaults.ts"
+import { createSeedState } from "../data/seed.ts"
+import { DEFAULT_ESTIMATE_SETTINGS, PAYMENT_METHODS } from "../defaults.ts"
+import { applyAcceptance } from "./accept.ts"
 import {
   DEFAULT_ACCEPT_WORDING,
   DEFAULT_CONTRACT_TERMS,
@@ -10,6 +12,8 @@ import {
   proposalPageList,
   scheduledProductsFromAreas,
 } from "./document.ts"
+import { resolveCompanyLogoDataUrl } from "./htmlPdf.ts"
+import { renderProposalHtml } from "./renderHtml.ts"
 
 describe("proposalDocument", () => {
   it("uses the built-in cover, contract, and signature wording when nothing is saved", () => {
@@ -135,5 +139,100 @@ describe("proposalDocument", () => {
       { productName: "Emerald Matte", details: ["Primary Bedroom: Walls (2 coats)"] },
       { productName: "ProClassic Enamel", details: ["Primary Bedroom: Baseboards (2 coats)"] },
     ])
+  })
+
+  it("renders contractor logo on cover when present, shows company name without broken image when absent, and never substitutes the Scopepipe logo", async () => {
+    const state = createSeedState()
+    const estimate = state.estimates.find((item) => item.id === "est-ortiz")!
+    const validPngDataUrl =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+
+    // 1. Contractor uploaded logo in Settings
+    const withLogoHtml = renderProposalHtml({
+      estimate,
+      clientName: "Ortiz Property Group",
+      companyName: "Cascade Painting Co.",
+      paymentMethods: PAYMENT_METHODS,
+      estimateSettings: { ...state.estimateSettings, companyName: "Cascade Painting Co.", logoUrl: validPngDataUrl },
+      origin: "https://www.scopepipe.com",
+    })
+    assert.equal(withLogoHtml.includes(`src="${validPngDataUrl}"`), true)
+    assert.equal(withLogoHtml.includes("Cascade Painting Co."), true)
+    assert.equal(withLogoHtml.includes("scopepipe-logo"), false)
+
+    // 2. Empty logoUrl in estimateSettings does not overwrite a valid logoUrl in estimate.settings
+    const fallbackToEstimateLogo = await resolveCompanyLogoDataUrl({
+      estimateSettings: { ...state.estimateSettings, logoUrl: "" },
+      estimate: { ...estimate, settings: { ...estimate.settings, logoUrl: validPngDataUrl } },
+    })
+    assert.equal(fallbackToEstimateLogo, validPngDataUrl)
+
+    // 3. Broken remote logo URL returns undefined so no broken <img> is rendered
+    const brokenLogo = await resolveCompanyLogoDataUrl({
+      estimateSettings: { ...state.estimateSettings, logoUrl: "http://127.0.0.1:1/missing-logo.png" },
+      estimate,
+    })
+    assert.equal(brokenLogo, undefined)
+
+    // 4. No logo exists -> displays company name without an <img> tag on cover
+    const noLogoHtml = renderProposalHtml({
+      estimate: { ...estimate, settings: { ...estimate.settings, logoUrl: "" } },
+      clientName: "Ortiz Property Group",
+      companyName: "Cascade Painting Co.",
+      paymentMethods: PAYMENT_METHODS,
+      estimateSettings: { ...state.estimateSettings, companyName: "Cascade Painting Co.", logoUrl: "" },
+      origin: "https://www.scopepipe.com",
+    })
+    assert.equal(noLogoHtml.includes('<img src='), false)
+    assert.equal(noLogoHtml.includes("Cascade Painting Co."), true)
+    assert.equal(noLogoHtml.includes("scopepipe-logo"), false)
+  })
+
+  it("shows 'Review and sign online' with the /p/[token] link before acceptance, and only shows an actual signature after acceptance", () => {
+    const state = createSeedState()
+    const unaccepted = state.estimates.find((item) => item.id === "est-ortiz")!
+    assert.notEqual(unaccepted.clientStatus, "accepted")
+
+    // Before acceptance: no prefilled cursive signature; shows "Review and sign online" + /p/[token] link
+    const beforeHtml = renderProposalHtml({
+      estimate: unaccepted,
+      clientName: "Alex Ortiz",
+      companyName: "Cascade Painting Co.",
+      paymentMethods: PAYMENT_METHODS,
+      estimateSettings: { ...state.estimateSettings, companyName: "Cascade Painting Co." },
+      origin: "https://www.scopepipe.com",
+    })
+    assert.equal(beforeHtml.includes('class="signature-cursive"'), false)
+    assert.equal(beforeHtml.includes('data-testid="signature-accepted"'), false)
+    assert.equal(beforeHtml.includes('data-testid="signature-online-prompt"'), true)
+    assert.equal(beforeHtml.includes("Review and sign online"), true)
+    assert.equal(beforeHtml.includes(`https://www.scopepipe.com/p/${unaccepted.publicToken}`), true)
+
+    // Homeowner accepts online via /p/[token] with a drawn electronic signature
+    const drawnSig =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    const acceptedResult = applyAcceptance(state, unaccepted.publicToken, {
+      signedName: "Alex Ortiz",
+      signaturePayload: drawnSig,
+      signedAt: "2026-11-09T20:00:00.000Z",
+      selectedLineIds: ["ortiz-trim"],
+    })
+    assert.equal(acceptedResult.ok, true)
+    if (!acceptedResult.ok) return
+    const acceptedEstimate = acceptedResult.state.estimates.find((item) => item.id === "est-ortiz")!
+
+    // After acceptance: shows the homeowner's actual signature and hides the unsigned prompt
+    const afterHtml = renderProposalHtml({
+      estimate: acceptedEstimate,
+      clientName: "Alex Ortiz",
+      companyName: "Cascade Painting Co.",
+      paymentMethods: PAYMENT_METHODS,
+      estimateSettings: { ...state.estimateSettings, companyName: "Cascade Painting Co." },
+      origin: "https://www.scopepipe.com",
+    })
+    assert.equal(afterHtml.includes('data-testid="signature-accepted"'), true)
+    assert.equal(afterHtml.includes(`src="${drawnSig}"`), true)
+    assert.equal(afterHtml.includes("Signed by Alex Ortiz"), true)
+    assert.equal(afterHtml.includes('data-testid="signature-online-prompt"'), false)
   })
 })

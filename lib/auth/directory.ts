@@ -529,6 +529,7 @@ function forCustomer(estimate: Estimate): Estimate {
 
 function proposalViewFrom(state: ScopeState, estimate: Estimate): PublicProposalView {
   const client = state.clients.find((item) => item.id === estimate.clientId)
+  const settings = publicSettings(state.estimateSettings)
   return {
     estimate: forCustomer(estimate),
     clientName: client?.name ?? "Client",
@@ -536,7 +537,10 @@ function proposalViewFrom(state: ScopeState, estimate: Estimate): PublicProposal
     companyName: state.estimateSettings.companyName?.trim() || "ScopePipe",
     companyEmail: state.estimateSettings.companyEmail?.trim() || "",
     paymentMethods: state.paymentMethods,
-    estimateSettings: publicSettings(state.estimateSettings),
+    estimateSettings: {
+      ...settings,
+      logoUrl: settings.logoUrl?.trim() || estimate.settings.logoUrl?.trim() || "",
+    },
   }
 }
 

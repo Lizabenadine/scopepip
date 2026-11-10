@@ -5,7 +5,7 @@ import { CompanyMark } from "@/components/brand/company-mark"
 import { Button } from "@/components/ui/button"
 import { removeStoredLogo, uploadCompanyLogo } from "@/lib/brand/logo-upload"
 import { displayCompanyName } from "@/lib/brand/company"
-import { useScope } from "@/lib/data/store"
+import { flushBook, useScope } from "@/lib/data/store"
 
 export function CompanyLogoField() {
   const { estimateSettings, updateEstimateSettings } = useScope()
@@ -24,6 +24,7 @@ export function CompanyLogoField() {
     try {
       const url = await uploadCompanyLogo(file)
       updateEstimateSettings({ ...estimateSettings, logoUrl: url })
+      await flushBook()
       setPreview(null)
     } catch (caught) {
       setPreview(null)
@@ -38,6 +39,7 @@ export function CompanyLogoField() {
     setPreview(null)
     setError(null)
     updateEstimateSettings({ ...estimateSettings, logoUrl: "" })
+    void flushBook()
     void removeStoredLogo()
   }
 
