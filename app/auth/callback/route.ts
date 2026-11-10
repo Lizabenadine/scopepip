@@ -2,10 +2,11 @@ import { NextResponse, type NextRequest } from "next/server"
 import type { EmailOtpType } from "@supabase/supabase-js"
 import { authSecret, sessionByEmail } from "@/lib/auth/directory"
 import { sessionCookie } from "@/lib/auth/session"
-import { signSession } from "@/lib/auth/session-token"
+import { signOfficeSession, signSession } from "@/lib/auth/session-token"
 import { canonicalResetPasswordUrl } from "@/lib/auth/forgot-password-auth"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
 import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
+import { supabaseServerKey } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
 
@@ -14,6 +15,14 @@ const OTP_TYPES = new Set<EmailOtpType>(["signup", "invite", "magiclink", "recov
 function otpType(value: string | null): EmailOtpType | null {
   if (value && OTP_TYPES.has(value as EmailOtpType)) return value as EmailOtpType
   return null
+}
+
+function canonicalTargetUrl(pathAndQuery: string, requestUrl: string): URL {
+  const url = new URL(pathAndQuery, requestUrl)
+  if (url.hostname === "scopepipe.com") {
+    url.hostname = "www.scopepipe.com"
+  }
+  return url
 }
 
 export async function GET(request: NextRequest) {
@@ -40,7 +49,7 @@ export async function GET(request: NextRequest) {
   }
 
   const failed = NextResponse.redirect(
-    isRecovery ? canonicalResetPasswordUrl(request.url) : new URL("/signup?confirm=error", request.url),
+    isRecovery ? canonicalResetPasswordUrl(request.url) : canonicalTargetUrl("/signup?confirm=error", request.url),
   )
   if (!supabaseAuthConfigured()) return failed
 
@@ -58,17 +67,26 @@ export async function GET(request: NextRequest) {
     const verified = await pending.supabase.auth.verifyOtp({ token_hash: tokenHash, type: resolvedType })
     confirmed = !verified.error
     if (verified.error) errorMessage = verified.error.message
+  } else {
+    const { data: existingSession } = await pending.supabase.auth.getUser()
+    if (existingSession?.user) {
+      confirmed = true
+    }
   }
 
   if (!confirmed) {
-    const failureTarget = canonicalResetPasswordUrl(request.url)
-    failureTarget.searchParams.set("error", "recovery_failed")
-    failureTarget.searchParams.set(
-      "error_description",
-      errorMessage || "This password reset link is invalid or has expired.",
-    )
+    const failureTarget = isRecovery
+      ? canonicalResetPasswordUrl(request.url)
+      : canonicalTargetUrl("/signup?confirm=error", request.url)
+    if (isRecovery) {
+      failureTarget.searchParams.set("error", "recovery_failed")
+      failureTarget.searchParams.set(
+        "error_description",
+        errorMessage || "This password reset link is invalid or has expired.",
+      )
+    }
     return attachAuthCookies(
-      NextResponse.redirect(isRecovery ? failureTarget : new URL("/signup?confirm=error", request.url)),
+      NextResponse.redirect(failureTarget),
       pending.pending,
       pending.cacheHeaders,
     )
@@ -82,11 +100,12 @@ export async function GET(request: NextRequest) {
   const { data } = await pending.supabase.auth.getUser()
   const office = data.user?.email ? await sessionByEmail(data.user.email) : null
   if (!office) {
-    const login = NextResponse.redirect(new URL("/login?confirmed=1", request.url))
-    return attachAuthCookies(login, pending.pending, pending.cacheHeaders)
+    const login = canonicalTargetUrl("/login?confirmed=1&onboarding=incomplete", request.url)
+    return attachAuthCookies(NextResponse.redirect(login), pending.pending, pending.cacheHeaders)
   }
 
-  const response = NextResponse.redirect(new URL("/dashboard", request.url))
-  response.headers.append("set-cookie", sessionCookie(signSession(office.id, authSecret())))
+  const response = NextResponse.redirect(canonicalTargetUrl("/dashboard", request.url))
+  const token = !supabaseServerKey() ? signOfficeSession(office, authSecret()) : signSession(office.id, authSecret())
+  response.headers.append("set-cookie", sessionCookie(token))
   return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
 }

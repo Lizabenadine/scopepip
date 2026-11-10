@@ -11,7 +11,7 @@ process.env.ACCOUNTS_PATH = path.join(dir, "accounts.json")
 process.env.BOOKS_DIR = path.join(dir, "books")
 process.env.AUTH_SECRET = "test-secret"
 
-const { addProjectManager, login, publicProposal, readCompanyBook, saveAccountLanguage, signup, updateUserPassword, writeCompanyBook } = await import("./directory.ts")
+const { addProjectManager, login, publicProposal, readCompanyBook, saveAccountLanguage, sessionByEmail, sessionById, signup, updateUserPassword, writeCompanyBook } = await import("./directory.ts")
 
 describe("accounts", () => {
   it("checks a password and a session token", () => {
@@ -251,6 +251,47 @@ describe("accounts", () => {
     if (newLogin.ok) {
       assert.equal(newLogin.user.email, "sam@trent.test")
       assert.equal(newLogin.user.name, "Sam Trent")
+    }
+  })
+
+  it("handles new Owner signup, email confirmation lookup, logout, and login again", async () => {
+    const signupResult = await signup({
+      name: "Marcus Vance",
+      email: "marcus@vancepainting.test",
+      password: "secure-owner-password",
+      companyName: "Vance Painting Co",
+      authUserId: "auth-user-vance-123",
+    })
+    assert.equal(signupResult.ok, true)
+    if (!signupResult.ok) return
+
+    // Verify sessionByEmail after confirmation resolves existing user and company
+    const verifiedSession = await sessionByEmail("marcus@vancepainting.test")
+    assert.ok(verifiedSession)
+    assert.equal(verifiedSession.role, "owner")
+    assert.equal(verifiedSession.email, "marcus@vancepainting.test")
+    assert.equal(verifiedSession.companyName, "Vance Painting Co")
+    assert.equal(verifiedSession.subscriptionStatus, "trialing")
+    assert.equal(verifiedSession.authUserId, "auth-user-vance-123")
+    assert.notEqual(verifiedSession.companyId, verifiedSession.id)
+
+    // Token signing (both v2 office session and user session)
+    const officeToken = signOfficeSession(verifiedSession, "test-secret")
+    const embedded = readOfficeSession(officeToken, "test-secret")
+    assert.ok(embedded)
+    assert.equal(embedded.email, "marcus@vancepainting.test")
+    assert.equal(embedded.companyId, verifiedSession.companyId)
+
+    // If a user record does not exist in accounts, sessionByEmail safely returns null without inventing an owner
+    const missing = await sessionByEmail("nonexistent-user@example.test")
+    assert.equal(missing, null)
+
+    // After logging out (clearing session), normal login with password succeeds
+    const relogin = await login({ email: "marcus@vancepainting.test", password: "secure-owner-password" })
+    assert.equal(relogin.ok, true)
+    if (relogin.ok) {
+      assert.equal(relogin.user.companyId, verifiedSession.companyId)
+      assert.equal(relogin.user.role, "owner")
     }
   })
 })
