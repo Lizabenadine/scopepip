@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { roleCanOpen } from "@/lib/auth/access"
 import { useScope } from "@/lib/data/store"
 import { calculateEstimate } from "@/lib/estimate/calculate"
 import { money } from "@/lib/format"
@@ -92,6 +93,16 @@ export function DepositCheckout({ id }: { id: string }) {
   const percent = clampDepositPercent(estimate.settings.depositPercent)
   const amount = depositAmount(quote.total, percent)
   const paid = estimate.paymentStatus === "deposit_paid" && estimate.depositReceipt
+  const canAccessInvoice = Boolean(
+    scope.session && roleCanOpen(scope.session.role, "/payments")
+  )
+
+  const handleBackToInvoice = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof window !== "undefined" && window.history.length > 1 && document.referrer.includes("/payments")) {
+      event.preventDefault()
+      window.history.back()
+    }
+  }
 
   const openCheckout = async () => {
     setError(null)
@@ -169,6 +180,30 @@ export function DepositCheckout({ id }: { id: string }) {
 
   return (
     <article className="mx-auto flex max-w-xl flex-col gap-6">
+      {canAccessInvoice ? (
+        <div className="flex items-center">
+          <Link
+            href={`/payments?id=${encodeURIComponent(estimate.id)}`}
+            onClick={handleBackToInvoice}
+            data-testid="back-to-invoice"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span aria-hidden="true">←</span>
+            <span>Back to Invoice</span>
+          </Link>
+        </div>
+      ) : estimate.publicToken ? (
+        <div className="flex items-center">
+          <Link
+            href={`/p/${estimate.publicToken}`}
+            data-testid="back-to-proposal"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span aria-hidden="true">←</span>
+            <span>Back to Proposal</span>
+          </Link>
+        </div>
+      ) : null}
       <header className="flex items-center gap-3">
         <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <PaintRoller className="size-5" />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { CompanyMark } from "@/components/brand/company-mark"
 import { InvoiceDocument } from "@/components/payments/invoice-document"
 import { QuickBooksSync } from "@/components/payments/quickbooks-sync"
@@ -17,6 +17,16 @@ export function PaymentsList() {
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const targetId = params.get("id") || params.get("invoice")
+    if (targetId) {
+      setOpenId(targetId)
+    }
+  }, [])
+
   const rows = listPaymentRows(estimates, clients, (estimate) => quoteEstimate(estimate).total)
   const openRow = rows.find((row) => row.id === openId)
   const openEstimate = openRow ? estimates.find((item) => item.id === openRow.id) : undefined
@@ -41,7 +51,12 @@ export function PaymentsList() {
         canCollectDeposit={owner && openRow.balance > 0 && openRow.depositPaid <= 0}
         canOpenEstimate={owner}
         canMarkPaid={openEstimate?.paymentStatus === "deposit_paid" && openRow.balance > 0}
-        onBack={() => setOpenId(null)}
+        onBack={() => {
+          setOpenId(null)
+          if (typeof window !== "undefined" && window.location.search) {
+            window.history.replaceState({}, "", "/payments")
+          }
+        }}
         onMarkPaid={() => scope.markJobPaid(openRow.id)}
       />
     )
