@@ -434,7 +434,7 @@ async function loadOfficeBook() {
 
 async function bootstrap() {
   try {
-    const response = await fetch("/api/auth/session")
+    const response = await fetch("/api/auth/session", { cache: "no-store" })
     const payload = (await response.json()) as { user?: OfficeSession | null }
     if (!payload.user) {
       officeSession = null
