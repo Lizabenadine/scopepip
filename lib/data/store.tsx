@@ -395,41 +395,82 @@ async function pumpBook() {
 }
 
 async function loadOfficeBook() {
-  if (!officeSession) return
-  const response = await fetch("/api/account/book", { cache: "no-store" })
-  if (!response.ok) {
-    const cached = readBrowserBook(officeSession.companyId)
-    const state = withBookSubstrates(cached?.state ?? createCompanyBook(officeSession.companyName))
-    bookRevision = cached?.revision ?? 1
-    lastSyncedState = state
-    if (!cached) saveBrowserBook(officeSession.companyId, bookRevision, state)
-    current = { state, notice: null, ready: true, session: officeSession }
+  if (!officeSession) {
+    current = { state: createBlankState(), notice: null, ready: true, session: null }
     emit()
     return
   }
-  const payload = (await response.json()) as { revision?: number; state?: unknown }
-  if (typeof payload.revision !== "number" || !isScopeState(payload.state)) {
-    current = {
-      state: createBlankState(),
-      notice: "This account's jobs could not be read.",
-      ready: true,
-      session: officeSession,
+  try {
+    const response = await fetch("/api/account/book", { cache: "no-store" })
+    if (!response.ok) {
+      const cached = readBrowserBook(officeSession.companyId)
+      if (cached?.state && isScopeState(cached.state)) {
+        const state = withBookSubstrates(cached.state)
+        bookRevision = cached.revision
+        lastSyncedState = state
+        current = {
+          state,
+          notice: "Working from cached data. Connect to sync recent changes.",
+          ready: true,
+          session: officeSession,
+        }
+        emit()
+        return
+      }
+      const state = withBookSubstrates(createCompanyBook(officeSession.companyName))
+      bookRevision = 1
+      lastSyncedState = state
+      saveBrowserBook(officeSession.companyId, bookRevision, state)
+      current = { state, notice: null, ready: true, session: officeSession }
+      emit()
+      return
+    }
+    const payload = (await response.json()) as { revision?: number; state?: unknown }
+    if (typeof payload.revision !== "number" || !isScopeState(payload.state)) {
+      const cached = readBrowserBook(officeSession.companyId)
+      const preservedState = cached?.state && isScopeState(cached.state) ? withBookSubstrates(cached.state) : current.state
+      current = {
+        state: preservedState || createBlankState(),
+        notice: "This account's jobs could not be read. Please reload to try again.",
+        ready: true,
+        session: officeSession,
+      }
+      emit()
+      return
+    }
+    bookRevision = payload.revision
+    lastSyncedState = payload.state
+    let state = withBookSubstrates(payload.state)
+    const cloud = await pullCloud().catch(() => null)
+    if (cloud) {
+      const merged = mergeCloud(state, cloud)
+      if (merged.changed) state = merged.state
+    }
+    saveBrowserBook(officeSession.companyId, bookRevision, state)
+    current = { state, notice: null, ready: true, session: officeSession }
+    if (state !== payload.state) persist(state)
+    emit()
+  } catch {
+    const cached = readBrowserBook(officeSession.companyId)
+    if (cached?.state && isScopeState(cached.state)) {
+      bookRevision = cached.revision
+      lastSyncedState = cached.state
+      current = {
+        state: withBookSubstrates(cached.state),
+        notice: "Connection error loading office book. Preserving existing cached jobs.",
+        ready: true,
+        session: officeSession,
+      }
+    } else {
+      current = {
+        state: current.state || createBlankState(),
+        notice: "Your jobs could not be loaded. Please check your connection and reload.",
+        ready: true,
+        session: officeSession,
+      }
     }
     emit()
-    return
   }
-  bookRevision = payload.revision
-  lastSyncedState = payload.state
-  let state = withBookSubstrates(payload.state)
-  const cloud = await pullCloud().catch(() => null)
-  if (cloud) {
-    const merged = mergeCloud(state, cloud)
-    if (merged.changed) state = merged.state
-  }
-  saveBrowserBook(officeSession.companyId, bookRevision, state)
-  current = { state, notice: null, ready: true, session: officeSession }
-  if (state !== payload.state) persist(state)
-  emit()
 }
 
 async function bootstrap() {
@@ -451,6 +492,11 @@ async function bootstrap() {
     officeSession = null
     current = { state: createBlankState(), notice: "Sign-in could not be checked.", ready: true, session: null }
     emit()
+  } finally {
+    if (!current.ready) {
+      current = { ...current, ready: true }
+      emit()
+    }
   }
 }
 
@@ -574,6 +620,23 @@ export interface ScopeApi {
   unmatchedTexts: TextMessage[]
   zapierDelivered: string[]
   resetDemo: () => void
+  updateJobColors: (
+    estimateId: string,
+    colorUpdates: {
+      areaId: string
+      paintBrand?: string
+      colorCode?: string
+      colorName?: string
+      sheen?: string
+      surfaces?: {
+        surfaceId: string
+        paintBrand?: string
+        colorCode?: string
+        colorName?: string
+        sheen?: string
+      }[]
+    }[],
+  ) => void
   updatePrepNotes: (estimateId: string, prepNotes: string) => void
   setHourDisplay: (estimateId: string, hourDisplay: WorkOrder["hourDisplay"]) => void
   toggleChecklist: (estimateId: string, itemId: string) => void
@@ -1420,6 +1483,48 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         businessPhone: latest.estimateSettings.businessPhone,
       }
       commit(fresh, null, { sync: false })
+    },
+    updateJobColors: (estimateId, colorUpdates) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return
+
+      const updateMap = new Map(colorUpdates.map((u) => [u.areaId, u]))
+      const updatedAreas = estimate.areas.map((area) => {
+        const update = updateMap.get(area.id)
+        if (!update) return area
+
+        const surfaceUpdateMap = new Map(
+          (update.surfaces ?? []).map((s) => [s.surfaceId, s]),
+        )
+        const updatedSurfaces = area.surfaces.map((surface) => {
+          const surfUpdate = surfaceUpdateMap.get(surface.id)
+          if (!surfUpdate) return surface
+          return {
+            ...surface,
+            paintBrand: surfUpdate.paintBrand?.trim() || undefined,
+            colorCode: surfUpdate.colorCode?.trim() || undefined,
+            colorName: surfUpdate.colorName?.trim() || undefined,
+            sheen: surfUpdate.sheen?.trim() || undefined,
+          }
+        })
+
+        return {
+          ...area,
+          paintBrand: update.paintBrand?.trim() || undefined,
+          colorCode: update.colorCode?.trim() || undefined,
+          colorName: update.colorName?.trim() || undefined,
+          sheen: update.sheen?.trim() || undefined,
+          surfaces: updatedSurfaces,
+        }
+      })
+
+      commit({
+        ...latest,
+        estimates: latest.estimates.map((item) =>
+          item.id === estimateId ? { ...item, areas: updatedAreas } : item,
+        ),
+      })
     },
     updatePrepNotes: (estimateId, prepNotes) => {
       const latest = getSnapshot().state

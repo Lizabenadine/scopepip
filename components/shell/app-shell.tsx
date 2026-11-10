@@ -121,7 +121,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!ready) return <div className="min-h-dvh bg-background" />
+  if (!ready) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 text-foreground">
+        <LogoHeader />
+        <div className="flex flex-col items-center gap-3 pt-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Opening your office...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!session) {
     return (

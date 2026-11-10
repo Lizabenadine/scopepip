@@ -11,7 +11,9 @@ function loginKey(email: string): string {
 
 export function saveBrowserBook(companyId: string, revision: number, state: ScopeState) {
   if (typeof window === "undefined") return
-  localStorage.setItem(bookKey(companyId), JSON.stringify({ revision, state }))
+  try {
+    localStorage.setItem(bookKey(companyId), JSON.stringify({ revision, state }))
+  } catch {}
 }
 
 export function readBrowserBook(companyId: string): { revision: number; state: ScopeState } | null {
@@ -29,7 +31,9 @@ export function readBrowserBook(companyId: string): { revision: number; state: S
 
 export function saveBrowserLogin(user: OfficeSession, passwordHash: string) {
   if (typeof window === "undefined") return
-  localStorage.setItem(loginKey(user.email), JSON.stringify({ passwordHash, user }))
+  try {
+    localStorage.setItem(loginKey(user.email), JSON.stringify({ passwordHash, user }))
+  } catch {}
 }
 
 export function readBrowserLogin(email: string): { passwordHash: string; user: OfficeSession } | null {
