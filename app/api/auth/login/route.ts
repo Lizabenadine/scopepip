@@ -33,11 +33,21 @@ export async function POST(request: NextRequest) {
   if (!result.ok && supabaseAuthConfigured() && password) {
     const pending = authClientFromRequest(request)
     try {
-      const { data, error } = await pending.supabase.auth.signInWithPassword({
+      let signInRes = await pending.supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       })
-      if (!error && data.user) {
+
+      // If failed and email has uppercase characters, retry with exact email
+      if (signInRes.error && email.trim() !== email.trim().toLowerCase()) {
+        signInRes = await pending.supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        })
+      }
+
+      if (signInRes.data?.user && !signInRes.error) {
+        const authUser = signInRes.data.user
         try {
           await updateUserPassword(email, password)
         } catch {
@@ -48,35 +58,57 @@ export async function POST(request: NextRequest) {
           password,
           role: body?.role && isUserRole(body.role) ? body.role : undefined,
         })
-        if (!result.ok) {
-          const existingSession = await sessionByEmail(email)
-          const meta = (data.user.user_metadata || {}) as { full_name?: string; name?: string; company_name?: string }
-          const fallbackCompanyName =
-            body?.hostedUser?.companyName || existingSession?.companyName || meta.company_name || "ScopePipe"
-          const fallbackUser: OfficeSession = body?.hostedUser ||
-            existingSession || {
-              id: data.user.id,
-              name: meta.name || meta.full_name || email.trim().split("@")[0] || "Owner",
-              email: email.trim().toLowerCase(),
-              role: body?.role && isUserRole(body.role) ? body.role : "owner",
-              companyId: data.user.id,
-              companyName: fallbackCompanyName,
-              companySlug: slugifyCompanyName(fallbackCompanyName),
-              subscriptionStatus: "trialing",
-              trialEndsAt: trialEndsAt(new Date()),
-              authUserId: data.user.id,
-            }
-          const response = jsonWithOfficeSession(fallbackUser, {
-            ok: true,
-            user: fallbackUser,
-            hosted: true,
-            passwordHash: hashPassword(password),
-          })
-          return attachAuthCookies(response as unknown as NextResponse, pending.pending, pending.cacheHeaders)
-        }
+        const existingSession = await sessionByEmail(email)
+        const meta = (authUser.user_metadata || {}) as { full_name?: string; name?: string; company_name?: string }
+        const fallbackCompanyName =
+          body?.hostedUser?.companyName || existingSession?.companyName || meta.company_name || "ScopePipe"
+        const sessionUser: OfficeSession =
+          (result.ok ? result.user : null) ||
+          body?.hostedUser ||
+          existingSession || {
+            id: authUser.id,
+            name: meta.name || meta.full_name || email.trim().split("@")[0] || "Owner",
+            email: email.trim().toLowerCase(),
+            role: body?.role && isUserRole(body.role) ? body.role : "owner",
+            companyId: authUser.id,
+            companyName: fallbackCompanyName,
+            companySlug: slugifyCompanyName(fallbackCompanyName),
+            subscriptionStatus: "trialing",
+            trialEndsAt: trialEndsAt(new Date()),
+            authUserId: authUser.id,
+          }
+        const response = jsonWithOfficeSession(sessionUser, {
+          ok: true,
+          user: sessionUser,
+          hosted: true,
+          passwordHash: hashPassword(password),
+        })
+        return attachAuthCookies(response as unknown as NextResponse, pending.pending, pending.cacheHeaders)
       }
-    } catch {
-      // Continue with original result
+
+      if (signInRes.error) {
+        console.error("Supabase signInWithPassword failed:", {
+          email: email.trim(),
+          errorMsg: signInRes.error.message,
+          status: signInRes.error.status,
+        })
+        const msg = signInRes.error.message || ""
+        if (msg.toLowerCase().includes("email not confirmed")) {
+          return Response.json(
+            { ok: false, reason: "Please verify your email address before signing in. Check your inbox for the confirmation link." },
+            { status: 401 },
+          )
+        }
+        if (msg.toLowerCase().includes("invalid login credentials")) {
+          return Response.json(
+            { ok: false, reason: "That email and password do not match. If you recently reset your password, please make sure you type the new password and not an old saved password." },
+            { status: 401 },
+          )
+        }
+        return Response.json({ ok: false, reason: msg || "That email and password do not match." }, { status: 401 })
+      }
+    } catch (err) {
+      console.error("Supabase signInWithPassword exception:", err)
     }
   }
 
