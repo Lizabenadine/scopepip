@@ -6,7 +6,7 @@ import { OneOffRateForm } from "@/components/estimator/one-off-rate"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
 import { copyArea, insertAfter } from "@/lib/estimate/copy"
-import { measureArea, measuredQuantity, openingSqFt, quantityUnit } from "@/lib/estimate/calculate"
+import { measureArea, measuredQuantity, openingSqFt, quantityUnit, roomGallonsEstimate, surfaceGallonsEstimate } from "@/lib/estimate/calculate"
 import {
   createAreaGroup,
   moveAreaGroup,
@@ -213,7 +213,10 @@ const room = areaFromTemplate(template.id)
         names={areaNames}
         onOpenChange={setNamesOpen}
         onNames={onAreaNames}
-        onAdd={(area) => onChange([...areas, area])}
+        onAdd={(area) => {
+          const areaId = areas.some((a) => a.id === area.id) ? crypto.randomUUID() : area.id
+          onChange([...areas, { ...area, id: areaId }])
+        }}
       />
       <TemplatePicker
         open={templatesOpen}
@@ -221,7 +224,17 @@ const room = areaFromTemplate(template.id)
         onDeleteSaved={onDeleteSaved}
         onOpenChange={setTemplatesOpen}
         onAdd={(next, title, lineItems, groups, nextKind) => {
-          onChange([...areas, ...next], title, lineItems, undefined, nextKind)
+          const existingIds = new Set(areas.map((a) => a.id))
+          const deduplicatedNext = next.map((a) =>
+            existingIds.has(a.id)
+              ? {
+                  ...a,
+                  id: crypto.randomUUID(),
+                  surfaces: a.surfaces.map((s) => ({ ...s, id: crypto.randomUUID() })),
+                }
+              : a,
+          )
+          onChange([...areas, ...deduplicatedNext], title, lineItems, undefined, nextKind)
           if (groups && groups.length > 0) onGroups([...areaGroups, ...groups])
         }}
       />
@@ -369,6 +382,7 @@ onToggleOneOff,
     onFocused()
   }, [focusLength, area.id, onFocused])
 const measures = measureArea(area)
+const roomGallons = roomGallonsEstimate(area, rates)
 const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
     onChange({
       ...area,
@@ -402,8 +416,11 @@ const surfaces = existing
     <details className="rounded-2xl border border-slate-200 bg-white shadow-sm" open={focusLength ? true : undefined}>
       <summary className="cursor-pointer list-item px-4 py-4 text-sm font-semibold text-foreground">
         <span>{area.name || "Untitled room"}</span>
-        <span className="ml-2 text-xs font-normal text-muted-foreground">{area.lengthFt} × {area.widthFt} × {area.heightFt} ft · {area.surfaces.length} selected surfaces</span>
-        <span className="ml-2 text-xs font-medium text-primary">Edit room</span>
+        <span className="ml-2 text-xs font-normal text-muted-foreground">{area.lengthFt} × {area.widthFt} × {area.heightFt} ft · {area.surfaces.length} surfaces</span>
+        <span className="ml-2 inline-flex items-center rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-bold text-cyan-700 dark:text-cyan-300" data-testid={`room-gallons-${area.id}`}>
+          {roomGallons} gal
+        </span>
+        <span className="ml-auto text-xs font-medium text-primary">Edit room</span>
       </summary>
       <div className="border-t border-border p-4">
       <div className="flex items-start justify-between gap-3">
@@ -495,7 +512,7 @@ area.areaType === areaType
         {measures.wallSqFt} sq ft walls
         {openingSqFt(area.openings) > 0 ? ` after leaving out ${openingSqFt(area.openings)} sq ft of doors and windows` : ""}
         {" · "}
-        {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft trim
+        {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft trim · <span className="font-semibold text-foreground">{roomGallons} gal</span>
       </p>
       {kind === "interior" && area.areaType === "room" ? (
         <details className="mt-3 rounded-xl border border-border p-3" open={undefined}>
@@ -640,11 +657,20 @@ const choices = substrateChoices(rates, rate)
 const chosen = surface?.substrate ?? substrateOf(active)
 const unit = quantityUnit(active)
 const roomQuantity = measuredQuantity(active, area, surface?.itemCount ?? 0)
+const surfaceGallons = surface ? surfaceGallonsEstimate(area, surface, active) : null
               return (
                 <div key={rate.id} className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <button type="button" className="text-left text-sm font-medium" onClick={() => toggle(rate)}>
+                    <button type="button" className="flex items-center gap-2 text-left text-sm font-medium" onClick={() => toggle(rate)}>
                       <span className={surface ? "" : "text-muted-foreground"}>{rate.internalLabel}</span>
+                      {surface && surfaceGallons !== null ? (
+                        <span
+                          className="inline-flex items-center rounded-md bg-cyan-100 px-2 py-0.5 text-xs font-bold text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200"
+                          data-testid={`gallons-${rate.id}`}
+                        >
+                          {surfaceGallons} gal
+                        </span>
+                      ) : null}
                       {rate.oneOff ? (
                         <span className="mt-0.5 block text-xs font-normal text-muted-foreground">This job only</span>
                       ) : null}

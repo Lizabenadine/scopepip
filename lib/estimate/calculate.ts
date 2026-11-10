@@ -602,12 +602,72 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
   }
 }
 
+export function surfaceGallonsEstimate(
+  area: AreaInput,
+  surface: SurfaceInput,
+  rate: ProductionRate,
+): number {
+  const quantity = quantityFor(rate, area, surface)
+  const finishCoats = Math.min(Math.round(nonNegative(surface.finishCoats ?? surface.coatCount)), 6)
+  const primerCoats = Math.min(Math.round(nonNegative(surface.primerCoats ?? 0)), 6)
+  const coverage =
+    surface.coveragePerCoat !== null && surface.coveragePerCoat !== undefined && Number.isFinite(surface.coveragePerCoat)
+      ? nonNegative(surface.coveragePerCoat)
+      : nonNegative(rate.coveragePerCoat)
+  const itemGallons = rate.measure === "items" || rate.measure === "shutters"
+  let paintGallons = 0
+  if (coverage > 0) {
+    paintGallons = itemGallons ? quantity * coverage * finishCoats : (quantity * finishCoats) / coverage
+  }
+  const primerCoverage = Number.isFinite(rate.primerCoveragePerCoat) ? nonNegative(rate.primerCoveragePerCoat) : 0
+  if (primerCoverage > 0 && primerCoats > 0) {
+    paintGallons += itemGallons ? quantity * primerCoverage * primerCoats : (quantity * primerCoats) / primerCoverage
+  }
+  return roundGallons(paintGallons, "none")
+}
+
+export function roomGallonsEstimate(
+  area: AreaInput,
+  rates: ProductionRate[],
+): number {
+  const rateMap = new Map(rates.map((r) => [r.id, r]))
+  const seenSurfaceKeys = new Set<string>()
+  const uniqueSurfaces = area.surfaces.filter((surface) => {
+    const key = surface.id || surface.rateId
+    if (seenSurfaceKeys.has(key)) return false
+    seenSurfaceKeys.add(key)
+    return true
+  })
+  const total = uniqueSurfaces.reduce((sum, surface) => {
+    const rate = rateMap.get(surface.rateId)
+    if (!rate) return sum
+    return sum + surfaceGallonsEstimate(area, surface, rate)
+  }, 0)
+  return Math.round(total * 100) / 100
+}
+
 export function calculateEstimate(input: ScopeInput): EstimateQuote {
   const settings = input.settings
   const rates = new Map(input.rates.map((rate) => [rate.id, rate]))
-  const areas = input.areas.map((area) => {
+  // Prevent duplicate areas from inflating calculations
+  const seenAreaIds = new Set<string>()
+  const uniqueAreas = input.areas.filter((area) => {
+    if (!area.id) return true
+    if (seenAreaIds.has(area.id)) return false
+    seenAreaIds.add(area.id)
+    return true
+  })
+  const areas = uniqueAreas.map((area) => {
     const measures = measureArea(area)
-    const surfaces = area.surfaces.flatMap((surface) => {
+    // Prevent duplicate surfaces within the same area
+    const seenSurfaceKeys = new Set<string>()
+    const uniqueSurfaces = area.surfaces.filter((surface) => {
+      const key = surface.id || surface.rateId
+      if (seenSurfaceKeys.has(key)) return false
+      seenSurfaceKeys.add(key)
+      return true
+    })
+    const surfaces = uniqueSurfaces.flatMap((surface) => {
       const rate = rates.get(surface.rateId)
       if (!rate) return []
       return [priceSurface(area, surface, rate, settings)]
