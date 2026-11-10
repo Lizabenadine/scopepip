@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { type MouseEvent, type PointerEvent } from "react"
 import { Calendar, ChevronRight, Eye, FileText, GripVertical, Mail, MessageSquare, Phone, PhoneCall } from "lucide-react"
 import { DealMenu } from "@/components/pipeline/deal-menu"
+import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { Badge } from "@/components/ui/badge"
 import { appointmentLabel } from "@/lib/appointments/visit"
 import { useClientNow } from "@/lib/browser/client-env"
@@ -104,37 +105,37 @@ export function SalesDealCard({
   const statusInfo = (() => {
     if (visitDay) {
       return {
-        icon: <Calendar className="size-3 shrink-0 text-amber-600" />,
+        icon: <Calendar className="size-3 shrink-0 text-amber-700" />,
         text: appointmentLabel(visitDay, estimate.estimateVisitAt),
-        tone: "bg-amber-50 text-amber-800 border-amber-200",
+        tone: "bg-amber-100 text-amber-800 border-amber-200",
       }
     }
     if (replyOnDeal?.body.trim()) {
       return {
-        icon: <MessageSquare className="size-3 shrink-0 text-emerald-600" />,
+        icon: <MessageSquare className="size-3 shrink-0 text-emerald-700" />,
         text: "Customer replied",
-        tone: "bg-emerald-50 text-emerald-800 border-emerald-200",
+        tone: "bg-emerald-100 text-emerald-800 border-emerald-200",
       }
     }
     if (salesStage === "proposal_sent") {
       if (proposalOpen) {
         return {
-          icon: <Eye className="size-3 shrink-0 text-indigo-600" />,
+          icon: <Eye className="size-3 shrink-0 text-indigo-700" />,
           text: proposalOpen.kind === "revisit" ? "Viewed again" : "Proposal viewed",
-          tone: "bg-indigo-50 text-indigo-800 border-indigo-200",
+          tone: "bg-indigo-100 text-indigo-800 border-indigo-200",
         }
       }
       return {
-        icon: <FileText className="size-3 shrink-0 text-blue-600" />,
+        icon: <FileText className="size-3 shrink-0 text-blue-700" />,
         text: "Proposal sent",
-        tone: "bg-blue-50 text-blue-800 border-blue-200",
+        tone: "bg-blue-100 text-blue-800 border-blue-200",
       }
     }
     if (followUpStatus && !followUpStatus.includes("Stopped")) {
       return {
-        icon: <PhoneCall className="size-3 shrink-0 text-sky-600" />,
+        icon: <PhoneCall className="size-3 shrink-0 text-sky-700" />,
         text: followUpStatus,
-        tone: "bg-sky-50 text-sky-800 border-sky-200",
+        tone: "bg-sky-100 text-sky-800 border-sky-200",
       }
     }
     if (source) {
@@ -148,7 +149,7 @@ export function SalesDealCard({
   })()
 
   const cardClasses = cn(
-    "group relative flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
+    "group relative flex flex-col gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
     !isOverlay && "hover:border-slate-300 hover:shadow-md cursor-pointer",
     isDragging && "opacity-30 border-2 border-dashed border-primary/40 bg-primary/[0.03]",
     isOverlay && "shadow-2xl border-primary ring-2 ring-primary/20 rotate-1 scale-[1.02] cursor-grabbing bg-white",
@@ -164,13 +165,13 @@ export function SalesDealCard({
       role="listitem"
       aria-label={`Lead for ${card.clientName}`}
     >
-      {/* Top Row: Colored Status Pill and Drag Handle */}
+      {/* Top Row: Colored Status Badge and Drag Handle */}
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 flex flex-wrap items-center gap-1.5">
           {statusInfo ? (
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
                 statusInfo.tone,
               )}
             >
@@ -178,7 +179,7 @@ export function SalesDealCard({
               <span className="truncate max-w-[200px]">{statusInfo.text}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
               New lead
             </span>
           )}
@@ -188,20 +189,20 @@ export function SalesDealCard({
           type="button"
           data-drag-handle="true"
           aria-label={`Drag ${card.clientName}`}
-          className="flex size-7 shrink-0 cursor-grab items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           style={{ touchAction: "none" }}
         >
           <GripVertical className="size-4" />
         </button>
       </div>
 
-      {/* Main Info: Client Name, Project/Service, and Price */}
+      {/* Client Name Clearly Visible at Top with Prominent Bold Orange Price */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-slate-900">
             <Link
               href={detailHref}
-              className="hover:underline group-hover:text-primary"
+              className="hover:underline hover:text-primary"
               onClick={(e) => e.stopPropagation()}
             >
               {card.clientName}
@@ -223,15 +224,15 @@ export function SalesDealCard({
         </div>
       </div>
 
-      {/* Contact Details (Phone & Email prioritized when available) */}
+      {/* Contact Details (Phone & Email) */}
       {(client?.phone || client?.email) && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-xs text-slate-600">
           {client.phone ? (
             <a
               href={`tel:${client.phone}`}
               data-interactive="true"
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-slate-600 hover:text-primary hover:underline"
+              className="inline-flex items-center gap-1.5 font-medium text-slate-600 hover:text-primary hover:underline"
             >
               <Phone className="size-3 text-slate-400" />
               <span>{client.phone}</span>
@@ -242,7 +243,7 @@ export function SalesDealCard({
               href={`mailto:${client.email}`}
               data-interactive="true"
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-slate-600 hover:text-primary hover:underline"
+              className="inline-flex items-center gap-1.5 font-medium text-slate-600 hover:text-primary hover:underline"
             >
               <Mail className="size-3 text-slate-400" />
               <span className="truncate max-w-[170px]">{client.email}</span>
@@ -251,9 +252,12 @@ export function SalesDealCard({
         </div>
       )}
 
-      {/* Property Address (Optional for new leads, displayed if present) */}
+      {/* Property Address & Dark Navy "Navigate to Jobsite" button where applicable */}
       {estimate.jobAddress ? (
-        <p className="truncate text-xs text-slate-500">{estimate.jobAddress}</p>
+        <div className="flex flex-col gap-1.5" data-interactive="true" onClick={(e) => e.stopPropagation()}>
+          <p className="text-sm font-medium text-slate-800">{estimate.jobAddress}</p>
+          <NavigateToJobsite address={estimate.jobAddress} />
+        </div>
       ) : null}
 
       {/* Lead Source and Tags */}
@@ -287,10 +291,10 @@ export function SalesDealCard({
                 onMoveToColumn(nextSales)
               }}
               title={`Advance to ${nextStepLabel}`}
-              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
             >
               <span>{nextStepLabel}</span>
-              <ChevronRight className="size-3.5 shrink-0" />
+              <ChevronRight className="size-4 shrink-0" />
             </button>
           )}
 
@@ -307,7 +311,7 @@ export function SalesDealCard({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
               >
                 <option value={card.column} disabled>Move...</option>
                 {allColumns.map((col) => (
