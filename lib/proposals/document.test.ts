@@ -12,7 +12,7 @@ import {
   proposalPageList,
   scheduledProductsFromAreas,
 } from "./document.ts"
-import { resolveCompanyLogoDataUrl } from "./htmlPdf.ts"
+import { resolveCompanyBrand, resolveCompanyLogoDataUrl } from "./htmlPdf.ts"
 import { renderProposalHtml } from "./renderHtml.ts"
 
 describe("proposalDocument", () => {
@@ -158,7 +158,8 @@ describe("proposalDocument", () => {
     })
     assert.equal(withLogoHtml.includes(`src="${validPngDataUrl}"`), true)
     assert.equal(withLogoHtml.includes("Cascade Painting Co."), true)
-    assert.equal(withLogoHtml.includes("scopepipe-logo"), false)
+    assert.equal(withLogoHtml.includes('object-fit: contain'), true)
+    assert.equal(withLogoHtml.includes('data-testid="proposal-brand" style="height: 54px; width: auto; max-width: 240px; object-fit: contain;'), true)
 
     // 2. Empty logoUrl in estimateSettings does not overwrite a valid logoUrl in estimate.settings
     const fallbackToEstimateLogo = await resolveCompanyLogoDataUrl({
@@ -167,14 +168,30 @@ describe("proposalDocument", () => {
     })
     assert.equal(fallbackToEstimateLogo, validPngDataUrl)
 
-    // 3. Broken remote logo URL returns undefined so no broken <img> is rendered
+    // 3. Contractor uploaded logo containing 'scopepipe-logo' in filename or url is preserved
+    const uploadedScopePipeLogo = await resolveCompanyLogoDataUrl({
+      estimateSettings: { ...state.estimateSettings, logoUrl: validPngDataUrl },
+      estimate,
+    })
+    assert.equal(uploadedScopePipeLogo, validPngDataUrl)
+
+    // 4. resolveCompanyBrand resolves business name and logo
+    const resolvedBrand = await resolveCompanyBrand({
+      estimateSettings: { ...state.estimateSettings, companyName: "Cascade Painting Co.", logoUrl: validPngDataUrl },
+      estimate,
+      sessionCompanyName: "Session Company",
+    })
+    assert.equal(resolvedBrand.companyName, "Cascade Painting Co.")
+    assert.equal(resolvedBrand.logoUrl, validPngDataUrl)
+
+    // 5. Broken remote logo URL returns undefined so no broken <img> is rendered
     const brokenLogo = await resolveCompanyLogoDataUrl({
       estimateSettings: { ...state.estimateSettings, logoUrl: "http://127.0.0.1:1/missing-logo.png" },
       estimate,
     })
     assert.equal(brokenLogo, undefined)
 
-    // 4. No logo exists -> displays company name without an <img> tag on cover
+    // 6. No logo exists -> displays company name without an <img> tag on cover
     const noLogoHtml = renderProposalHtml({
       estimate: { ...estimate, settings: { ...estimate.settings, logoUrl: "" } },
       clientName: "Ortiz Property Group",
@@ -185,7 +202,6 @@ describe("proposalDocument", () => {
     })
     assert.equal(noLogoHtml.includes('<img src='), false)
     assert.equal(noLogoHtml.includes("Cascade Painting Co."), true)
-    assert.equal(noLogoHtml.includes("scopepipe-logo"), false)
   })
 
   it("shows 'Review and sign online' with the /p/[token] link before acceptance, and only shows an actual signature after acceptance", () => {

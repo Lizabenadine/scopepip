@@ -25,7 +25,7 @@ function resolveLocalChromiumBinDir(): string | undefined {
 }
 
 function detectImageMime(bytes: Uint8Array): string | null {
-  if (bytes.byteLength < 8 || bytes.byteLength > 2 * 1024 * 1024) return null
+  if (bytes.byteLength < 8 || bytes.byteLength > 5 * 1024 * 1024) return null
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png"
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg"
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return "image/gif"
@@ -66,7 +66,7 @@ async function downloadCompanyAsset(objectKey: string): Promise<string | undefin
 
 async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | undefined> {
   const trimmed = logoUrl?.trim() ?? ""
-  if (!trimmed || /scopepipe-logo/i.test(trimmed)) return undefined
+  if (!trimmed) return undefined
   const dataMatch = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/=\s]+)$/i.exec(trimmed)
   if (dataMatch) {
     const bytes = new Uint8Array(Buffer.from(dataMatch[2].replace(/\s/g, ""), "base64"))
@@ -90,44 +90,114 @@ async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | 
   return undefined
 }
 
+export interface ResolvedCompanyBrand {
+  companyName: string
+  logoUrl?: string
+  companyEmail?: string
+}
+
+export async function resolveCompanyBrand(input: {
+  estimateSettings?: EstimateSettings
+  estimate?: Estimate
+  companyId?: string
+  authUserId?: string
+  sessionCompanyName?: string
+  sessionCompanyEmail?: string
+}): Promise<ResolvedCompanyBrand> {
+  let profileCompanyName: string | undefined
+  let profileCompanyEmail: string | undefined
+  let profileLogoUrl: string | undefined
+
+  const admin = supabaseAdmin()
+  if (admin && input.authUserId) {
+    try {
+      const { data } = await admin
+        .from("profiles")
+        .select("company_name, company_email, logo_url")
+        .eq("user_id", input.authUserId)
+        .maybeSingle()
+      if (typeof data?.company_name === "string" && data.company_name.trim()) {
+        profileCompanyName = data.company_name.trim()
+      }
+      if (typeof data?.company_email === "string" && data.company_email.trim()) {
+        profileCompanyEmail = data.company_email.trim()
+      }
+      if (typeof data?.logo_url === "string" && data.logo_url.trim()) {
+        profileLogoUrl = data.logo_url.trim()
+      }
+    } catch {
+      // Ignore profile lookup errors
+    }
+  }
+
+  const resolvedCompanyName =
+    profileCompanyName ||
+    input.estimateSettings?.companyName?.trim() ||
+    input.sessionCompanyName?.trim() ||
+    input.estimate?.settings?.companyName?.trim() ||
+    "ScopePipe"
+
+  const resolvedCompanyEmail =
+    profileCompanyEmail ||
+    input.estimateSettings?.companyEmail?.trim() ||
+    input.sessionCompanyEmail?.trim() ||
+    input.estimate?.settings?.companyEmail?.trim() ||
+    ""
+
+  const candidates = [
+    input.estimateSettings?.logoUrl?.trim(),
+    input.estimate?.settings?.logoUrl?.trim(),
+    profileLogoUrl?.trim(),
+  ].filter((c): c is string => Boolean(c))
+
+  for (const candidate of candidates) {
+    const inlined = await inlineLogoDataUrl(candidate)
+    if (inlined) {
+      return {
+        companyName: resolvedCompanyName,
+        logoUrl: inlined,
+        companyEmail: resolvedCompanyEmail,
+      }
+    }
+  }
+
+  if (input.companyId) {
+    const fromCompanyAsset = await downloadCompanyAsset(`${input.companyId}/logo`)
+    if (fromCompanyAsset) {
+      return {
+        companyName: resolvedCompanyName,
+        logoUrl: fromCompanyAsset,
+        companyEmail: resolvedCompanyEmail,
+      }
+    }
+  }
+
+  if (input.authUserId) {
+    const fromUserAsset = await downloadCompanyAsset(`${input.authUserId}/logo`)
+    if (fromUserAsset) {
+      return {
+        companyName: resolvedCompanyName,
+        logoUrl: fromUserAsset,
+        companyEmail: resolvedCompanyEmail,
+      }
+    }
+  }
+
+  return {
+    companyName: resolvedCompanyName,
+    logoUrl: undefined,
+    companyEmail: resolvedCompanyEmail,
+  }
+}
+
 export async function resolveCompanyLogoDataUrl(input: {
   estimateSettings?: EstimateSettings
   estimate?: Estimate
   companyId?: string
   authUserId?: string
 }): Promise<string | undefined> {
-  const primary = input.estimateSettings?.logoUrl?.trim() || input.estimate?.settings?.logoUrl?.trim() || ""
-  if (primary) {
-    const resolved = await inlineLogoDataUrl(primary)
-    if (resolved) return resolved
-  }
-  const admin = supabaseAdmin()
-  if (!admin) return undefined
-  if (input.authUserId) {
-    try {
-      const { data } = await admin
-        .from("profiles")
-        .select("logo_url")
-        .eq("user_id", input.authUserId)
-        .maybeSingle()
-      const profileLogo = typeof data?.logo_url === "string" ? data.logo_url.trim() : ""
-      if (profileLogo) {
-        const resolved = await inlineLogoDataUrl(profileLogo)
-        if (resolved) return resolved
-      }
-    } catch {
-      // Ignore profile lookup errors
-    }
-  }
-  if (input.companyId) {
-    const fromCompanyAsset = await downloadCompanyAsset(`${input.companyId}/logo`)
-    if (fromCompanyAsset) return fromCompanyAsset
-  }
-  if (input.authUserId) {
-    const fromUserAsset = await downloadCompanyAsset(`${input.authUserId}/logo`)
-    if (fromUserAsset) return fromUserAsset
-  }
-  return undefined
+  const brand = await resolveCompanyBrand(input)
+  return brand.logoUrl
 }
 
 async function launchBrowser() {
@@ -174,16 +244,22 @@ export async function htmlPdf(input: {
   authUserId?: string
   html?: string
 }): Promise<Uint8Array> {
-  const resolvedLogoUrl = await resolveCompanyLogoDataUrl({
+  const brand = await resolveCompanyBrand({
     estimateSettings: input.estimateSettings,
     estimate: input.estimate,
     companyId: input.companyId,
     authUserId: input.authUserId,
+    sessionCompanyName: input.companyName,
+    sessionCompanyEmail: input.companyEmail,
   })
+  const resolvedCompanyName = input.companyName?.trim() || brand.companyName
+  const resolvedCompanyEmail = input.companyEmail?.trim() || brand.companyEmail || ""
   const effectiveSettings: EstimateSettings = {
     ...input.estimate.settings,
     ...(input.estimateSettings ?? {}),
-    logoUrl: resolvedLogoUrl ?? "",
+    companyName: resolvedCompanyName,
+    companyEmail: resolvedCompanyEmail,
+    logoUrl: brand.logoUrl ?? "",
   }
 
   const htmlContent =
@@ -194,8 +270,8 @@ export async function htmlPdf(input: {
       clientEmail: input.clientEmail,
       clientPhone: input.clientPhone,
       language: input.language,
-      companyName: input.companyName,
-      companyEmail: input.companyEmail,
+      companyName: resolvedCompanyName,
+      companyEmail: resolvedCompanyEmail,
       paymentMethods: input.paymentMethods,
       estimateSettings: effectiveSettings,
       origin: input.origin,

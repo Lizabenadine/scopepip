@@ -86,7 +86,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     input.estimateSettings?.logoUrl?.trim() ||
     input.estimate.settings.logoUrl?.trim() ||
     ""
-  const safeLogoCandidate = /scopepipe-logo/i.test(resolvedLogoCandidate) ? "" : resolvedLogoCandidate
+  const safeLogoCandidate = resolvedLogoCandidate
   const effectiveSettings: EstimateSettings = {
     ...input.estimate.settings,
     ...(input.estimateSettings ?? {}),
@@ -330,10 +330,9 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
   const brandHeaderHtml = logoUrl
     ? `<div class="brand-row">
-        <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company)}" data-testid="proposal-brand" style="height: 54px; width: auto; max-width: 210px; object-fit: contain; border-radius: 12px; flex-shrink: 0;" />
+        <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(company)}" data-testid="proposal-brand" style="height: 54px; width: auto; max-width: 240px; object-fit: contain; border-radius: 8px; flex-shrink: 0;" />
         <div>
           <p class="eyebrow">Proposal · ${escapeHtml(say(document.template.label))}</p>
-          <p class="company-title">${escapeHtml(company)}</p>
           ${credLine ? `<p style="font-size: 12px; color: var(--ink-soft); margin-top: 2px;" data-testid="proposal-company-license">${escapeHtml(credLine)}</p>` : ""}
         </div>
       </div>`

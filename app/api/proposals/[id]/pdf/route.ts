@@ -1,7 +1,7 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
-import { htmlPdf, resolveCompanyLogoDataUrl } from "@/lib/proposals/htmlPdf"
+import { htmlPdf, resolveCompanyBrand } from "@/lib/proposals/htmlPdf"
 import { proposalMail } from "@/lib/proposals/mail"
 
 export const runtime = "nodejs"
@@ -20,15 +20,19 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const client = book.state.clients.find((item) => item.id === estimate.clientId)
   const language = client?.language === "es" ? "es" : "en"
   const origin = request.headers.get("origin")?.replace(/\/$/, "") || new URL(request.url).origin
-  const resolvedLogoUrl = await resolveCompanyLogoDataUrl({
+  const brand = await resolveCompanyBrand({
     estimateSettings: book.state.estimateSettings,
     estimate,
     companyId: session.companyId,
     authUserId: session.authUserId,
+    sessionCompanyName: session.companyName,
+    sessionCompanyEmail: session.email,
   })
   const effectiveSettings = {
     ...book.state.estimateSettings,
-    logoUrl: resolvedLogoUrl ?? "",
+    companyName: brand.companyName,
+    companyEmail: brand.companyEmail || book.state.estimateSettings.companyEmail,
+    logoUrl: brand.logoUrl ?? "",
   }
 
   try {
@@ -67,7 +71,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       companyName: effectiveSettings.companyName,
       paymentMethods: book.state.paymentMethods,
       origin,
-      logo: await pdfLogoFromUrl(resolvedLogoUrl),
+      logo: await pdfLogoFromUrl(brand.logoUrl),
       estimateSettings: effectiveSettings,
     })
     if ("error" in mail) return Response.json({ ok: false, reason: mail.error }, { status: 400 })

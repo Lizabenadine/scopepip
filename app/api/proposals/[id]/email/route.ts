@@ -1,7 +1,7 @@
 import { readCompanyBook } from "@/lib/auth/directory"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
-import { htmlPdf, resolveCompanyLogoDataUrl } from "@/lib/proposals/htmlPdf"
+import { htmlPdf, resolveCompanyBrand } from "@/lib/proposals/htmlPdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
 import type { Estimate } from "@/lib/types"
@@ -53,15 +53,19 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const language = client?.language === "es" ? "es" : "en"
   const resolvedClientName = client?.name || postedName
   const resolvedClientEmail = posted.includes("@") ? posted : (client?.email ?? "")
-  const resolvedLogoUrl = await resolveCompanyLogoDataUrl({
+  const brand = await resolveCompanyBrand({
     estimateSettings: book.state.estimateSettings,
     estimate,
     companyId: session.companyId,
     authUserId: session.authUserId,
+    sessionCompanyName: session.companyName,
+    sessionCompanyEmail: session.email,
   })
   const effectiveSettings = {
     ...book.state.estimateSettings,
-    logoUrl: resolvedLogoUrl ?? "",
+    companyName: brand.companyName,
+    companyEmail: brand.companyEmail || book.state.estimateSettings.companyEmail,
+    logoUrl: brand.logoUrl ?? "",
   }
   const mail = proposalMail({
     estimate,
@@ -71,7 +75,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     companyName: effectiveSettings.companyName,
     paymentMethods: book.state.paymentMethods,
     origin,
-    logo: await pdfLogoFromUrl(resolvedLogoUrl),
+    logo: await pdfLogoFromUrl(brand.logoUrl),
     estimateSettings: effectiveSettings,
   })
   if ("error" in mail) {
