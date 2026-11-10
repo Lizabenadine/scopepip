@@ -567,7 +567,22 @@ export async function rememberProposalLanguage(token: string, language: "en" | "
 export async function publicProposal(token: string): Promise<PublicProposalView | null> {
   const found = await findByEstimate((estimate) => estimate.publicToken === token)
   if (!found) return null
-  return proposalViewFrom(found.book.state, found.estimate)
+  const { resolveCompanyBrand } = await import("../proposals/htmlPdf.ts")
+  const brand = await resolveCompanyBrand({
+    estimateSettings: found.book.state.estimateSettings,
+    estimate: found.estimate,
+    companyId: found.companyId,
+  })
+  const baseView = proposalViewFrom(found.book.state, found.estimate)
+  return {
+    ...baseView,
+    companyName: brand.companyName || baseView.companyName,
+    companyEmail: brand.companyEmail || baseView.companyEmail,
+    estimateSettings: {
+      ...baseView.estimateSettings,
+      logoUrl: brand.logoUrl || baseView.estimateSettings.logoUrl,
+    },
+  }
 }
 
 export async function declinePublicProposal(

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { type MouseEvent, type PointerEvent } from "react"
-import { Calendar, ChevronRight, Eye, FileText, GripVertical, MessageSquare, PhoneCall } from "lucide-react"
+import { Calendar, ChevronRight, Eye, FileText, GripVertical, Mail, MessageSquare, Phone, PhoneCall } from "lucide-react"
 import { DealMenu } from "@/components/pipeline/deal-menu"
 import { Badge } from "@/components/ui/badge"
 import { appointmentLabel } from "@/lib/appointments/visit"
@@ -148,10 +148,10 @@ export function SalesDealCard({
   })()
 
   const cardClasses = cn(
-    "group relative flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-white p-3 shadow-xs select-none transition-all duration-150",
+    "group relative flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
     !isOverlay && "hover:border-slate-300 hover:shadow-md cursor-pointer",
     isDragging && "opacity-30 border-2 border-dashed border-primary/40 bg-primary/[0.03]",
-    isOverlay && "shadow-2xl border-primary/50 ring-2 ring-primary/20 rotate-1 scale-[1.02] cursor-grabbing",
+    isOverlay && "shadow-2xl border-primary ring-2 ring-primary/20 rotate-1 scale-[1.02] cursor-grabbing bg-white",
   )
 
   return (
@@ -164,72 +164,120 @@ export function SalesDealCard({
       role="listitem"
       aria-label={`Lead for ${card.clientName}`}
     >
-      {/* Top Header: Drag handle, Client Name, and Value */}
-      <div className="flex items-start gap-2">
+      {/* Top Row: Colored Status Pill and Drag Handle */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex flex-wrap items-center gap-1.5">
+          {statusInfo ? (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+                statusInfo.tone,
+              )}
+            >
+              {statusInfo.icon}
+              <span className="truncate max-w-[200px]">{statusInfo.text}</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+              New lead
+            </span>
+          )}
+        </div>
+
         <button
           type="button"
           data-drag-handle="true"
           aria-label={`Drag ${card.clientName}`}
-          className="mt-0.5 -ml-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          className="flex size-7 shrink-0 cursor-grab items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           style={{ touchAction: "none" }}
         >
-          <GripVertical className="size-3.5" />
+          <GripVertical className="size-4" />
         </button>
+      </div>
 
+      {/* Main Info: Client Name, Project/Service, and Price */}
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <Link
-            href={detailHref}
-            className="block truncate text-sm font-semibold text-slate-900 group-hover:text-primary hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {card.clientName}
-          </Link>
-          <p className="truncate text-xs text-slate-500">
-            {estimate.title?.trim() || estimate.jobAddress || "Painting project"}
+          <h3 className="truncate text-base font-semibold text-slate-900">
+            <Link
+              href={detailHref}
+              className="hover:underline group-hover:text-primary"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {card.clientName}
+            </Link>
+          </h3>
+          <p className="truncate text-sm text-muted-foreground mt-0.5">
+            {estimate.title?.trim() || "Painting project"}
           </p>
         </div>
 
         <div className="shrink-0 text-right">
           {card.total > 0 ? (
-            <span className="font-display text-sm font-bold tracking-tight text-price tabular-nums">
+            <p className="font-display text-2xl leading-none text-price tabular-nums font-bold">
               {money(card.total)}
-            </span>
+            </p>
           ) : (
-            <span className="text-[11px] font-medium text-slate-400">Not priced</span>
+            <p className="text-sm font-medium text-slate-400">Not priced</p>
           )}
         </div>
       </div>
 
-      {/* Middle Row: Status Badge & Tags */}
-      {(statusInfo || tags.length > 0) && (
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          {statusInfo && (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium tracking-tight",
-                statusInfo.tone,
-              )}
+      {/* Contact Details (Phone & Email prioritized when available) */}
+      {(client?.phone || client?.email) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+          {client.phone ? (
+            <a
+              href={`tel:${client.phone}`}
+              data-interactive="true"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-slate-600 hover:text-primary hover:underline"
             >
-              {statusInfo.icon}
-              <span className="truncate max-w-[170px]">{statusInfo.text}</span>
+              <Phone className="size-3 text-slate-400" />
+              <span>{client.phone}</span>
+            </a>
+          ) : null}
+          {client.email ? (
+            <a
+              href={`mailto:${client.email}`}
+              data-interactive="true"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-slate-600 hover:text-primary hover:underline"
+            >
+              <Mail className="size-3 text-slate-400" />
+              <span className="truncate max-w-[170px]">{client.email}</span>
+            </a>
+          ) : null}
+        </div>
+      )}
+
+      {/* Property Address (Optional for new leads, displayed if present) */}
+      {estimate.jobAddress ? (
+        <p className="truncate text-xs text-slate-500">{estimate.jobAddress}</p>
+      ) : null}
+
+      {/* Lead Source and Tags */}
+      {(source || tags.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          {source && (
+            <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+              {LEAD_SOURCE_LABELS[source]}
             </span>
           )}
-
-          {tags.slice(0, 2).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 h-4.5 bg-slate-50 text-slate-600 border-slate-200">
+          {tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} variant="outline" className="text-[11px] px-2 py-0.5 bg-slate-50 text-slate-600 border-slate-200">
               {tag}
             </Badge>
           ))}
-          {tags.length > 2 && (
-            <span className="text-[10px] text-slate-400">+{tags.length - 2}</span>
+          {tags.length > 3 && (
+            <span className="text-[11px] text-slate-400">+{tags.length - 3}</span>
           )}
         </div>
       )}
 
-      {/* Bottom Footer: Quick Actions, Keyboard Accessibility & Deal Menu */}
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-0.5">
-        <div className="flex items-center gap-1">
-          {/* Quick advance button if next step is available */}
+      {/* Bottom Footer: Quick Actions, Keyboard Move Dropdown & Deal Menu */}
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="flex flex-1 items-center gap-2 min-w-0">
           {nextStepLabel && onMoveToColumn && nextSales && (
             <button
               type="button"
@@ -239,14 +287,13 @@ export function SalesDealCard({
                 onMoveToColumn(nextSales)
               }}
               title={`Advance to ${nextStepLabel}`}
-              className="inline-flex h-6 items-center gap-1 rounded-md bg-slate-100 hover:bg-primary/10 hover:text-primary px-2 text-[11px] font-medium text-slate-700 transition-colors"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <span>{nextStepLabel}</span>
-              <ChevronRight className="size-3 shrink-0" />
+              <ChevronRight className="size-3.5 shrink-0" />
             </button>
           )}
 
-          {/* Accessible Move Dropdown for Keyboard/Screenreader navigation */}
           {onMoveToColumn && (
             <div className="relative">
               <select
@@ -260,7 +307,7 @@ export function SalesDealCard({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="h-6 rounded-md border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-600 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
+                className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
               >
                 <option value={card.column} disabled>Move...</option>
                 {allColumns.map((col) => (

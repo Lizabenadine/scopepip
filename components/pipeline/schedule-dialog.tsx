@@ -28,6 +28,7 @@ export function ScheduleDialog({
   clientName,
   initialDate,
   initialTime = "",
+  initialAddress = "",
   kind = "job",
   language = "en",
   onOpenChange,
@@ -37,14 +38,16 @@ export function ScheduleDialog({
   clientName: string
   initialDate: string | null
   initialTime?: string
+  initialAddress?: string
   kind?: "job" | "visit"
   language?: FieldLanguage
   onOpenChange: (open: boolean) => void
-  onConfirm: (date: string, time?: string) => void
+  onConfirm: (date: string, time?: string, address?: string) => void
 }) {
   const say = (text: string) => officeLabel(text, language)
   const [date, setDate] = useState(initialDate || tomorrow())
   const [time, setTime] = useState(initialTime)
+  const [address, setAddress] = useState(initialAddress)
 
   return (
     <Dialog
@@ -53,6 +56,7 @@ export function ScheduleDialog({
         if (next) {
           setDate(initialDate || tomorrow())
           setTime(initialTime)
+          setAddress(initialAddress)
         }
         onOpenChange(next)
       }}
@@ -79,17 +83,30 @@ export function ScheduleDialog({
             />
           </div>
           {kind === "visit" ? (
-            <div className="grid gap-2">
-              <Label htmlFor="schedule-time">Start time</Label>
-              <Input
-                id="schedule-time"
-                data-testid="schedule-time"
-                type="time"
-                value={time}
-                onValueChange={setTime}
-                className="h-11"
-              />
-            </div>
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="schedule-time">Start time</Label>
+                <Input
+                  id="schedule-time"
+                  data-testid="schedule-time"
+                  type="time"
+                  value={time}
+                  onValueChange={setTime}
+                  className="h-11"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="schedule-address">{say("Property address")}</Label>
+                <Input
+                  id="schedule-address"
+                  data-testid="schedule-address"
+                  placeholder={say("123 Main St, City, ST")}
+                  value={address}
+                  onValueChange={setAddress}
+                  className="h-11"
+                />
+              </div>
+            </>
           ) : null}
         </div>
         <DialogFooter>
@@ -98,7 +115,7 @@ export function ScheduleDialog({
             className="h-11"
             data-testid="schedule-confirm"
             disabled={kind === "visit" ? !date || !time : !date}
-            onClick={() => onConfirm(date, kind === "visit" ? time : undefined)}
+            onClick={() => onConfirm(date, kind === "visit" ? time : undefined, address)}
           >
             {kind === "visit" ? "Book visit" : say("Schedule job")}
           </Button>

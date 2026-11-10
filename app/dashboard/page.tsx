@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
-import { PipelineView } from "@/components/pipeline/pipeline-view"
+import { DashboardOverview } from "@/components/dashboard/dashboard-overview"
 
 export const metadata: Metadata = {
   title: "Dashboard",
-  description: "Painting jobs moving from lead to paid.",
+  description: "Overview of leads, proposals, active jobs, and revenue.",
 }
 
 export default function DashboardPage() {
-  return <PipelineView />
+  return <DashboardOverview />
 }

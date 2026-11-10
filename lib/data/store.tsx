@@ -510,7 +510,7 @@ export interface ScopeApi {
   deleteEstimate: (id: string) => void
   moveStage: (id: string, stageId: string, scheduledOn?: string | null) => void
   addEstimateNote: (id: string, text: string) => void
-  scheduleSalesVisit: (id: string, date: string, time: string) => void
+  scheduleSalesVisit: (id: string, date: string, time: string, address?: string) => void
   advanceSalesStage: (id: string) => void
   addCustomColumn: (kind: "sales" | "jobs", label: string, after: string) => { ok: true; id: string } | { ok: false; reason: string }
   renameBoardColumn: (id: string, label: string) => void
@@ -556,6 +556,7 @@ export interface ScopeApi {
     email: string
     address: string
     reachedBy: LeadReach
+    service?: string
   }) => { ok: true; estimateId: string } | { ok: false; reason: string }
   receivePublicBooking: (booking: PublicBooking) => { matched: boolean }
   receiveProposalEvent: (event: ProposalEngagementEvent) => { matched: boolean }
@@ -1009,13 +1010,24 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         ),
       })
     },
-    scheduleSalesVisit: (id, date, time) => {
+    scheduleSalesVisit: (id, date, time, address) => {
       const instant = visitStartInstant(date, time)
       if (!instant) return
       const latest = getSnapshot().state
       const now = new Date().toISOString()
+      const targetEstimate = latest.estimates.find((estimate) => estimate.id === id)
+      const cleanAddress = address?.trim()
+      const finalAddress = cleanAddress || targetEstimate?.jobAddress || ""
       commitReconciled({
         ...latest,
+        clients:
+          cleanAddress && targetEstimate
+            ? latest.clients.map((client) =>
+                client.id === targetEstimate.clientId && !client.address
+                  ? { ...client, address: cleanAddress }
+                  : client,
+              )
+            : latest.clients,
         estimates: latest.estimates.map((estimate) => {
           if (estimate.id !== id) return estimate
           const early =
@@ -1025,6 +1037,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
             estimate.salesStage === "estimate_requested"
           return {
             ...estimate,
+            jobAddress: finalAddress,
             estimateVisitOn: date,
             estimateVisitAt: instant,
             salesStage: early ? "estimate_scheduled" : estimate.salesStage,

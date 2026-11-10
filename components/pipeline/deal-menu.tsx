@@ -271,11 +271,12 @@ export function DealMenu({
           clientName={clientName}
           initialDate={schedule === "visit" ? (estimate.estimateVisitOn ?? null) : estimate.scheduledOn}
           initialTime={schedule === "visit" ? localVisitClock(estimate.estimateVisitAt) : ""}
+          initialAddress={estimate.jobAddress}
           onOpenChange={(next) => {
             if (!next) setSchedule(null)
           }}
-          onConfirm={(date, time) => {
-            if (schedule === "visit" && time) scheduleSalesVisit(estimate.id, date, time)
+          onConfirm={(date, time, address) => {
+            if (schedule === "visit" && time) scheduleSalesVisit(estimate.id, date, time, address)
             if (schedule === "job" && scheduledStage) moveStage(estimate.id, scheduledStage.id, date)
             setSchedule(null)
           }}

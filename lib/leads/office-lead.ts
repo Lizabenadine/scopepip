@@ -11,6 +11,7 @@ export function createOfficeLead(
     email: string
     address: string
     reachedBy: LeadReach
+    service?: string
     now?: string
     id?: string
   },
@@ -19,6 +20,7 @@ export function createOfficeLead(
   const phone = input.phone.trim()
   const email = input.email.trim()
   const address = input.address.trim()
+  const service = input.service?.trim()
   if (!name) return { ok: false, reason: "Enter the customer's name." }
   if (email && !email.includes("@")) return { ok: false, reason: "The email needs an @." }
   if (!phone && !email.includes("@")) return { ok: false, reason: "Add a phone number or an email." }
@@ -41,7 +43,7 @@ export function createOfficeLead(
     item.id === created.id
       ? {
           ...item,
-          title: address || "New lead",
+          title: service || address || "New lead",
           notes: texted ? "Reached by text." : "Reached by phone call.",
         }
       : item,

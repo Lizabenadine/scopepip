@@ -6,7 +6,7 @@ import { DealMenu } from "@/components/pipeline/deal-menu"
 import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { SCOPE_VERSION } from "@/lib/data/seed"
@@ -19,10 +19,12 @@ import { useClientNow } from "@/lib/browser/client-env"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobHeading } from "@/lib/field/copy"
 import { money } from "@/lib/format"
+import { officeOnSite } from "@/lib/office/dashboard-copy"
 import { DEAL_LABELS, invoiceStatus, jobStageOf, LEAD_SOURCE_LABELS, nextSalesStage, SALES_COLUMNS, salesStageOf } from "@/lib/pipeline/board"
 import { leadScore } from "@/lib/pipeline/score"
 import { suggestFollowUp } from "@/lib/pipeline/suggest"
 import { displayCompanyName } from "@/lib/brand/company"
+import { cn } from "@/lib/utils"
 import type { FollowUpMessage, FollowUpStage } from "@/lib/follow-ups/types"
 import type { Estimate } from "@/lib/types"
 
@@ -91,6 +93,8 @@ export function DealCard({
     reviewUrl: scope.estimateSettings.reviewUrl,
   })
 
+  const jobStage = mode === "jobs" ? jobStageOf(estimate, order, stage?.slug) : null
+
   function toggleLabel(label: string) {
     const next = tags.includes(label) ? tags.filter((tag) => tag !== label) : [...tags, label]
     setEstimateTags(estimate.id, next)
@@ -132,6 +136,127 @@ export function DealCard({
     } finally {
       setSendingSuggestion(false)
     }
+  }
+
+  if (mode === "jobs") {
+    const jobStageLabel =
+      jobStage === "project_completed"
+        ? "Completed"
+        : jobStage === "project_in_progress"
+          ? "In production"
+          : jobStage === "project_scheduled"
+            ? "Scheduled"
+            : "Accepted"
+
+    const jobStageTone =
+      jobStage === "project_completed"
+        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+        : jobStage === "project_in_progress"
+          ? "bg-blue-100 text-blue-800 border-blue-200"
+          : jobStage === "project_scheduled"
+            ? "bg-amber-100 text-amber-800 border-amber-200"
+            : "bg-indigo-100 text-indigo-800 border-indigo-200"
+
+    return (
+      <article
+        data-testid={`pipeline-card-${estimate.id}`}
+        className="flex flex-col gap-3 rounded-2xl bg-white p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+      >
+        {/* Top Status Badges & Menu */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                jobStageTone,
+              )}
+            >
+              {fieldJobHeading(jobStageLabel, jobLanguage)}
+            </span>
+            {estimate.paymentStatus === "paid" ? (
+              <span className="inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2.5 py-1 text-xs font-semibold text-[oklch(0.32_0.07_155)]">
+                Paid
+              </span>
+            ) : estimate.paymentStatus === "deposit_paid" ? (
+              <span className="inline-flex rounded-full bg-[oklch(0.93_0.05_155)] px-2.5 py-1 text-xs font-semibold text-[oklch(0.32_0.07_155)]">
+                Deposit Paid
+              </span>
+            ) : null}
+          </div>
+          <DealMenu estimate={estimate} clientName={clientName} mode="jobs" />
+        </div>
+
+        {/* Customer and Project Name with Prominent Contract Value */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-semibold text-slate-900">
+              <Link
+                href={limited ? `/work-orders/${estimate.id}` : `/estimates/${estimate.id}`}
+                className="hover:underline hover:text-primary"
+              >
+                {clientName}
+              </Link>
+            </h3>
+            <p className="truncate text-sm text-muted-foreground mt-0.5">
+              {estimate.title?.trim() || "Painting project"}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="font-display text-2xl leading-none text-price tabular-nums font-bold">
+              {money(total)}
+            </p>
+          </div>
+        </div>
+
+        {/* Property Address & Navigate */}
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium text-slate-800">
+            {estimate.jobAddress || fieldJobHeading("No address yet", jobLanguage)}
+          </p>
+          <NavigateToJobsite address={estimate.jobAddress} />
+        </div>
+
+        {/* Scheduled Job Dates */}
+        {estimate.scheduledOn ? (
+          <p className="text-sm font-medium text-slate-900">
+            {officeOnSite(estimate.scheduledOn, jobLanguage)}
+          </p>
+        ) : (
+          <p className="text-xs italic text-muted-foreground">
+            {fieldJobHeading("Not scheduled yet", jobLanguage)}
+          </p>
+        )}
+
+        {estimate.paymentStatus === "deposit_paid" &&
+        (estimate.depositReceipt?.amount ?? 0) < total ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full rounded-xl text-xs font-semibold"
+            data-testid={`mark-paid-${estimate.id}`}
+            onClick={() => scope.markJobPaid(estimate.id)}
+          >
+            Mark balance paid
+          </Button>
+        ) : null}
+
+        {/* Relevant Job Actions */}
+        <div className="mt-auto flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+          <Link
+            href={`/work-orders/${estimate.id}`}
+            className={cn(buttonVariants({ variant: "default" }), "h-10 flex-1 rounded-xl text-xs font-semibold")}
+          >
+            Crew sheet
+          </Link>
+          <Link
+            href={`/estimates/${estimate.id}`}
+            className={cn(buttonVariants({ variant: "outline" }), "h-10 px-3 rounded-xl text-xs font-medium")}
+          >
+            Open
+          </Link>
+        </div>
+      </article>
+    )
   }
 
   return (
@@ -261,19 +386,6 @@ export function DealCard({
         {estimate.salesperson ? ` · ${estimate.salesperson}` : ""}
         {` · ${invoiceStatus(estimate, total)}`}
       </p>
-      {mode === "jobs" &&
-      estimate.paymentStatus === "deposit_paid" &&
-      (estimate.depositReceipt?.amount ?? 0) < total ? (
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 w-full"
-          data-testid={`mark-paid-${estimate.id}`}
-          onClick={() => scope.markJobPaid(estimate.id)}
-        >
-          Mark balance paid
-        </Button>
-      ) : null}
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
           <Badge key={tag} variant="outline">
@@ -349,9 +461,10 @@ export function DealCard({
         clientName={clientName}
         initialDate={estimate.estimateVisitOn ?? null}
         initialTime={localVisitClock(estimate.estimateVisitAt)}
+        initialAddress={estimate.jobAddress}
         onOpenChange={setVisitOpen}
-        onConfirm={(date, time) => {
-          if (time) scope.scheduleSalesVisit(estimate.id, date, time)
+        onConfirm={(date, time, address) => {
+          if (time) scope.scheduleSalesVisit(estimate.id, date, time, address)
           setVisitOpen(false)
         }}
       />

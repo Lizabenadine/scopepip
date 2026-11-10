@@ -94,6 +94,15 @@ describe("accounts", () => {
     assert.equal(view?.clientName, "Ortiz Property Group")
     assert.equal(view?.companyName, "Ortiz Painting")
     assert.equal("clients" in (view ?? {}), false)
+
+    // Verify public proposal receives the contractor logo saved in Settings
+    const testLogo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    await writeCompanyBook(other.user.companyId, otherBook.revision, {
+      ...otherBook.state,
+      estimateSettings: { ...otherBook.state.estimateSettings, logoUrl: testLogo },
+    })
+    const viewWithLogo = await publicProposal(token!)
+    assert.equal(viewWithLogo?.estimateSettings.logoUrl, testLogo)
     assert.equal((await login({ email: "ada@hale.test", password: "nope" })).ok, false)
   })
 

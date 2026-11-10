@@ -50,11 +50,19 @@ export function NewLeadDialog({
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
+  const [service, setService] = useState("")
   const [reachedBy, setReachedBy] = useState<LeadReach>("call")
   const [error, setError] = useState<string | null>(null)
 
+  const SERVICES = [
+    "Interior Painting",
+    "Exterior Painting",
+    "Cabinet Refinishing",
+    "Commercial Painting",
+  ]
+
   const save = () => {
-    const saved = createLead({ name, phone, email, address, reachedBy })
+    const saved = createLead({ name, phone, email, address, reachedBy, service })
     if (!saved.ok) {
       setError(saved.reason)
       return
@@ -63,6 +71,7 @@ export function NewLeadDialog({
     setPhone("")
     setEmail("")
     setAddress("")
+    setService("")
     setReachedBy("call")
     setError(null)
     onOpenChange(false)
@@ -74,7 +83,7 @@ export function NewLeadDialog({
         <DialogHeader>
           <DialogTitle>{say("New lead")}</DialogTitle>
           <DialogDescription>
-            {say("Someone called or texted. Save their name and how to reach them.")}
+            {say("Save customer details, service requested, and how they reached out.")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -91,32 +100,73 @@ export function NewLeadDialog({
             <Input id="lead-email" data-testid="lead-email" value={email} inputMode="email" autoComplete="email" className="h-11" onValueChange={setEmail} />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="lead-address">{say("Address")}</Label>
-            <Input id="lead-address" data-testid="lead-address" value={address} className="h-11" onValueChange={setAddress} />
+            <Label htmlFor="lead-service">{say("Service requested")}</Label>
+            <Input
+              id="lead-service"
+              data-testid="lead-service"
+              placeholder={say("e.g. Interior Repaint, Exterior, Cabinets")}
+              value={service}
+              className="h-11"
+              onValueChange={setService}
+            />
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {SERVICES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-medium border transition-colors",
+                    service === s
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100",
+                  )}
+                  onClick={() => setService(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              data-testid="lead-reach-call"
-              className={cn(
-                "h-10 rounded-full px-4 text-sm",
-                reachedBy === "call" ? "bg-primary text-primary-foreground" : "bg-muted",
-              )}
-              onClick={() => setReachedBy("call")}
-            >
-              {say("Call")}
-            </button>
-            <button
-              type="button"
-              data-testid="lead-reach-text"
-              className={cn(
-                "h-10 rounded-full px-4 text-sm",
-                reachedBy === "text" ? "bg-primary text-primary-foreground" : "bg-muted",
-              )}
-              onClick={() => setReachedBy("text")}
-            >
-              {say("Text")}
-            </button>
+          <div className="grid gap-1">
+            <Label htmlFor="lead-address">
+              {say("Property address")}{" "}
+              <span className="text-xs font-normal text-muted-foreground">({say("optional")})</span>
+            </Label>
+            <Input
+              id="lead-address"
+              data-testid="lead-address"
+              placeholder={say("Optional — can add when scheduling estimate")}
+              value={address}
+              className="h-11"
+              onValueChange={setAddress}
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label>{say("Reached by")}</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                data-testid="lead-reach-call"
+                className={cn(
+                  "h-10 rounded-full px-4 text-sm font-medium",
+                  reachedBy === "call" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                )}
+                onClick={() => setReachedBy("call")}
+              >
+                {say("Call")}
+              </button>
+              <button
+                type="button"
+                data-testid="lead-reach-text"
+                className={cn(
+                  "h-10 rounded-full px-4 text-sm font-medium",
+                  reachedBy === "text" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                )}
+                onClick={() => setReachedBy("text")}
+              >
+                {say("Text")}
+              </button>
+            </div>
           </div>
           {error ? <p className="text-sm text-rose-700">{error}</p> : null}
         </div>
