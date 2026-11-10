@@ -7,9 +7,11 @@ export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: true })
-  response.headers.append("set-cookie", sessionCookie("", 0))
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
+  const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
+  response.headers.append("set-cookie", sessionCookie("", 0, { domain: cookieDomain }))
   if (!supabaseAuthConfigured()) return response
   const pending = authClientFromRequest(request)
   await pending.supabase.auth.signOut().catch(() => undefined)
-  return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
+  return attachAuthCookies(response, pending.pending, pending.cacheHeaders, cookieDomain)
 }

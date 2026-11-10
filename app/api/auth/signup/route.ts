@@ -86,8 +86,10 @@ export async function POST(request: NextRequest) {
         : {}),
     })
     const token = result.hosted ? signOfficeSession(result.user, authSecret()) : signSession(result.user.id, authSecret())
-    response.headers.append("set-cookie", sessionCookie(token))
-    return attachAuthCookies(response, pendingCookies, cacheHeaders)
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
+    const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
+    response.headers.append("set-cookie", sessionCookie(token, 30 * 24 * 60 * 60, { domain: cookieDomain }))
+    return attachAuthCookies(response, pendingCookies, cacheHeaders, cookieDomain)
   } catch (error) {
     const reason = error instanceof Error ? error.message : "The account could not be saved."
     return NextResponse.json({ ok: false, reason }, { status: 500 })

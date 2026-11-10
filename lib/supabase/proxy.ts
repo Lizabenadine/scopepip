@@ -15,7 +15,11 @@ export async function updateSession(request: NextRequest) {
       setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
         supabaseResponse = NextResponse.next({ request })
-        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
+        const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
+        const domain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, domain ? { ...options, domain } : options)
+        })
         Object.entries(headers).forEach(([key, value]) => supabaseResponse.headers.set(key, value))
       },
     },

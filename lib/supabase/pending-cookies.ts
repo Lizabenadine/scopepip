@@ -25,17 +25,24 @@ export function attachAuthCookies<T extends Response | NextResponse>(
   response: T,
   cookies: PendingAuthCookie[],
   headers: Record<string, string> = {},
+  domain?: string,
 ): T {
   for (const cookie of cookies) {
+    const options = { ...cookie.options }
+    if (domain) options.domain = domain
+    if (process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL)) {
+      options.secure = true
+    }
     if ("cookies" in response && response.cookies && typeof (response.cookies as { set?: unknown }).set === "function") {
-      response.cookies.set(cookie.name, cookie.value, cookie.options)
+      response.cookies.set(cookie.name, cookie.value, options)
     } else {
       const parts = [`${cookie.name}=${cookie.value}`]
-      if (cookie.options?.path) parts.push(`Path=${cookie.options.path}`)
-      if (typeof cookie.options?.maxAge === "number") parts.push(`Max-Age=${cookie.options.maxAge}`)
-      if (cookie.options?.httpOnly) parts.push("HttpOnly")
-      if (cookie.options?.secure) parts.push("Secure")
-      if (cookie.options?.sameSite) parts.push(`SameSite=${cookie.options.sameSite}`)
+      if (options?.path) parts.push(`Path=${options.path}`)
+      if (typeof options?.maxAge === "number") parts.push(`Max-Age=${options.maxAge}`)
+      if (options?.httpOnly) parts.push("HttpOnly")
+      if (options?.secure) parts.push("Secure")
+      if (options?.sameSite) parts.push(`SameSite=${options.sameSite}`)
+      if (options?.domain) parts.push(`Domain=${options.domain}`)
       response.headers.append("set-cookie", parts.join("; "))
     }
   }

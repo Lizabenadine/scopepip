@@ -20,8 +20,16 @@ export interface OfficeSession {
 
 export const SESSION_COOKIE = "scopepipe_session"
 
-export function sessionCookie(token: string, maxAge = 30 * 24 * 60 * 60): string {
-  return `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`
+export function sessionCookie(
+  token: string,
+  maxAge = 30 * 24 * 60 * 60,
+  options?: { domain?: string; secure?: boolean },
+): string {
+  const parts = [`${SESSION_COOKIE}=${token}`, "HttpOnly", "Path=/", "SameSite=Lax", `Max-Age=${maxAge}`]
+  const isSecure = options?.secure ?? (process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL))
+  if (isSecure) parts.push("Secure")
+  if (options?.domain) parts.push(`Domain=${options.domain}`)
+  return parts.join("; ")
 }
 
 export function readCookie(header: string | null, name = SESSION_COOKIE): string | null {

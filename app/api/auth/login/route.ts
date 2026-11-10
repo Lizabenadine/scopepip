@@ -79,14 +79,16 @@ export async function POST(request: NextRequest) {
             authUserId: authUser.id,
           }
         const sessionToken = signOfficeSession(sessionUser, authSecret())
+        const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
+        const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
         const response = NextResponse.json({
           ok: true,
           user: sessionUser,
           hosted: true,
           passwordHash: hashPassword(password),
         })
-        response.headers.append("set-cookie", sessionCookie(sessionToken))
-        return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
+        response.headers.append("set-cookie", sessionCookie(sessionToken, 30 * 24 * 60 * 60, { domain: cookieDomain }))
+        return attachAuthCookies(response, pending.pending, pending.cacheHeaders, cookieDomain)
       }
 
       if (signInRes.error) {

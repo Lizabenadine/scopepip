@@ -239,7 +239,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
+  const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
   const response = NextResponse.json({ ok: true, redirect: "/dashboard" })
-  response.headers.append("set-cookie", sessionCookie(signOfficeSession(office, authSecret())))
-  return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
+  response.headers.append("set-cookie", sessionCookie(signOfficeSession(office, authSecret()), 30 * 24 * 60 * 60, { domain: cookieDomain }))
+  return attachAuthCookies(response, pending.pending, pending.cacheHeaders, cookieDomain)
 }
