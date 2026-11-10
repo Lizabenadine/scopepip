@@ -85,7 +85,11 @@ export function ProposalView({ id }: { id: string }) {
         <button type="button" className="font-medium text-primary" onClick={() => window.print()}>
           Print
         </button>
-        <ProposalEmail estimateId={estimate.id} hasEmail={Boolean(client?.email.includes("@"))} />
+        <ProposalEmail
+          estimateId={estimate.id}
+          hasEmail={Boolean(client?.email.includes("@"))}
+          clientEmail={client?.email}
+        />
         <button
           type="button"
           data-testid="copy-spanish-proposal"

@@ -30,7 +30,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
   const body = (await request.json().catch(() => null)) as {
     email?: unknown
+    to?: unknown
     clientName?: unknown
+    name?: unknown
     estimate?: unknown
   } | null
   const book = await readCompanyBook(session.companyId)
@@ -46,8 +48,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return Response.json({ ok: false, reason: "This proposal is not on file." }, { status: 404 })
   }
   const client = book.state.clients.find((item) => item.id === estimate.clientId)
-  const posted = typeof body?.email === "string" ? body.email.trim() : ""
-  const postedName = typeof body?.clientName === "string" ? body.clientName.trim() : ""
+  const postedRaw = typeof body?.email === "string" ? body.email : typeof body?.to === "string" ? body.to : ""
+  const posted = postedRaw.trim()
+  const postedNameRaw = typeof body?.clientName === "string" ? body.clientName : typeof body?.name === "string" ? body.name : ""
+  const postedName = postedNameRaw.trim()
   const originHeader = request.headers.get("origin")
   const origin = originHeader?.replace(/\/$/, "") || new URL(request.url).origin
   const language = client?.language === "es" ? "es" : "en"
@@ -116,19 +120,36 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     body: mail.text,
     pdf: pdfAttachment,
     filename: mail.filename,
-    companyName: book.state.estimateSettings.companyName,
-    replyTo: book.state.estimateSettings.companyEmail,
+    companyName: effectiveSettings.companyName,
+    replyTo: effectiveSettings.companyEmail || session.email,
   })
   if (result.delivery !== "sent") {
     console.error("[proposal-email] Delivery failed", {
       estimateId: id,
+      to: mail.to,
       delivery: result.delivery,
       detail: result.detail,
     })
     return Response.json(
-      { ok: false, reason: result.detail, ...result, pdfRenderer, ...(pdfError ? { pdfError } : {}) },
+      { ok: false, to: mail.to, reason: result.detail, ...result, pdfRenderer, ...(pdfError ? { pdfError } : {}) },
       { status: result.delivery === "logged" ? 503 : 502 },
     )
   }
-  return Response.json({ ok: true, ...result, pdfRenderer, ...(pdfError ? { pdfError } : {}) })
+  console.log("[proposal-email] Proposal emailed successfully", {
+    estimateId: id,
+    to: mail.to,
+    clientName: resolvedClientName,
+    companyName: effectiveSettings.companyName,
+    replyTo: effectiveSettings.companyEmail || session.email,
+    pdfRenderer,
+    pdfBytes: pdfAttachment.byteLength,
+  })
+  return Response.json({
+    ok: true,
+    to: mail.to,
+    detail: `Emailed proposal to ${mail.to}.`,
+    delivery: result.delivery,
+    pdfRenderer,
+    ...(pdfError ? { pdfError } : {}),
+  })
 }

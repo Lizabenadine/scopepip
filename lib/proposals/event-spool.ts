@@ -28,8 +28,12 @@ export function addProposalEvent(event: ProposalEngagementEvent): SpooledProposa
   if (current.some((item) => item.id === id)) return current
   const next = [...current, { ...event, id }].slice(-200)
   const file = spoolFile()
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(next))
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(next))
+  } catch {
+    // Read-only filesystem in serverless environments
+  }
   return next
 }
 
@@ -37,8 +41,12 @@ export function ackProposalEvents(ids: string[]): SpooledProposalEvent[] {
   const drop = new Set(ids)
   const next = readProposalEvents().filter((event) => !drop.has(event.id))
   const file = spoolFile()
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(next))
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(next))
+  } catch {
+    // Read-only filesystem in serverless environments
+  }
   return next
 }
 

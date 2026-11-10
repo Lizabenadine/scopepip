@@ -3,7 +3,15 @@
 import { useState } from "react"
 import { useScope } from "@/lib/data/store"
 
-export function ProposalEmail({ estimateId, hasEmail }: { estimateId: string; hasEmail: boolean }) {
+export function ProposalEmail({
+  estimateId,
+  hasEmail,
+  clientEmail,
+}: {
+  estimateId: string
+  hasEmail: boolean
+  clientEmail?: string
+}) {
   const { estimates, stages, moveStage, placeOnColumn } = useScope()
   const [note, setNote] = useState(
     hasEmail ? "" : "Add an email on the client before this proposal can go to an inbox.",
@@ -33,12 +41,17 @@ export function ProposalEmail({ estimateId, hasEmail }: { estimateId: string; ha
         onClick={() => {
           setBusy(true)
           setNote("")
-          void fetch(`/api/proposals/${estimateId}/email`, { method: "POST" })
+          void fetch(`/api/proposals/${estimateId}/email`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ email: clientEmail?.trim() || "" }),
+          })
             .then(async (response) => {
               const body = (await response.json().catch(() => null)) as {
                 detail?: string
                 reason?: string
                 delivery?: string
+                to?: string
               } | null
               if (response.ok && body?.delivery === "sent") placeInSent()
               setNote(body?.detail || body?.reason || "The proposal email could not be prepared.")
