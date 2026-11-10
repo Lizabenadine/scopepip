@@ -36,9 +36,9 @@ describe("auth callback routing and canonical URLs", () => {
     assert.equal(target.searchParams.get("onboarding"), "incomplete")
   })
 
-  it("builds signup confirm error redirect on apex and www", () => {
+  it("builds login confirmed redirect on apex and www without redirecting to signup loop", () => {
     const apexUrl = "https://scopepipe.com/auth/callback?error=access_denied"
-    const target = canonicalTargetUrl("/signup?confirm=error", apexUrl)
-    assert.equal(target.toString(), "https://www.scopepipe.com/signup?confirm=error")
+    const target = canonicalTargetUrl("/login?confirmed=1", apexUrl)
+    assert.equal(target.toString(), "https://www.scopepipe.com/login?confirmed=1")
   })
 })
