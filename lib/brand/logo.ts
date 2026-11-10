@@ -1,11 +1,13 @@
-const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
 export const LOGO_BYTE_LIMIT = 2 * 1024 * 1024
 
 /** A saved logo is an image address. Anything else stays off customer documents. */
 export function displayLogoUrl(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? ""
   if (!trimmed) return null
-  if (/^data:image\/(png|jpeg|webp|gif);base64,/i.test(trimmed)) return trimmed
+  if (/^data:image\/[a-z0-9+.-]+;base64,/i.test(trimmed) || /^data:image\/[a-z0-9+.-]+,/i.test(trimmed)) {
+    return trimmed
+  }
   try {
     const url = new URL(trimmed)
     if (url.protocol === "https:" || url.protocol === "http:") return trimmed

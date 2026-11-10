@@ -66,8 +66,8 @@ async function downloadCompanyAsset(objectKey: string): Promise<string | undefin
         const { data, error } = await admin.storage.from(bucket).download(key)
         if (!error && data) {
           const bytes = new Uint8Array(await data.arrayBuffer())
-          const converted = bytesToDataUrl(bytes)
-          if (converted) return converted
+          const mime = detectImageMime(bytes) || (data as { type?: string }).type || "image/png"
+          return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
         }
       } catch {
         // continue to next candidate
@@ -80,25 +80,24 @@ async function downloadCompanyAsset(objectKey: string): Promise<string | undefin
 async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | undefined> {
   const trimmed = logoUrl?.trim() ?? ""
   if (!trimmed) return undefined
-  const dataMatch = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/=\s]+)$/i.exec(trimmed)
-  if (dataMatch) {
-    const bytes = new Uint8Array(Buffer.from(dataMatch[2].replace(/\s/g, ""), "base64"))
-    return bytesToDataUrl(bytes)
+  if (/^data:image\/[a-z0-9+.-]+;base64,/i.test(trimmed) || /^data:image\/[a-z0-9+.-]+,/i.test(trimmed)) {
+    return trimmed
   }
   if (!/^https?:\/\//i.test(trimmed)) return undefined
   try {
     const response = await fetch(trimmed, { signal: AbortSignal.timeout(5000) })
     if (response.ok) {
       const bytes = new Uint8Array(await response.arrayBuffer())
-      const inlined = bytesToDataUrl(bytes)
-      if (inlined) return inlined
+      const mime = detectImageMime(bytes) || response.headers.get("content-type") || "image/png"
+      return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
     }
   } catch {
     // Fall through to Supabase Storage check if applicable
   }
   const assetMatch = /\/(?:company-assets|scopepipe)\/([^?#]+)/i.exec(trimmed)
   if (assetMatch?.[1]) {
-    return downloadCompanyAsset(decodeURIComponent(assetMatch[1]))
+    const fromStorage = await downloadCompanyAsset(decodeURIComponent(assetMatch[1]))
+    if (fromStorage) return fromStorage
   }
   return undefined
 }

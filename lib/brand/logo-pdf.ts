@@ -36,7 +36,7 @@ export async function pdfLogoFromUrl(value: string | null | undefined): Promise<
 }
 
 function dataImage(src: string): Uint8Array {
-  const match = /^data:image\/(?:png|jpeg);base64,([a-z0-9+/=\s]+)$/i.exec(src)
+  const match = /^data:image\/(?:png|jpe?g);base64,([a-z0-9+/=\s]+)$/i.exec(src)
   if (!match) return new Uint8Array()
   return new Uint8Array(Buffer.from(match[1].replace(/\s/g, ""), "base64"))
 }
