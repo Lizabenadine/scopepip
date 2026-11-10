@@ -279,27 +279,27 @@ export function SalesDealCard({
         </div>
       )}
 
-      {/* Bottom Footer: Quick Actions, Keyboard Move Dropdown & Deal Menu */}
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-        <div className="flex flex-1 items-center gap-2 min-w-0">
-          {nextStepLabel && onMoveToColumn && nextSales && (
-            <button
-              type="button"
-              data-interactive="true"
-              onClick={(e) => {
-                e.stopPropagation()
-                onMoveToColumn(nextSales)
-              }}
-              title={`Advance to ${nextStepLabel}`}
-              className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
-            >
-              <span>{nextStepLabel}</span>
-              <ChevronRight className="size-4 shrink-0" />
-            </button>
-          )}
+      {/* Bottom Footer: Quick Actions, Move Dropdown & Deal Menu */}
+      <div className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-3">
+        {nextStepLabel && onMoveToColumn && nextSales && (
+          <button
+            type="button"
+            data-interactive="true"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMoveToColumn(nextSales)
+            }}
+            title={`Advance to ${nextStepLabel}`}
+            className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+          >
+            <span>{nextStepLabel}</span>
+            <ChevronRight className="size-4 shrink-0" />
+          </button>
+        )}
 
+        <div className="flex items-center gap-2 w-full">
           {onMoveToColumn && (
-            <div className="relative">
+            <div className="relative min-w-0 flex-1">
               <select
                 aria-label={`Move ${card.clientName} to stage`}
                 data-interactive="true"
@@ -311,21 +311,21 @@ export function SalesDealCard({
                   }
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
+                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
               >
-                <option value={card.column} disabled>Move...</option>
+                <option value={card.column} disabled>Move stage...</option>
                 {allColumns.map((col) => (
                   <option key={col.id} value={col.id} disabled={col.id === card.column}>
-                    {col.label}
+                    Move to: {col.label}
                   </option>
                 ))}
               </select>
             </div>
           )}
-        </div>
 
-        <div data-interactive="true" onClick={(e) => e.stopPropagation()}>
-          <DealMenu estimate={estimate} clientName={card.clientName} mode="sales" />
+          <div data-interactive="true" onClick={(e) => e.stopPropagation()} className="shrink-0">
+            <DealMenu estimate={estimate} clientName={card.clientName} mode="sales" />
+          </div>
         </div>
       </div>
     </article>

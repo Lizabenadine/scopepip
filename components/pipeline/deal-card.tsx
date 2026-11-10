@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useState, type MouseEvent, type PointerEvent } from "react"
+import { GripVertical } from "lucide-react"
 import { DealMenu } from "@/components/pipeline/deal-menu"
 import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
@@ -28,17 +30,30 @@ import { cn } from "@/lib/utils"
 import type { FollowUpMessage, FollowUpStage } from "@/lib/follow-ups/types"
 import type { Estimate } from "@/lib/types"
 
+export interface DealCardProps {
+  estimate: Estimate
+  clientName: string
+  total: number
+  mode: "sales" | "jobs"
+  allColumns?: { id: string; label: string }[]
+  isDragging?: boolean
+  isOverlay?: boolean
+  onDragStart?: (event: PointerEvent<HTMLElement>) => void
+  onMoveToColumn?: (targetColumnId: string) => void
+}
+
 export function DealCard({
   estimate,
   clientName,
   total,
   mode,
-}: {
-  estimate: Estimate
-  clientName: string
-  total: number
-  mode: "sales" | "jobs"
-}) {
+  allColumns = [],
+  isDragging = false,
+  isOverlay = false,
+  onDragStart,
+  onMoveToColumn,
+}: DealCardProps) {
+  const router = useRouter()
   const scope = useScope()
   const { language } = useFieldLanguage()
   const jobLanguage = mode === "jobs" ? language : "en"
@@ -138,6 +153,23 @@ export function DealCard({
     }
   }
 
+  const handleJobsCardClick = (e: MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest("button, a, input, select, textarea, [data-interactive='true']")) {
+      return
+    }
+    if (isDragging) return
+    router.push(limited ? `/work-orders/${estimate.id}` : `/estimates/${estimate.id}`)
+  }
+
+  const handlePointerDown = (e: PointerEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest("button:not([data-drag-handle]), a, input, select, textarea, [data-interactive='true']:not([data-drag-handle])")) {
+      return
+    }
+    onDragStart?.(e)
+  }
+
   if (mode === "jobs") {
     const jobStageLabel =
       jobStage === "project_completed"
@@ -157,14 +189,26 @@ export function DealCard({
             ? "bg-amber-100 text-amber-800 border-amber-200"
             : "bg-indigo-100 text-indigo-800 border-indigo-200"
 
+    const cardClasses = cn(
+      "group relative flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
+      !isOverlay && "hover:border-slate-300 hover:shadow-md cursor-pointer",
+      isDragging && "opacity-30 border-2 border-dashed border-primary/40 bg-primary/[0.03]",
+      isOverlay && "shadow-2xl border-primary ring-2 ring-primary/20 rotate-1 scale-[1.02] cursor-grabbing bg-white",
+    )
+
     return (
       <article
         data-testid={`pipeline-card-${estimate.id}`}
-        className="flex flex-col gap-3 rounded-2xl bg-white p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+        data-estimate-id={estimate.id}
+        className={cardClasses}
+        onClick={handleJobsCardClick}
+        onPointerDown={handlePointerDown}
+        role="listitem"
+        aria-label={`Job for ${clientName}`}
       >
-        {/* Top Status Badges & Menu */}
+        {/* Top Status Badges & Menu & Drag Handle */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <span
               className={cn(
                 "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
@@ -183,16 +227,31 @@ export function DealCard({
               </span>
             ) : null}
           </div>
-          <DealMenu estimate={estimate} clientName={clientName} mode="jobs" />
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              data-drag-handle="true"
+              aria-label={`Drag ${clientName}`}
+              className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+              style={{ touchAction: "none" }}
+            >
+              <GripVertical className="size-4" />
+            </button>
+            <div data-interactive="true" onClick={(e) => e.stopPropagation()}>
+              <DealMenu estimate={estimate} clientName={clientName} mode="jobs" />
+            </div>
+          </div>
         </div>
 
-        {/* Customer and Project Name with Prominent Contract Value */}
+        {/* Customer and Project Name with Prominent Orange Price */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-base font-semibold text-slate-900">
               <Link
                 href={limited ? `/work-orders/${estimate.id}` : `/estimates/${estimate.id}`}
                 className="hover:underline hover:text-primary"
+                onClick={(e) => e.stopPropagation()}
               >
                 {clientName}
               </Link>
@@ -208,8 +267,8 @@ export function DealCard({
           </div>
         </div>
 
-        {/* Property Address & Navigate */}
-        <div className="flex flex-col gap-1">
+        {/* Property Address & Navigate to Jobsite */}
+        <div className="flex flex-col gap-1.5" data-interactive="true" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-medium text-slate-800">
             {estimate.jobAddress || fieldJobHeading("No address yet", jobLanguage)}
           </p>
@@ -232,28 +291,61 @@ export function DealCard({
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-full rounded-xl text-xs font-semibold"
+            className="h-11 w-full rounded-xl text-sm font-semibold"
             data-testid={`mark-paid-${estimate.id}`}
-            onClick={() => scope.markJobPaid(estimate.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              scope.markJobPaid(estimate.id)
+            }}
           >
             Mark balance paid
           </Button>
         ) : null}
 
-        {/* Relevant Job Actions */}
-        <div className="mt-auto flex flex-wrap gap-2 pt-2 border-t border-slate-100">
-          <Link
-            href={`/work-orders/${estimate.id}`}
-            className={cn(buttonVariants({ variant: "default" }), "h-10 flex-1 rounded-xl text-xs font-semibold")}
-          >
-            Crew sheet
-          </Link>
-          <Link
-            href={`/estimates/${estimate.id}`}
-            className={cn(buttonVariants({ variant: "outline" }), "h-10 px-3 rounded-xl text-xs font-medium")}
-          >
-            Open
-          </Link>
+        {/* Relevant Job Actions & Quick Move Selector */}
+        <div className="mt-auto flex flex-col gap-2 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2 w-full">
+            <Link
+              href={`/work-orders/${estimate.id}`}
+              data-interactive="true"
+              onClick={(e) => e.stopPropagation()}
+              className={cn(buttonVariants({ variant: "default" }), "h-11 flex-1 rounded-xl text-sm font-semibold shadow-sm")}
+            >
+              Crew sheet
+            </Link>
+            <Link
+              href={`/estimates/${estimate.id}`}
+              data-interactive="true"
+              onClick={(e) => e.stopPropagation()}
+              className={cn(buttonVariants({ variant: "outline" }), "h-11 px-4 rounded-xl text-sm font-medium")}
+            >
+              Open
+            </Link>
+          </div>
+
+          {onMoveToColumn && allColumns.length > 0 && jobStage && (
+            <div className="relative w-full min-w-0" data-interactive="true" onClick={(e) => e.stopPropagation()}>
+              <select
+                aria-label={`Move ${clientName} to stage`}
+                data-interactive="true"
+                value={jobStage}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  if (e.target.value !== jobStage) {
+                    onMoveToColumn(e.target.value)
+                  }
+                }}
+                className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none"
+              >
+                <option value={jobStage} disabled>Move stage...</option>
+                {allColumns.map((col) => (
+                  <option key={col.id} value={col.id} disabled={col.id === jobStage}>
+                    Move to: {col.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </article>
     )

@@ -979,15 +979,76 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         })
         return
       }
-      if (!(JOB_PIPELINE_STAGES as readonly string[]).includes(columnId)) return
-      const parked = latest.estimates.find((item) => item.id === estimateId)?.boardColumnId
-      if (!parked) return
-      commit({
-        ...latest,
-        estimates: latest.estimates.map((item) =>
-          item.id === estimateId ? { ...item, boardColumnId: null, updatedAt: now } : item,
-        ),
-      })
+      if ((JOB_PIPELINE_STAGES as readonly string[]).includes(columnId)) {
+        const scheduledStage = latest.stages.find((s) => s.slug === "scheduled")
+        const completedStage = latest.stages.find((s) => s.slug === "completed")
+        const sentStage = latest.stages.find((s) => s.slug === "estimate_sent") || latest.stages[1] || latest.stages[0]
+
+        const targetEstimate = latest.estimates.find((item) => item.id === estimateId)
+        if (!targetEstimate) return
+
+        let nextStageId = targetEstimate.stageId
+        let nextScheduledOn = targetEstimate.scheduledOn
+        let nextOrderStatus: DispatchStatus = "unscheduled"
+
+        if (columnId === "project_accepted") {
+          nextStageId = sentStage?.id ?? nextStageId
+          nextScheduledOn = null
+          nextOrderStatus = "unscheduled"
+        } else if (columnId === "project_scheduled") {
+          nextStageId = scheduledStage?.id ?? nextStageId
+          if (!nextScheduledOn) {
+            nextScheduledOn = new Date().toISOString().slice(0, 10)
+          }
+          nextOrderStatus = "scheduled"
+        } else if (columnId === "project_in_progress") {
+          nextStageId = scheduledStage?.id ?? nextStageId
+          if (!nextScheduledOn) {
+            nextScheduledOn = new Date().toISOString().slice(0, 10)
+          }
+          nextOrderStatus = "in_progress"
+        } else if (columnId === "project_completed") {
+          nextStageId = completedStage?.id ?? nextStageId
+          nextOrderStatus = "complete"
+        }
+
+        const estimates = latest.estimates.map((item) =>
+          item.id === estimateId
+            ? {
+                ...item,
+                stageId: nextStageId,
+                scheduledOn: nextScheduledOn,
+                boardColumnId: null,
+                clientStatus:
+                  item.clientStatus === "draft" || item.clientStatus === "sent"
+                    ? "accepted"
+                    : item.clientStatus,
+                updatedAt: now,
+              }
+            : item,
+        )
+
+        const existingOrder = latest.workOrders.find((order) => order.estimateId === estimateId)
+        const updatedTarget = estimates.find((item) => item.id === estimateId)
+
+        const ensuredOrders =
+          !existingOrder && updatedTarget
+            ? [createWorkOrder(updatedTarget), ...latest.workOrders]
+            : latest.workOrders
+
+        const workOrders = ensuredOrders.map((order) =>
+          order.estimateId === estimateId
+            ? {
+                ...order,
+                status: nextOrderStatus,
+                scheduledStartDate: nextScheduledOn ?? order.scheduledStartDate,
+              }
+            : order,
+        )
+
+        commitReconciled({ ...latest, estimates, workOrders })
+        return
+      }
     },
     setEstimateTags: (id, tags) => {
       const next = [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))]
