@@ -22,7 +22,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
         short: "Sales",
         links: [
           { name: "Sales Pipeline", href: "/sales-pipeline" },
-          { name: "Estimator", href: "/estimate" },
+          { name: "Estimates & Proposals", href: "/estimate" },
           { name: "Clients", href: "/clients" },
         ],
       },
@@ -67,7 +67,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       short: "Sales",
       links: [
         { name: "Sales Pipeline", href: "/sales-pipeline" },
-        { name: "Estimator", href: "/estimate" },
+        { name: "Estimates & Proposals", href: "/estimate" },
         { name: "Clients", href: "/clients" },
       ],
     },
