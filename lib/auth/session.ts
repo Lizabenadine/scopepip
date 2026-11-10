@@ -32,13 +32,22 @@ export function sessionCookie(
   return parts.join("; ")
 }
 
-export function readCookie(header: string | null, name = SESSION_COOKIE): string | null {
-  if (!header) return null
+export function readAllCookies(header: string | null, name = SESSION_COOKIE): string[] {
+  if (!header) return []
+  const values: string[] = []
   for (const part of header.split(";")) {
     const trimmed = part.trim()
     const eq = trimmed.indexOf("=")
     if (eq === -1) continue
-    if (trimmed.slice(0, eq) === name) return trimmed.slice(eq + 1)
+    if (trimmed.slice(0, eq) === name) {
+      const val = trimmed.slice(eq + 1).trim()
+      if (val) values.push(val)
+    }
   }
-  return null
+  return values
+}
+
+export function readCookie(header: string | null, name = SESSION_COOKIE): string | null {
+  const all = readAllCookies(header, name)
+  return all.length > 0 ? all[0] : null
 }

@@ -29,7 +29,15 @@ export function attachAuthCookies<T extends Response | NextResponse>(
 ): T {
   for (const cookie of cookies) {
     const options = { ...cookie.options }
-    if (domain) options.domain = domain
+    if (domain) {
+      options.domain = domain
+      // Clear any conflicting host-only cookie with the same name so Safari doesn't keep both
+      const isSecure = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL)
+      response.headers.append(
+        "set-cookie",
+        `${cookie.name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`,
+      )
+    }
     if (process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL)) {
       options.secure = true
     }

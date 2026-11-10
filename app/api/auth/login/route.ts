@@ -3,7 +3,7 @@ import { slugifyCompanyName } from "@/lib/auth/company-slug"
 import { hashPassword } from "@/lib/auth/password"
 import { isUserRole } from "@/lib/auth/role"
 import { jsonWithOfficeSession, jsonWithSession } from "@/lib/auth/request"
-import { sessionCookie, type OfficeSession } from "@/lib/auth/session"
+import { SESSION_COOKIE, sessionCookie, type OfficeSession } from "@/lib/auth/session"
 import { signOfficeSession } from "@/lib/auth/session-token"
 import { trialEndsAt } from "@/lib/billing/access"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
     role: body?.role && isUserRole(body.role) ? body.role : undefined,
   })
 
-  // If local password verification fails but Supabase Auth is configured, verify against Supabase Auth
-  if (!result.ok && supabaseAuthConfigured() && password) {
+  // When Supabase Auth is configured, always verify against Supabase Auth to guarantee fresh session and auth cookies
+  if (supabaseAuthConfigured() && password) {
     const pending = authClientFromRequest(request)
     try {
       let signInRes = await pending.supabase.auth.signInWithPassword({
@@ -81,12 +81,20 @@ export async function POST(request: NextRequest) {
         const sessionToken = signOfficeSession(sessionUser, authSecret())
         const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
         const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
+        const isSecure = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL)
         const response = NextResponse.json({
           ok: true,
           user: sessionUser,
           hosted: true,
           passwordHash: hashPassword(password),
         })
+        if (cookieDomain) {
+          // Clear any conflicting host-only scopepipe_session cookie
+          response.headers.append(
+            "set-cookie",
+            `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}`,
+          )
+        }
         response.headers.append("set-cookie", sessionCookie(sessionToken, 30 * 24 * 60 * 60, { domain: cookieDomain }))
         return attachAuthCookies(response, pending.pending, pending.cacheHeaders, cookieDomain)
       }

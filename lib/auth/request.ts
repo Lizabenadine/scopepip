@@ -1,18 +1,24 @@
 import { supabaseServerKey } from "../supabase/admin.ts"
 import { authSecret, sessionById } from "./directory.ts"
-import { readCookie, sessionCookie, type OfficeSession } from "./session.ts"
+import { readAllCookies, readCookie, sessionCookie, type OfficeSession } from "./session.ts"
 import { readOfficeSession, readSession, signOfficeSession, signSession } from "./session-token.ts"
 
 export type { OfficeSession }
 
 export async function sessionFromRequest(request: Request): Promise<OfficeSession | null> {
-  const token = readCookie(request.headers.get("cookie"))
-  if (!token) return null
-  const embedded = readOfficeSession(token, authSecret())
-  if (embedded) return embedded
-  const userId = readSession(token, authSecret())
-  if (!userId) return null
-  return sessionById(userId)
+  const cookieHeader = request.headers.get("cookie")
+  const tokens = readAllCookies(cookieHeader)
+  for (const token of tokens) {
+    if (!token) continue
+    const embedded = readOfficeSession(token, authSecret())
+    if (embedded) return embedded
+    const userId = readSession(token, authSecret())
+    if (userId) {
+      const session = await sessionById(userId)
+      if (session) return session
+    }
+  }
+  return null
 }
 
 export function jsonWithOfficeSession(session: OfficeSession, body: unknown, status = 200): Response {
