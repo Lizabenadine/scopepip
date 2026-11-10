@@ -32,15 +32,16 @@ export function PriceSummary({
   depositPercent: number
 }) {
   const charges = estimateCharges(quote)
-  const rows = [
+  const rows: Array<[string, number | string]> = [
     ["Labor", charges.labor],
+    ["Estimated paint", gallonsLabel(quote.paintGallons)],
     ["Materials", charges.materials],
     ["Additional charges", charges.additional],
     ["Discounts", charges.discount],
     ["Taxes", charges.tax],
     ["Deposit", depositAmount(quote.total, depositPercent)],
     ["Remaining balance", balanceAfterDeposit(quote.total, depositPercent)],
-  ] as const
+  ]
   const body = (
     <>
       <div className="flex items-end justify-between gap-3">
@@ -71,7 +72,17 @@ export function PriceSummary({
           <div key={label}>
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className="tabular-nums" data-testid={`estimate-${label.toLowerCase().replace(/\s+/g, "-")}`}>
-              {label === "Discounts" && amount > 0 ? `−${moneyExact(amount)}` : moneyExact(amount)}
+              {label === "Estimated paint" ? (
+                amount
+              ) : label === "Materials" && amount === 0 && quote.paintGallons > 0 ? (
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Price not configured</span>
+              ) : label === "Discounts" && typeof amount === "number" && amount > 0 ? (
+                `−${moneyExact(amount)}`
+              ) : typeof amount === "number" ? (
+                moneyExact(amount)
+              ) : (
+                amount
+              )}
             </dd>
           </div>
         ))}

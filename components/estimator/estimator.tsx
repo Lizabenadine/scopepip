@@ -14,6 +14,7 @@ import { EstimateVersions } from "@/components/estimator/versions"
 import { LinePhotoField } from "@/components/estimator/line-photo"
 import { LineVideoField } from "@/components/estimator/line-video"
 import { CalculationPanel } from "@/components/estimator/calculation-panel"
+import { MaterialsBuyList } from "@/components/estimator/materials-buy-list"
 import { ClientField } from "@/components/estimator/client-field"
 import { PriceSummary } from "@/components/estimator/price-summary"
 import { PhotoGallery } from "@/components/photos/photo-gallery"
@@ -414,6 +415,7 @@ export function Estimator({
             onGroups={(areaGroups) => patch({ areaGroups })}
             onDuplicate={(areas) => patch({ areas })}
           />
+          <MaterialsBuyList quote={quote} estimateId={draft.id} />
           {stage?.slug === "completed" && draft.id ? (
             <FinishedHours
               estimateId={draft.id}

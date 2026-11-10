@@ -1,6 +1,6 @@
 import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
 import { sectionByGroup } from "@/lib/estimate/groups"
-import { hoursLabel, moneyExact } from "@/lib/format"
+import { gallonsLabel, hoursLabel, moneyExact } from "@/lib/format"
 import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
 import type { AreaGroup, AreaInput, EstimateSettings } from "@/lib/types"
 
@@ -27,15 +27,16 @@ export function CalculationPanel({
   const paintingHours = Math.round(quote.areas.reduce((sum, area) => sum + area.allocatedHours, 0) * 1000) / 1000
   const groupIdOf = new Map((areas ?? []).map((area) => [area.id, area.groupId]))
   const sections = sectionByGroup(quote.areas, areaGroups, (area) => groupIdOf.get(area.id))
-  const rows = [
+  const rows: Array<[string, number | string]> = [
     ["Labor", charges.labor],
+    ["Estimated paint", gallonsLabel(quote.paintGallons)],
     ["Materials", charges.materials],
     ["Additional charges", charges.additional],
     ["Discounts", charges.discount],
     ["Taxes", charges.tax],
     ["Deposit", deposit],
     ["Remaining balance", balance],
-  ] as const
+  ]
   return (
     <div className="flex flex-col gap-3 text-sm">
       {showCharges ? (
@@ -44,7 +45,17 @@ export function CalculationPanel({
             <div key={label}>
               <dt className="text-xs text-muted-foreground">{label}</dt>
               <dd className="tabular-nums">
-                {label === "Discounts" && amount > 0 ? `−${moneyExact(amount)}` : moneyExact(amount)}
+                {label === "Estimated paint" ? (
+                  amount
+                ) : label === "Materials" && amount === 0 && quote.paintGallons > 0 ? (
+                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Price not configured</span>
+                ) : label === "Discounts" && typeof amount === "number" && amount > 0 ? (
+                  `−${moneyExact(amount)}`
+                ) : typeof amount === "number" ? (
+                  moneyExact(amount)
+                ) : (
+                  amount
+                )}
               </dd>
             </div>
           ))}

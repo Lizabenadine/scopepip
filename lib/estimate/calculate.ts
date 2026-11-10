@@ -58,6 +58,7 @@ export interface PricedSurface {
   colorCode?: string
   colorName?: string
   sheen?: string
+  productCostPerGallon?: number
 }
 
 export interface PricedMaterial {
@@ -462,6 +463,7 @@ function priceSurface(
     materialCost: cents(materialCost),
     price,
     productName: surface.productName?.trim() || rate.productName,
+    productCostPerGallon: rate.productCostPerGallon,
     paintBrand: surface.paintBrand?.trim() || area.paintBrand?.trim() || undefined,
     colorCode: surface.colorCode?.trim() || area.colorCode?.trim() || undefined,
     colorName: surface.colorName?.trim() || area.colorName?.trim() || undefined,
