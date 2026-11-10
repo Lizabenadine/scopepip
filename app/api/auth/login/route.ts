@@ -1,9 +1,10 @@
-import { login, sessionByEmail, updateUserPassword } from "@/lib/auth/directory"
+import { authSecret, login, sessionByEmail, updateUserPassword } from "@/lib/auth/directory"
 import { slugifyCompanyName } from "@/lib/auth/company-slug"
 import { hashPassword } from "@/lib/auth/password"
 import { isUserRole } from "@/lib/auth/role"
 import { jsonWithOfficeSession, jsonWithSession } from "@/lib/auth/request"
-import type { OfficeSession } from "@/lib/auth/session"
+import { sessionCookie, type OfficeSession } from "@/lib/auth/session"
+import { signOfficeSession } from "@/lib/auth/session-token"
 import { trialEndsAt } from "@/lib/billing/access"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
 import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
@@ -77,13 +78,15 @@ export async function POST(request: NextRequest) {
             trialEndsAt: trialEndsAt(new Date()),
             authUserId: authUser.id,
           }
-        const response = jsonWithOfficeSession(sessionUser, {
+        const sessionToken = signOfficeSession(sessionUser, authSecret())
+        const response = NextResponse.json({
           ok: true,
           user: sessionUser,
           hosted: true,
           passwordHash: hashPassword(password),
         })
-        return attachAuthCookies(response as unknown as NextResponse, pending.pending, pending.cacheHeaders)
+        response.headers.append("set-cookie", sessionCookie(sessionToken))
+        return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
       }
 
       if (signInRes.error) {
@@ -94,25 +97,25 @@ export async function POST(request: NextRequest) {
         })
         const msg = signInRes.error.message || ""
         if (msg.toLowerCase().includes("email not confirmed")) {
-          return Response.json(
+          return NextResponse.json(
             { ok: false, reason: "Please verify your email address before signing in. Check your inbox for the confirmation link." },
             { status: 401 },
           )
         }
         if (msg.toLowerCase().includes("invalid login credentials")) {
-          return Response.json(
+          return NextResponse.json(
             { ok: false, reason: "That email and password do not match. If you recently reset your password, please make sure you type the new password and not an old saved password." },
             { status: 401 },
           )
         }
-        return Response.json({ ok: false, reason: msg || "That email and password do not match." }, { status: 401 })
+        return NextResponse.json({ ok: false, reason: msg || "That email and password do not match." }, { status: 401 })
       }
     } catch (err) {
       console.error("Supabase signInWithPassword exception:", err)
     }
   }
 
-  if (!result.ok) return Response.json(result, { status: 401 })
+  if (!result.ok) return NextResponse.json(result, { status: 401 })
   if (result.hosted) return jsonWithOfficeSession(result.user, { ok: true, user: result.user, hosted: true })
   return jsonWithSession(result.user.id, { ok: true, user: result.user })
 }
