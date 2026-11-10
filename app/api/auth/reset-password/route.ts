@@ -21,12 +21,23 @@ async function updateSupabasePasswordWithToken(
       Authorization: `Bearer ${accessToken}`,
     },
   })
-  const userData = (await userRes.json().catch(() => null)) as { email?: string; message?: string } | null
-  if (!userRes.ok || !userData?.email) {
-    return {
-      ok: false,
-      reason: userData?.message || "This password reset link is invalid or has expired. Please request a new one.",
-    }
+  const userData = (await userRes.json().catch(() => null)) as {
+    email?: string
+    message?: string
+    msg?: string
+    error_description?: string
+    user?: { email?: string; id?: string }
+  } | null
+
+  const email = userData?.user?.email || userData?.email
+  if (!userRes.ok || !email) {
+    const errorMsg =
+      userData?.msg ||
+      userData?.error_description ||
+      userData?.message ||
+      "This password reset link is invalid or has expired. Please request a new one."
+    console.error("Supabase /auth/v1/user verification failed:", { status: userRes.status, errorMsg, userData })
+    return { ok: false, reason: errorMsg }
   }
 
   // 2. Update user's password in Supabase Auth
@@ -39,15 +50,26 @@ async function updateSupabasePasswordWithToken(
     },
     body: JSON.stringify({ password: newPassword }),
   })
-  const updateData = (await updateRes.json().catch(() => null)) as { id?: string; message?: string } | null
-  if (!updateRes.ok || !updateData?.id) {
-    return {
-      ok: false,
-      reason: updateData?.message || "The password could not be updated. Please try again.",
-    }
+  const updateData = (await updateRes.json().catch(() => null)) as {
+    id?: string
+    message?: string
+    msg?: string
+    error_description?: string
+    user?: { id?: string; email?: string }
+  } | null
+
+  const updatedId = updateData?.user?.id || updateData?.id
+  if (!updateRes.ok || !updatedId) {
+    const errorMsg =
+      updateData?.msg ||
+      updateData?.error_description ||
+      updateData?.message ||
+      "The password could not be updated. Please try again."
+    console.error("Supabase /auth/v1/user update failed:", { status: updateRes.status, errorMsg, updateData })
+    return { ok: false, reason: errorMsg }
   }
 
-  return { ok: true, email: userData.email }
+  return { ok: true, email }
 }
 
 export async function POST(request: NextRequest) {
@@ -55,16 +77,26 @@ export async function POST(request: NextRequest) {
     token_hash?: string
     access_token?: string
     code?: string
+    email?: string
     password?: string
   } | null
 
   const tokenHash = typeof body?.token_hash === "string" ? body.token_hash.trim() : ""
   const accessToken = typeof body?.access_token === "string" ? body.access_token.trim() : ""
   const code = typeof body?.code === "string" ? body.code.trim() : ""
+  const emailParam = typeof body?.email === "string" ? body.email.trim() : ""
   const password = typeof body?.password === "string" ? body.password : ""
 
   if (password.length < 8) {
     return NextResponse.json({ ok: false, reason: "Use at least 8 characters." }, { status: 400 })
+  }
+
+  // If email and password provided directly (synced from client-side verification)
+  if (emailParam && password) {
+    try {
+      await updateUserPassword(emailParam, password)
+    } catch {}
+    return NextResponse.json({ ok: true })
   }
 
   if (!tokenHash && !accessToken && !code) {

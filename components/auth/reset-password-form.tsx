@@ -6,6 +6,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createClient } from "@/lib/supabase/client"
+import { supabaseAuthConfigured } from "@/lib/supabase/env"
 
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
@@ -21,6 +23,7 @@ export function ResetPasswordForm() {
   const [tokenHash, setTokenHash] = useState(tokenHashParam)
   const [code, setCode] = useState(codeParam)
   const [accessToken, setAccessToken] = useState("")
+  const [refreshToken, setRefreshToken] = useState("")
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -31,6 +34,7 @@ export function ResetPasswordForm() {
       const hash = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash
       const hashParams = new URLSearchParams(hash)
       const token = hashParams.get("access_token")
+      const rToken = hashParams.get("refresh_token")
       const hashError = (
         hashParams.get("error_description") ||
         hashParams.get("error") ||
@@ -39,6 +43,7 @@ export function ResetPasswordForm() {
 
       if (token) {
         setAccessToken(token)
+        if (rToken) setRefreshToken(rToken)
         setError(null)
         window.history.replaceState(null, "", window.location.pathname + window.location.search)
         return
@@ -98,6 +103,33 @@ export function ResetPasswordForm() {
     setPending(true)
     setError(null)
 
+    // Strategy A: Try client-side Supabase Auth update first if browser client has token
+    if (supabaseAuthConfigured()) {
+      try {
+        const supabase = createClient()
+        if (accessToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken || "" })
+        }
+        const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password })
+        if (!updateError && updateData?.user?.email) {
+          await fetch("/api/auth/reset-password", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              email: updateData.user.email,
+              password,
+            }),
+          }).catch(() => null)
+
+          setSuccess(true)
+          return
+        }
+      } catch {
+        // Fall back to server-side endpoint
+      }
+    }
+
+    // Strategy B: Server-side API endpoint
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
