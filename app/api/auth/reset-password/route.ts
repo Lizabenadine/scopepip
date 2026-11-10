@@ -1,24 +1,92 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { supabaseAuthConfigured, supabaseBrowserUrl, supabasePublishableKey } from "@/lib/supabase/env"
+import { authClientFromRequest, attachAuthCookies } from "@/lib/supabase/pending-cookies"
 import { updateUserPassword } from "@/lib/auth/directory"
 
 export const runtime = "nodejs"
 
+async function updateSupabasePasswordWithToken(
+  accessToken: string,
+  newPassword: string,
+): Promise<{ ok: true; email: string } | { ok: false; reason: string }> {
+  const url = supabaseBrowserUrl().replace(/\/$/, "")
+  const apikey = supabasePublishableKey()
+
+  // 1. Verify user identity using the recovery session Bearer token
+  const userRes = await fetch(`${url}/auth/v1/user`, {
+    method: "GET",
+    headers: {
+      apikey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+  const userData = (await userRes.json().catch(() => null)) as { email?: string; message?: string } | null
+  if (!userRes.ok || !userData?.email) {
+    return {
+      ok: false,
+      reason: userData?.message || "This password reset link is invalid or has expired. Please request a new one.",
+    }
+  }
+
+  // 2. Update user's password in Supabase Auth
+  const updateRes = await fetch(`${url}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password: newPassword }),
+  })
+  const updateData = (await updateRes.json().catch(() => null)) as { id?: string; message?: string } | null
+  if (!updateRes.ok || !updateData?.id) {
+    return {
+      ok: false,
+      reason: updateData?.message || "The password could not be updated. Please try again.",
+    }
+  }
+
+  return { ok: true, email: userData.email }
+}
+
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     token_hash?: string
+    access_token?: string
+    code?: string
     password?: string
   } | null
 
   const tokenHash = typeof body?.token_hash === "string" ? body.token_hash.trim() : ""
+  const accessToken = typeof body?.access_token === "string" ? body.access_token.trim() : ""
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
   const password = typeof body?.password === "string" ? body.password : ""
 
   if (password.length < 8) {
     return NextResponse.json({ ok: false, reason: "Use at least 8 characters." }, { status: 400 })
   }
 
-  if (!tokenHash) {
+  if (!tokenHash && !accessToken && !code) {
+    // Check if the user already has an active session from cookies (e.g. from /auth/callback)
+    if (supabaseAuthConfigured()) {
+      const pending = authClientFromRequest(request)
+      const { data: sessionUser } = await pending.supabase.auth.getUser()
+      if (sessionUser?.user?.email) {
+        const { error: updateError } = await pending.supabase.auth.updateUser({ password })
+        if (updateError) {
+          return NextResponse.json(
+            { ok: false, reason: updateError.message || "The password could not be updated." },
+            { status: 400 },
+          )
+        }
+        try {
+          await updateUserPassword(sessionUser.user.email, password)
+        } catch {}
+        return attachAuthCookies(NextResponse.json({ ok: true }), pending.pending, pending.cacheHeaders)
+      }
+    }
+
     return NextResponse.json(
       { ok: false, reason: "Missing password reset token. Please open the reset link from your email." },
       { status: 400 },
@@ -32,6 +100,42 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // 1. Direct access_token provided from Supabase recovery fragment
+  if (accessToken) {
+    const res = await updateSupabasePasswordWithToken(accessToken, password)
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, reason: res.reason }, { status: 400 })
+    }
+    try {
+      await updateUserPassword(res.email, password)
+    } catch {}
+    return NextResponse.json({ ok: true })
+  }
+
+  // 2. PKCE code provided
+  if (code) {
+    const pending = authClientFromRequest(request)
+    const { data: exchangeData, error: exchangeError } = await pending.supabase.auth.exchangeCodeForSession(code)
+    if (exchangeError || !exchangeData.session?.access_token || !exchangeData.user?.email) {
+      return NextResponse.json(
+        { ok: false, reason: exchangeError?.message || "This password reset link is invalid or has expired." },
+        { status: 400 },
+      )
+    }
+
+    const res = await updateSupabasePasswordWithToken(exchangeData.session.access_token, password)
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, reason: res.reason }, { status: 400 })
+    }
+
+    try {
+      await updateUserPassword(res.email, password)
+    } catch {}
+
+    return attachAuthCookies(NextResponse.json({ ok: true }), pending.pending, pending.cacheHeaders)
+  }
+
+  // 3. token_hash provided
   const supabase = createClient(supabaseBrowserUrl(), supabasePublishableKey(), {
     auth: {
       flowType: "implicit",
@@ -41,13 +145,12 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  // 1. Verify the one-time recovery token_hash once with Supabase Auth
   const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
     type: "recovery",
   })
 
-  if (verifyError || !verifyData.session || !verifyData.user?.email) {
+  if (verifyError || !verifyData.session?.access_token || !verifyData.user?.email) {
     return NextResponse.json(
       {
         ok: false,
@@ -57,29 +160,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const email = verifyData.user.email
-
-  // 2. Update the user's password in Supabase Auth using the verified recovery session
-  const { data: updateData, error: updateError } = await supabase.auth.updateUser({
-    password,
-  })
-
-  if (updateError || !updateData.user) {
-    return NextResponse.json(
-      {
-        ok: false,
-        reason: updateError?.message || "The password could not be updated. Please try again.",
-      },
-      { status: 400 },
-    )
+  const res = await updateSupabasePasswordWithToken(verifyData.session.access_token, password)
+  if (!res.ok) {
+    return NextResponse.json({ ok: false, reason: res.reason }, { status: 400 })
   }
 
-  // 3. Synchronize local account store when storage is writable
   try {
-    await updateUserPassword(email, password)
-  } catch {
-    // On Vercel without SUPABASE_SECRET_KEY, /var/task is read-only; Supabase Auth holds the updated password
-  }
+    await updateUserPassword(res.email, password)
+  } catch {}
 
   return NextResponse.json({ ok: true })
 }

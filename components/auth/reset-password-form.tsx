@@ -1,7 +1,7 @@
 "use client"
 
 import { useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 
 export function ResetPasswordForm() {
   const searchParams = useSearchParams()
-  const tokenHash = searchParams.get("token_hash") || ""
+  const tokenHashParam = searchParams.get("token_hash") || searchParams.get("token") || ""
+  const codeParam = searchParams.get("code") || ""
   const initialError = (searchParams.get("error_description") || searchParams.get("error") || "").replace(/\+/g, " ")
 
   const [password, setPassword] = useState("")
@@ -17,6 +18,48 @@ export function ResetPasswordForm() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(initialError || null)
   const [success, setSuccess] = useState(false)
+  const [tokenHash, setTokenHash] = useState(tokenHashParam)
+  const [code, setCode] = useState(codeParam)
+  const [accessToken, setAccessToken] = useState("")
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    // 1. Inspect URL hash for access_token or errors arriving from Supabase redirect
+    const rawHash = window.location.hash
+    if (rawHash) {
+      const hash = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash
+      const hashParams = new URLSearchParams(hash)
+      const token = hashParams.get("access_token")
+      const hashError = (
+        hashParams.get("error_description") ||
+        hashParams.get("error") ||
+        ""
+      ).replace(/\+/g, " ")
+
+      if (token) {
+        setAccessToken(token)
+        setError(null)
+        window.history.replaceState(null, "", window.location.pathname + window.location.search)
+        return
+      }
+
+      if (hashError) {
+        setError(hashError)
+        window.history.replaceState(null, "", window.location.pathname + window.location.search)
+        return
+      }
+    }
+
+    if (tokenHashParam) {
+      setTokenHash(tokenHashParam)
+      setError(null)
+    }
+    if (codeParam) {
+      setCode(codeParam)
+      setError(null)
+    }
+  }, [tokenHashParam, codeParam])
 
   if (success) {
     return (
@@ -47,7 +90,7 @@ export function ResetPasswordForm() {
       setError("The passwords do not match.")
       return
     }
-    if (!tokenHash) {
+    if (!tokenHash && !accessToken && !code) {
       setError("Missing password reset token. Please open the reset link from your email.")
       return
     }
@@ -60,7 +103,9 @@ export function ResetPasswordForm() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          token_hash: tokenHash,
+          token_hash: tokenHash || undefined,
+          access_token: accessToken || undefined,
+          code: code || undefined,
           password,
         }),
       })

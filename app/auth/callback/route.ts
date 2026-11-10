@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
       }
       if (accessToken && refreshToken) {
         if (type === "recovery") {
-          window.location.replace("/reset-password");
+          window.location.replace("/reset-password#" + hash);
           return;
         }
         fetch("/auth/callback", {
@@ -138,12 +138,9 @@ export async function GET(request: NextRequest) {
     const failureTarget = isRecovery
       ? canonicalResetPasswordUrl(request.url)
       : canonicalTargetUrl("/login?confirmed=1", request.url)
-    if (isRecovery) {
+    if (isRecovery && errorMessage) {
       failureTarget.searchParams.set("error", "recovery_failed")
-      failureTarget.searchParams.set(
-        "error_description",
-        errorMessage || "This password reset link is invalid or has expired.",
-      )
+      failureTarget.searchParams.set("error_description", errorMessage)
     }
     return attachAuthCookies(
       NextResponse.redirect(failureTarget),

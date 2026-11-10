@@ -20,17 +20,22 @@ export function RecoveryListener() {
       const refreshToken = hashParams.get("refresh_token")
       const type = hashParams.get("type")
 
+      if (type === "recovery") {
+        if (pathname === "/reset-password") {
+          // Let ResetPasswordForm on /reset-password read access_token directly
+          return
+        }
+        const target = window.location.hostname === "scopepipe.com"
+          ? `https://www.scopepipe.com/reset-password${rawHash}`
+          : `/reset-password${rawHash}`
+        window.location.replace(target)
+        return
+      }
+
       // Immediately strip tokens from the URL bar so they are not exposed in history, logs, or referrers
       window.history.replaceState(null, "", window.location.pathname + window.location.search)
 
       if (accessToken && refreshToken && supabaseAuthConfigured()) {
-        if (type === "recovery") {
-          const target = window.location.hostname === "scopepipe.com"
-            ? "https://www.scopepipe.com/reset-password"
-            : "/reset-password"
-          window.location.replace(target)
-          return
-        }
 
         const supabase = createClient()
         supabase.auth

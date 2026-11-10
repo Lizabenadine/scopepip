@@ -224,4 +224,66 @@ describe("forgot-password auth", () => {
     assert.equal(calls[2].authHeader, "Bearer verified-recovery-jwt")
     assert.equal(calls[2].body.password, "NewSecurePassword123!")
   })
+
+  it("updates password directly when access_token is provided from fragment redirect", async () => {
+    const calls: { method: string; url: string; authHeader: string; body?: unknown }[] = []
+
+    const mockFetch: typeof fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+      const headers = new Headers(init?.headers)
+      const authHeader = headers.get("Authorization") || ""
+      const body = init?.body ? JSON.parse(init.body as string) : undefined
+      calls.push({ method: init?.method || "GET", url, authHeader, body })
+
+      if (url.endsWith("/auth/v1/user") && (init?.method === "GET" || !init?.method)) {
+        return new Response(
+          JSON.stringify({
+            id: "user-456",
+            email: "owner@scopepipe.com",
+            aud: "authenticated",
+            role: "authenticated",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+
+      if (url.endsWith("/auth/v1/user") && init?.method === "PUT") {
+        return new Response(
+          JSON.stringify({
+            id: "user-456",
+            email: "owner@scopepipe.com",
+            aud: "authenticated",
+            role: "authenticated",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+
+      return new Response(JSON.stringify({ error: "not_found" }), { status: 404 })
+    }
+
+    // Verify token identity
+    const userRes = await mockFetch("https://example.supabase.co/auth/v1/user", {
+      headers: { Authorization: "Bearer fragment-recovery-token" },
+    })
+    const userData = (await userRes.json()) as { email: string }
+    assert.equal(userData.email, "owner@scopepipe.com")
+
+    // Update password with recovery Bearer token
+    const updateRes = await mockFetch("https://example.supabase.co/auth/v1/user", {
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer fragment-recovery-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: "BrandNewPassword456!" }),
+    })
+    const updateData = (await updateRes.json()) as { id: string }
+    assert.equal(updateData.id, "user-456")
+
+    assert.equal(calls.length, 2)
+    assert.equal(calls[0].authHeader, "Bearer fragment-recovery-token")
+    assert.equal(calls[1].authHeader, "Bearer fragment-recovery-token")
+    assert.deepEqual(calls[1].body, { password: "BrandNewPassword456!" })
+  })
 })
