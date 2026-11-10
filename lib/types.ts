@@ -226,6 +226,25 @@ export interface EstimateCalculationResult {
   lineItems: EstimateLineItem[]
 }
 
+export const PAINT_BRANDS = [
+  "Sherwin-Williams",
+  "Dunn-Edwards",
+  "Benjamin Moore",
+  "Custom / Other",
+] as const
+export type PaintBrand = (typeof PAINT_BRANDS)[number]
+
+export const PAINT_SHEENS = [
+  "Flat",
+  "Matte",
+  "Eggshell",
+  "Satin",
+  "Semi-Gloss",
+  "Gloss",
+  "Custom / Other",
+] as const
+export type PaintSheen = (typeof PAINT_SHEENS)[number]
+
 export interface SurfaceInput {
   id: string
   rateId: string
@@ -246,6 +265,14 @@ export interface SurfaceInput {
   productName?: string
   /** One-coat coverage. Blank uses the rate. Square feet, linear feet, or gallons per item. */
   coveragePerCoat?: number | null
+  /** Paint brand on this surface. */
+  paintBrand?: string
+  /** Color code for this surface (e.g. SW 7028). */
+  colorCode?: string
+  /** Color name for this surface (e.g. Agreeable Gray). */
+  colorName?: string
+  /** Sheen for this surface (e.g. Satin). */
+  sheen?: string
 }
 
 /** A named section of rooms, such as Upstairs or Front of the house. */
@@ -268,6 +295,8 @@ export interface AreaInput {
   accessFactor?: number
   /** Missing means the area is not in a group. */
   groupId?: string
+  /** Default paint brand for this room. */
+  paintBrand?: string
   /** Color the customer signs for this room. */
   colorName?: string
   colorCode?: string

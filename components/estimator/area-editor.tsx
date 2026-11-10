@@ -28,7 +28,7 @@ import {
   surfaceHeads,
 } from "@/lib/estimate/substrate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import type { AreaGroup, AreaInput, AreaOpening, EstimateKind, LineItemInput, ProductionRate, Substrate, SurfaceInput } from "@/lib/types"
+import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type LineItemInput, type ProductionRate, type Substrate, type SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 export function AreaEditor({
@@ -505,9 +505,26 @@ area.areaType === areaType
       ) : null}
       <details className="mt-3 rounded-xl border border-border p-3">
         <summary className="cursor-pointer text-sm font-medium">Paint color & sheen (optional)</summary>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <div className="mt-3 grid gap-2 sm:grid-cols-4">
         <div className="grid gap-1">
-          <Label htmlFor={`${area.id}-color`}>Color</Label>
+          <Label htmlFor={`${area.id}-brand`}>Paint brand</Label>
+          <select
+            id={`${area.id}-brand`}
+            data-testid={`paint-brand-${area.id}`}
+            className="h-11 rounded-lg border border-input bg-transparent px-2 text-sm"
+            value={area.paintBrand ?? ""}
+            onChange={(event) => onChange({ ...area, paintBrand: event.target.value })}
+          >
+            <option value="">Not specified</option>
+            {PAINT_BRANDS.map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor={`${area.id}-color`}>Color name</Label>
           <Input
             id={`${area.id}-color`}
             data-testid={`color-name-${area.id}`}
@@ -523,7 +540,7 @@ area.areaType === areaType
             id={`${area.id}-color-code`}
             data-testid={`color-code-${area.id}`}
             value={area.colorCode ?? ""}
-            placeholder="SW 7029"
+            placeholder="SW 7028"
             className="h-11"
             onValueChange={(colorCode) => onChange({ ...area, colorCode })}
           />
@@ -533,16 +550,16 @@ area.areaType === areaType
           <select
             id={`${area.id}-sheen`}
             data-testid={`sheen-${area.id}`}
-            className="h-11 rounded-lg border border-input bg-transparent px-2"
+            className="h-11 rounded-lg border border-input bg-transparent px-2 text-sm"
             value={area.sheen ?? ""}
             onChange={(event) => onChange({ ...area, sheen: event.target.value })}
           >
             <option value="">Not specified</option>
-            <option value="Flat">Flat</option>
-            <option value="Eggshell">Eggshell</option>
-            <option value="Satin">Satin</option>
-            <option value="Semi-gloss">Semi-gloss</option>
-            <option value="Gloss">Gloss</option>
+            {PAINT_SHEENS.map((sheen) => (
+              <option key={sheen} value={sheen}>
+                {sheen}
+              </option>
+            ))}
           </select>
         </div>
       </div>

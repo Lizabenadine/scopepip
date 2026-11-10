@@ -54,6 +54,10 @@ export interface PricedSurface {
   showCoats: boolean
   showPrice: boolean
   missingRate: boolean
+  paintBrand?: string
+  colorCode?: string
+  colorName?: string
+  sheen?: string
 }
 
 export interface PricedMaterial {
@@ -458,6 +462,10 @@ function priceSurface(
     materialCost: cents(materialCost),
     price,
     productName: surface.productName?.trim() || rate.productName,
+    paintBrand: surface.paintBrand?.trim() || area.paintBrand?.trim() || undefined,
+    colorCode: surface.colorCode?.trim() || area.colorCode?.trim() || undefined,
+    colorName: surface.colorName?.trim() || area.colorName?.trim() || undefined,
+    sheen: surface.sheen?.trim() || area.sheen?.trim() || undefined,
     clientDescription: rate.clientDescription,
     crewNote: surface.crewNote || rate.crewNote,
     hideFromCustomer: surface.hideFromCustomer ?? rate.hideFromCustomer,
