@@ -223,6 +223,12 @@ describe("proposalDocument", () => {
     assert.equal(beforeHtml.includes('data-testid="signature-online-prompt"'), true)
     assert.equal(beforeHtml.includes("Review and sign online"), true)
     assert.equal(beforeHtml.includes(`https://www.scopepipe.com/p/${unaccepted.publicToken}`), true)
+    assert.equal(beforeHtml.includes("Awaiting signature upon online acceptance"), true)
+
+    // Verify placeholder warranty/payment and unsupported financing are omitted
+    assert.equal(beforeHtml.includes("Editable example warranty"), false)
+    assert.equal(beforeHtml.includes("Editable example payment terms"), false)
+    assert.equal(beforeHtml.includes("Financing available:"), false)
 
     // Homeowner accepts online via /p/[token] with a drawn electronic signature
     const drawnSig =
@@ -250,5 +256,40 @@ describe("proposalDocument", () => {
     assert.equal(afterHtml.includes(`src="${drawnSig}"`), true)
     assert.equal(afterHtml.includes("Signed by Alex Ortiz"), true)
     assert.equal(afterHtml.includes('data-testid="signature-online-prompt"'), false)
+    assert.equal(afterHtml.includes("Alex Ortiz</div>"), true)
+    assert.equal(afterHtml.includes("Awaiting signature upon online acceptance"), false)
+  })
+
+  it("renders saved custom warranty and payment terms and explicit financing when configured", () => {
+    const state = createSeedState()
+    const estimate = state.estimates.find((item) => item.id === "est-ortiz")!
+    const htmlWithCustomTerms = renderProposalHtml({
+      estimate,
+      clientName: "Alex Ortiz",
+      companyName: "Cascade Painting Co.",
+      paymentMethods: PAYMENT_METHODS,
+      estimateSettings: {
+        ...state.estimateSettings,
+        companyName: "Cascade Painting Co.",
+        proposalPages: {
+          templates: {
+            interior: {
+              warranty: "Custom 5-year workmanship guarantee on all interior surfaces.",
+              paymentTerms: "30% initial deposit, balance due upon final walkthrough inspection.",
+            },
+          },
+        },
+        financingEnabled: true,
+        financingLender: "Acme Financing",
+        financingApplyUrl: "https://example.com/apply",
+        financingApr: 7.99,
+        financingMonths: 24,
+      },
+      origin: "https://www.scopepipe.com",
+    })
+
+    assert.equal(htmlWithCustomTerms.includes("Custom 5-year workmanship guarantee"), true)
+    assert.equal(htmlWithCustomTerms.includes("30% initial deposit, balance due upon final walkthrough"), true)
+    assert.equal(htmlWithCustomTerms.includes("Financing available:"), true)
   })
 })

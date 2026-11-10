@@ -4,11 +4,27 @@ import { supabaseAdmin, supabaseProjectUrl } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
 
-const BUCKET = "company-assets"
+const BUCKET = "scopepipe"
 
-function publicLogoUrl(companyId: string): string {
-  const base = supabaseProjectUrl().replace(/\/$/, "")
-  return `${base}/storage/v1/object/public/${BUCKET}/${companyId}/logo?v=${Date.now()}`
+function detectImageMime(bytes: Uint8Array): string | null {
+  if (bytes.byteLength < 8 || bytes.byteLength > 5 * 1024 * 1024) return null
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png"
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg"
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return "image/gif"
+  if (
+    bytes.byteLength >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "image/webp"
+  }
+  return null
 }
 
 export async function POST(request: Request) {
@@ -20,40 +36,25 @@ export async function POST(request: Request) {
   const reason = logoFileError({ type: file.type, size: file.size })
   if (reason) return Response.json({ ok: false, reason }, { status: 400 })
 
-  const admin = supabaseAdmin()
-  if (!admin) return Response.json({ ok: false, reason: "storage-off" })
-
   const bytes = new Uint8Array(await file.arrayBuffer())
-  let { error } = await admin.storage.from(BUCKET).upload(`${session.companyId}/logo`, bytes, {
-    contentType: file.type,
-    upsert: true,
-  })
-  if (error && /bucket not found/i.test(error.message)) {
-    await admin.storage.createBucket(BUCKET, { public: true }).catch(() => undefined)
-    const retry = await admin.storage.from(BUCKET).upload(`${session.companyId}/logo`, bytes, {
+  const mime = detectImageMime(bytes) || file.type || "image/png"
+  const dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
+
+  const admin = supabaseAdmin()
+  if (admin) {
+    await admin.storage.from(BUCKET).upload(`logos/${session.companyId}/logo`, bytes, {
       contentType: file.type,
       upsert: true,
-    })
-    error = retry.error
-  }
-  if (error) {
-    const message = /bucket not found/i.test(error.message)
-      ? "The company-assets bucket is not on this project yet."
-      : "The logo could not be saved."
-    return Response.json({ ok: false, reason: message }, { status: 502 })
-  }
-  const url = publicLogoUrl(session.companyId)
-  if (session.authUserId) {
-    try {
-      await admin
-        .from("profiles")
-        .update({ logo_url: url, updated_at: new Date().toISOString() })
-        .eq("user_id", session.authUserId)
-    } catch {
-      // Ignore profile update error
+    }).catch(() => undefined)
+    if (session.authUserId) {
+      await admin.storage.from(BUCKET).upload(`logos/${session.authUserId}/logo`, bytes, {
+        contentType: file.type,
+        upsert: true,
+      }).catch(() => undefined)
     }
   }
-  return Response.json({ ok: true, url })
+
+  return Response.json({ ok: true, url: dataUrl })
 }
 
 export async function DELETE(request: Request) {
@@ -61,19 +62,12 @@ export async function DELETE(request: Request) {
   if (!session) return Response.json({ ok: false }, { status: 401 })
   const admin = supabaseAdmin()
   if (admin) {
-    const paths = [`${session.companyId}/logo`]
-    if (session.authUserId) paths.push(`${session.authUserId}/logo`)
-    await admin.storage.from(BUCKET).remove(paths).catch(() => undefined)
+    const paths = [`logos/${session.companyId}/logo`, `${session.companyId}/logo`]
     if (session.authUserId) {
-      try {
-        await admin
-          .from("profiles")
-          .update({ logo_url: "", updated_at: new Date().toISOString() })
-          .eq("user_id", session.authUserId)
-      } catch {
-        // Ignore profile update error
-      }
+      paths.push(`logos/${session.authUserId}/logo`, `${session.authUserId}/logo`)
     }
+    await admin.storage.from(BUCKET).remove(paths).catch(() => undefined)
+    await admin.storage.from("company-assets").remove(paths).catch(() => undefined)
   }
   return Response.json({ ok: true })
 }

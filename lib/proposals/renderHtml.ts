@@ -161,7 +161,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       input.estimate.signature.signedName.trim().length > 0 &&
       input.estimate.signature.signaturePayload.trim().length > 0,
   )
-  const signerDisplay = accepted ? input.estimate.signature!.signedName : input.clientName.trim() || "Homeowner"
+  const signerDisplay = accepted ? input.estimate.signature!.signedName : ""
   const baseOrigin = (input.origin?.trim() || "https://www.scopepipe.com").replace(/\/$/, "")
   const publicToken = input.estimate.publicToken?.trim() || input.estimate.id
   const proposalUrl = `${baseOrigin}/p/${publicToken}${language === "es" ? "?lang=es" : ""}`
@@ -322,6 +322,63 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     .map((item) => `<li><span class="bullet-dot muted"></span><span>${escapeHtml(say(item))}</span></li>`)
     .join("\n")
 
+  const rawWarranty = document.template.warranty?.trim() ?? ""
+  const hasCustomWarranty = rawWarranty.length > 0 && !/^editable example/i.test(rawWarranty)
+  const rawPaymentTerms = document.template.paymentTerms?.trim() ?? ""
+  const hasCustomPaymentTerms = rawPaymentTerms.length > 0 && !/^editable example/i.test(rawPaymentTerms)
+  const hasFinancing = Boolean(
+    effectiveSettings.financingEnabled === true &&
+      (effectiveSettings.financingLender || effectiveSettings.financingApplyUrl) &&
+      monthly > 0,
+  )
+
+  const hasWarrantyOrPaymentSection = hasCustomWarranty || hasCustomPaymentTerms || hasFinancing
+
+  const warrantySectionHtml = hasWarrantyOrPaymentSection
+    ? `<section class="proposal-section" data-testid="proposal-section-warranty">
+        ${
+          hasCustomWarranty
+            ? `<p class="eyebrow">Warranty</p>
+        <h2 class="section-title" style="font-size: 25px;">Workmanship Warranty</h2>
+        <div style="margin-top: 14px; background: rgba(246, 242, 234, 0.68); border: 1px solid var(--line); border-radius: 16px; padding: 15px; font-size: 13px;">
+          ${(() => {
+            const wText = say(rawWarranty)
+            const colonIdx = wText.indexOf(":")
+            if (colonIdx > 0 && colonIdx < 65) {
+              return `<strong>${escapeHtml(wText.slice(0, colonIdx + 1))}</strong>${escapeHtml(wText.slice(colonIdx + 1))}`
+            }
+            return escapeHtml(wText)
+          })()}
+        </div>`
+            : ""
+        }
+        ${
+          hasCustomPaymentTerms || hasFinancing
+            ? `<p class="eyebrow" style="${hasCustomWarranty ? "margin-top: 16px;" : ""}">Payment Terms</p>
+        <div data-testid="proposal-section-payment-terms" style="margin-top: 8px; background: rgba(246, 242, 234, 0.68); border: 1px solid var(--line); border-radius: 16px; padding: 14px; font-size: 13px;">
+          ${hasCustomPaymentTerms ? escapeHtml(say(rawPaymentTerms)) : ""}
+          ${hasFinancing ? `<div style="${hasCustomPaymentTerms ? "margin-top: 8px; " : ""}font-weight: 600; color: var(--brand);">Financing available: as low as ${escapeHtml(moneyExact(monthly))}/mo for ${financing.months} months (${financing.aprPercent}% APR).</div>` : ""}
+        </div>`
+            : ""
+        }
+      </section>`
+    : ""
+
+  const exclusionsSectionHtml = `<section class="proposal-section" data-testid="proposal-section-exclusions">
+        <p class="eyebrow">Exclusions</p>
+        <h2 class="section-title" style="font-size: 25px;">What Is Not Included</h2>
+        <ul class="bullet-list">
+          ${exclusionBulletsHtml}
+        </ul>
+      </section>`
+
+  const exclusionsAndWarrantyRowHtml = hasWarrantyOrPaymentSection
+    ? `<div class="two-col-sections">
+      ${exclusionsSectionHtml}
+      ${warrantySectionHtml}
+    </div>`
+    : exclusionsSectionHtml
+
   const contractTermsHtml = document.contractTerms
     .map((term) => `<li><span class="bullet-dot"></span><span>${escapeHtml(say(term))}</span></li>`)
     .join("\n")
@@ -405,13 +462,20 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       padding: 14px 20px;
       margin-bottom: 10px;
       box-shadow: 0 10px 26px -16px rgba(23, 25, 28, 0.08);
-      break-inside: avoid;
-      page-break-inside: avoid;
+      break-inside: auto;
+      page-break-inside: auto;
     }
 
     .proposal-section.allow-break {
       break-inside: auto;
       page-break-inside: auto;
+    }
+
+    .cover-card,
+    .investment-bar,
+    #proposal-page-sign {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .cover-card {
@@ -928,36 +992,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     </section>
 
     <!-- 6. EXCLUSIONS, WARRANTY & PAYMENT TERMS -->
-    <div class="two-col-sections">
-      <section class="proposal-section" data-testid="proposal-section-exclusions">
-        <p class="eyebrow">Exclusions</p>
-        <h2 class="section-title" style="font-size: 25px;">What Is Not Included</h2>
-        <ul class="bullet-list">
-          ${exclusionBulletsHtml}
-        </ul>
-      </section>
-
-      <section class="proposal-section" data-testid="proposal-section-warranty">
-        <p class="eyebrow">Warranty</p>
-        <h2 class="section-title" style="font-size: 25px;">Workmanship Warranty</h2>
-        <div style="margin-top: 14px; background: rgba(246, 242, 234, 0.68); border: 1px solid var(--line); border-radius: 16px; padding: 15px; font-size: 13px;">
-          ${(() => {
-            const wText = say(document.template.warranty)
-            const colonIdx = wText.indexOf(":")
-            if (colonIdx > 0 && colonIdx < 65) {
-              return `<strong>${escapeHtml(wText.slice(0, colonIdx + 1))}</strong>${escapeHtml(wText.slice(colonIdx + 1))}`
-            }
-            return escapeHtml(wText)
-          })()}
-        </div>
-
-        <p class="eyebrow" style="margin-top: 16px;">Payment Terms</p>
-        <div data-testid="proposal-section-payment-terms" style="margin-top: 8px; background: rgba(246, 242, 234, 0.68); border: 1px solid var(--line); border-radius: 16px; padding: 14px; font-size: 13px;">
-          ${escapeHtml(say(document.template.paymentTerms))}
-          ${monthly > 0 ? `<div style="margin-top: 8px; font-weight: 600; color: var(--brand);">Financing available: as low as ${escapeHtml(moneyExact(monthly))}/mo for ${financing.months} months (${financing.aprPercent}% APR).</div>` : ""}
-        </div>
-      </section>
-    </div>
+    ${exclusionsAndWarrantyRowHtml}
 
     <!-- 7. CONTRACT TERMS -->
     <section class="proposal-section" id="proposal-page-terms" data-testid="proposal-page-terms">
@@ -981,7 +1016,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px;">
         <div>
           <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft);">Full Legal Name</p>
-          <div class="signature-field-box">${escapeHtml(signerDisplay)}</div>
+          <div class="signature-field-box" style="${accepted ? "" : "color: var(--ink-soft); font-style: italic;"}">${escapeHtml(accepted ? signerDisplay : "Awaiting signature upon online acceptance")}</div>
         </div>
         <div>
           <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft);">Preferred Payment Method</p>

@@ -54,14 +54,27 @@ function bytesToDataUrl(bytes: Uint8Array): string | undefined {
 async function downloadCompanyAsset(objectKey: string): Promise<string | undefined> {
   const admin = supabaseAdmin()
   if (!admin || !objectKey) return undefined
-  try {
-    const { data, error } = await admin.storage.from("company-assets").download(objectKey)
-    if (error || !data) return undefined
-    const bytes = new Uint8Array(await data.arrayBuffer())
-    return bytesToDataUrl(bytes)
-  } catch {
-    return undefined
+  const buckets = ["scopepipe", "company-assets"]
+  const cleanKey = objectKey.replace(/^\/+/, "")
+  const keys = [
+    cleanKey.startsWith("logos/") ? cleanKey : `logos/${cleanKey}`,
+    cleanKey.replace(/^logos\//, ""),
+  ]
+  for (const bucket of buckets) {
+    for (const key of keys) {
+      try {
+        const { data, error } = await admin.storage.from(bucket).download(key)
+        if (!error && data) {
+          const bytes = new Uint8Array(await data.arrayBuffer())
+          const converted = bytesToDataUrl(bytes)
+          if (converted) return converted
+        }
+      } catch {
+        // continue to next candidate
+      }
+    }
   }
+  return undefined
 }
 
 async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | undefined> {
@@ -83,7 +96,7 @@ async function inlineLogoDataUrl(logoUrl: string | undefined): Promise<string | 
   } catch {
     // Fall through to Supabase Storage check if applicable
   }
-  const assetMatch = /\/company-assets\/([^?#]+)/i.exec(trimmed)
+  const assetMatch = /\/(?:company-assets|scopepipe)\/([^?#]+)/i.exec(trimmed)
   if (assetMatch?.[1]) {
     return downloadCompanyAsset(decodeURIComponent(assetMatch[1]))
   }
