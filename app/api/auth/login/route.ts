@@ -6,8 +6,8 @@ import { jsonWithOfficeSession, jsonWithSession } from "@/lib/auth/request"
 import type { OfficeSession } from "@/lib/auth/session"
 import { trialEndsAt } from "@/lib/billing/access"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
-import { authClientFromRequest } from "@/lib/supabase/pending-cookies"
-import type { NextRequest } from "next/server"
+import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
+import { NextResponse, type NextRequest } from "next/server"
 
 export const runtime = "nodejs"
 
@@ -50,13 +50,13 @@ export async function POST(request: NextRequest) {
         })
         if (!result.ok) {
           const existingSession = await sessionByEmail(email)
-          const meta = (data.user.user_metadata || {}) as { full_name?: string; company_name?: string }
+          const meta = (data.user.user_metadata || {}) as { full_name?: string; name?: string; company_name?: string }
           const fallbackCompanyName =
             body?.hostedUser?.companyName || existingSession?.companyName || meta.company_name || "ScopePipe"
           const fallbackUser: OfficeSession = body?.hostedUser ||
             existingSession || {
               id: data.user.id,
-              name: meta.full_name || email.trim().split("@")[0] || "Owner",
+              name: meta.name || meta.full_name || email.trim().split("@")[0] || "Owner",
               email: email.trim().toLowerCase(),
               role: body?.role && isUserRole(body.role) ? body.role : "owner",
               companyId: data.user.id,
@@ -66,12 +66,13 @@ export async function POST(request: NextRequest) {
               trialEndsAt: trialEndsAt(new Date()),
               authUserId: data.user.id,
             }
-          return jsonWithOfficeSession(fallbackUser, {
+          const response = jsonWithOfficeSession(fallbackUser, {
             ok: true,
             user: fallbackUser,
             hosted: true,
             passwordHash: hashPassword(password),
           })
+          return attachAuthCookies(response as unknown as NextResponse, pending.pending, pending.cacheHeaders)
         }
       }
     } catch {

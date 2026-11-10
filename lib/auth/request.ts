@@ -8,10 +8,8 @@ export type { OfficeSession }
 export async function sessionFromRequest(request: Request): Promise<OfficeSession | null> {
   const token = readCookie(request.headers.get("cookie"))
   if (!token) return null
-  if (!supabaseServerKey()) {
-    const embedded = readOfficeSession(token, authSecret())
-    if (embedded) return embedded
-  }
+  const embedded = readOfficeSession(token, authSecret())
+  if (embedded) return embedded
   const userId = readSession(token, authSecret())
   if (!userId) return null
   return sessionById(userId)

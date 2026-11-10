@@ -51,9 +51,9 @@ export function RecoveryListener() {
       }
     }
 
-    // 2. Handle email confirmation and recovery query parameters landing on the homepage or apex domain
+    // 2. Handle email confirmation and recovery query parameters landing on any landing/marketing/auth page
     const search = window.location.search
-    if (search && pathname === "/") {
+    if (search && pathname !== "/auth/callback" && pathname !== "/reset-password") {
       const params = new URLSearchParams(search)
       const isRecovery =
         params.get("type") === "recovery" ||
@@ -68,7 +68,7 @@ export function RecoveryListener() {
         return
       }
 
-      if (params.get("code") || params.get("token_hash")) {
+      if (params.get("code") || params.get("token_hash") || params.get("token")) {
         const target = window.location.hostname === "scopepipe.com"
           ? `https://www.scopepipe.com/auth/callback${search}`
           : `/auth/callback${search}`

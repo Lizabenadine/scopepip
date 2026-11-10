@@ -37,11 +37,15 @@ export async function POST(request: NextRequest) {
   if (supabaseAuthConfigured()) {
     const pending = authClientFromRequest(request)
     try {
+      const isLocal = request.nextUrl.hostname.includes("localhost") || request.nextUrl.hostname.includes("127.0.0.1")
+      const emailRedirectTo = isLocal
+        ? `${request.nextUrl.origin}/auth/callback`
+        : "https://scopepipe.com/auth/callback"
       const { data, error } = await pending.supabase.auth.signUp({
         email: input.email.trim(),
         password: input.password,
         options: {
-          emailRedirectTo: `${request.nextUrl.origin}/auth/callback`,
+          emailRedirectTo,
           data: { name: input.name.trim(), company_name: input.companyName.trim() },
         },
       })

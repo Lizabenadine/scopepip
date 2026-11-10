@@ -2,11 +2,12 @@ import { NextResponse, type NextRequest } from "next/server"
 import type { EmailOtpType } from "@supabase/supabase-js"
 import { authSecret, sessionByEmail } from "@/lib/auth/directory"
 import { sessionCookie } from "@/lib/auth/session"
-import { signOfficeSession, signSession } from "@/lib/auth/session-token"
+import { signOfficeSession } from "@/lib/auth/session-token"
 import { canonicalResetPasswordUrl } from "@/lib/auth/forgot-password-auth"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
 import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
-import { supabaseServerKey } from "@/lib/supabase/admin"
+import { slugifyCompanyName } from "@/lib/auth/company-slug"
+import { trialEndsAt } from "@/lib/billing/access"
 
 export const runtime = "nodejs"
 
@@ -157,15 +158,31 @@ export async function GET(request: NextRequest) {
   }
 
   const { data } = await pending.supabase.auth.getUser()
-  const office = data.user?.email ? await sessionByEmail(data.user.email) : null
+  let office = data.user?.email ? await sessionByEmail(data.user.email) : null
+  if (!office && data.user?.email) {
+    const meta = (data.user.user_metadata || {}) as { name?: string; full_name?: string; company_name?: string }
+    const companyName = meta.company_name?.trim() || "ScopePipe"
+    office = {
+      id: data.user.id,
+      name: meta.name?.trim() || meta.full_name?.trim() || data.user.email.split("@")[0] || "Owner",
+      email: data.user.email.trim().toLowerCase(),
+      role: "owner",
+      companyId: data.user.id,
+      companyName,
+      companySlug: slugifyCompanyName(companyName),
+      subscriptionStatus: "trialing",
+      trialEndsAt: trialEndsAt(new Date()),
+      authUserId: data.user.id,
+    }
+  }
+
   if (!office) {
-    const login = canonicalTargetUrl("/login?confirmed=1&onboarding=incomplete", request.url)
+    const login = canonicalTargetUrl("/login?confirmed=1", request.url)
     return attachAuthCookies(NextResponse.redirect(login), pending.pending, pending.cacheHeaders)
   }
 
   const response = NextResponse.redirect(canonicalTargetUrl("/dashboard", request.url))
-  const token = !supabaseServerKey() ? signOfficeSession(office, authSecret()) : signSession(office.id, authSecret())
-  response.headers.append("set-cookie", sessionCookie(token))
+  response.headers.append("set-cookie", sessionCookie(signOfficeSession(office, authSecret())))
   return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
 }
 
@@ -199,17 +216,33 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const office = data.user.email ? await sessionByEmail(data.user.email) : null
+  let office = data.user.email ? await sessionByEmail(data.user.email) : null
+  if (!office && data.user.email) {
+    const meta = (data.user.user_metadata || {}) as { name?: string; full_name?: string; company_name?: string }
+    const companyName = meta.company_name?.trim() || "ScopePipe"
+    office = {
+      id: data.user.id,
+      name: meta.name?.trim() || meta.full_name?.trim() || data.user.email.split("@")[0] || "Owner",
+      email: data.user.email.trim().toLowerCase(),
+      role: "owner",
+      companyId: data.user.id,
+      companyName,
+      companySlug: slugifyCompanyName(companyName),
+      subscriptionStatus: "trialing",
+      trialEndsAt: trialEndsAt(new Date()),
+      authUserId: data.user.id,
+    }
+  }
+
   if (!office) {
     return attachAuthCookies(
-      NextResponse.json({ ok: false, redirect: "/login?confirmed=1&onboarding=incomplete" }),
+      NextResponse.json({ ok: false, redirect: "/login?confirmed=1" }),
       pending.pending,
       pending.cacheHeaders,
     )
   }
 
   const response = NextResponse.json({ ok: true, redirect: "/dashboard" })
-  const token = !supabaseServerKey() ? signOfficeSession(office, authSecret()) : signSession(office.id, authSecret())
-  response.headers.append("set-cookie", sessionCookie(token))
+  response.headers.append("set-cookie", sessionCookie(signOfficeSession(office, authSecret())))
   return attachAuthCookies(response, pending.pending, pending.cacheHeaders)
 }
