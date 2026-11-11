@@ -36,8 +36,7 @@ export function PriceSummary({
   depositPercent: number
 }) {
   const charges = estimateCharges(quote)
-  const unpricedMaterials = hasMissingMaterialPricing(quote)
-  const missingMaterials = unpricedMaterials && !excludeMaterials
+  const missingMaterials = !excludeMaterials && hasMissingMaterialPricing(quote)
   const rows: Array<[string, number | string]> = [
     ["Labor", charges.labor],
     ["Estimated paint", gallonsLabel(quote.paintGallons)],
@@ -68,9 +67,9 @@ export function PriceSummary({
             <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400" data-testid="materials-excluded-warning">
               Total excludes unpriced materials. Configure paint price/gal before sending.
             </p>
-          ) : unpricedMaterials && excludeMaterials ? (
+          ) : excludeMaterials ? (
             <p className="mt-1 text-xs text-muted-foreground" data-testid="materials-excluded-note">
-              Labor-only quote — materials excluded from total.
+              Paint materials excluded
             </p>
           ) : null}
         </div>
@@ -89,7 +88,16 @@ export function PriceSummary({
             <dd className="tabular-nums" data-testid={`estimate-${label.toLowerCase().replace(/\s+/g, "-")}`}>
               {label === "Estimated paint" ? (
                 amount
-              ) : label === "Materials" && amount === 0 && quote.paintGallons > 0 ? (
+              ) : label === "Materials" && excludeMaterials ? (
+                typeof amount === "number" && amount > 0 ? (
+                  <span>
+                    {moneyExact(amount)}{" "}
+                    <span className="text-xs text-muted-foreground">(paint excluded)</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Paint materials excluded</span>
+                )
+              ) : label === "Materials" && missingMaterials && amount === 0 && quote.paintGallons > 0 ? (
                 <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Price not configured</span>
               ) : label === "Materials" && missingMaterials && typeof amount === "number" ? (
                 <span>
@@ -141,6 +149,10 @@ export function PriceSummary({
             {missingMaterials ? (
               <p className="mt-0.5 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
                 Excludes unpriced materials
+              </p>
+            ) : excludeMaterials ? (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground" data-testid="dock-materials-excluded-note">
+                Paint materials excluded
               </p>
             ) : null}
             <button type="button" onClick={onExplain} className="mt-1 block truncate text-xs font-medium text-primary">

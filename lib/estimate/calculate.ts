@@ -420,10 +420,11 @@ function priceSurface(
   const allocatedHours = typed !== null ? typed : roundHours(rawHours, settings.hourRounding)
   if (!pricedByArea) laborPrice = allocatedHours * nonNegative(hourlyRate)
   const paintGallons = calculateSurfaceGallons(area, surface, rate, settings.materialRounding)
-  const costPerGallon =
-    surface.productCostPerGallon !== null &&
-    surface.productCostPerGallon !== undefined &&
-    Number.isFinite(surface.productCostPerGallon)
+  const costPerGallon = settings.excludeMaterials
+    ? 0
+    : surface.productCostPerGallon !== null &&
+        surface.productCostPerGallon !== undefined &&
+        Number.isFinite(surface.productCostPerGallon)
       ? nonNegative(surface.productCostPerGallon)
       : nonNegative(rate.productCostPerGallon)
   const materialMarkup = Number.isFinite(settings.materialMarkup)

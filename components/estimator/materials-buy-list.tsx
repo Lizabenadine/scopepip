@@ -27,9 +27,11 @@ interface MaterialGroup {
 export function MaterialsBuyList({
   quote,
   estimateId,
+  excludeMaterials = false,
 }: {
   quote: EstimateQuote
   estimateId?: string | null
+  excludeMaterials?: boolean
 }) {
   const groups: MaterialGroup[] = []
   const groupMap = new Map<string, MaterialGroup>()
@@ -129,7 +131,13 @@ export function MaterialsBuyList({
             </span>
           </div>
           <div className="text-xs">
-            {quote.materialCost > 0 && !hasMissingPrice ? (
+            {excludeMaterials ? (
+              <span className="text-muted-foreground" data-testid="buy-list-materials-excluded">
+                {quote.materialCost > 0
+                  ? `${money(quote.materialCost)} custom · Paint materials excluded`
+                  : "Paint materials excluded"}
+              </span>
+            ) : quote.materialCost > 0 && !hasMissingPrice ? (
               <span className="font-semibold text-foreground">
                 Total Materials: {money(quote.materialCost)}
               </span>
@@ -190,7 +198,9 @@ export function MaterialsBuyList({
 
                   <div className="mt-2 text-xs text-muted-foreground">
                     Pricing:{" "}
-                    {hasPrice ? (
+                    {excludeMaterials ? (
+                      <span className="text-muted-foreground">Paint materials excluded</span>
+                    ) : hasPrice ? (
                       <span className="font-medium text-foreground">
                         ${group.productCostPerGallon}/gal · Cost: {money(group.materialCost)}
                       </span>

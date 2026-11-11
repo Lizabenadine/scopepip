@@ -3,7 +3,7 @@ import { moneyExact } from "../format.ts"
 import { paintingText, translatePainting } from "../field/terms.ts"
 import { balanceAfterDeposit } from "../payments/deposit.ts"
 import type { Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
-import { proposalDocument, scheduledProductsFromAreas } from "./document.ts"
+import { paintMaterialsInclusionLabel, proposalDocument, scheduledProductsFromAreas } from "./document.ts"
 import { proposalFigures } from "./figures.ts"
 import { textPdf } from "./pdf.ts"
 import type { PdfLogo } from "../brand/logo-pdf.ts"
@@ -105,11 +105,12 @@ export function proposalMail(input: {
     .join(" · ")
   const document = proposalDocument(effectiveSettings, input.estimate.estimateKind)
   const scheduledProducts = scheduledProductsFromAreas(figures.quote.areas)
+  const materialsStatus = paintMaterialsInclusionLabel(effectiveSettings.excludeMaterials, input.language ?? "en")
   const subject = input.language === "es" ? `Propuesta para ${place}` : `Proposal for ${place}`
   const text =
     input.language === "es"
-      ? `Hola ${client},\n\nSu propuesta de ${company} para ${place} está lista.\n\nRevise y firme su propuesta:\n${link}\n\nEl PDF de esta propuesta va adjunto. Responda si quiere un cambio, o abra el enlace para aceptarla.\n\nTotal: ${total}\n\n${company}`
-      : `Hi ${client},\n\nYour proposal from ${company} for ${place} is ready.\n\nReview & Sign Proposal:\n${link}\n\nThe PDF of this proposal is attached. Reply if you want a change, or open the link to accept it.\n\nTotal: ${total}\n\n${company}`
+      ? `Hola ${client},\n\nSu propuesta de ${company} para ${place} está lista.\n\nRevise y firme su propuesta:\n${link}\n\nEl PDF de esta propuesta va adjunto. Responda si quiere un cambio, o abra el enlace para aceptarla.\n\nTotal: ${total}\n${materialsStatus.badge}\n\n${company}`
+      : `Hi ${client},\n\nYour proposal from ${company} for ${place} is ready.\n\nReview & Sign Proposal:\n${link}\n\nThe PDF of this proposal is attached. Reply if you want a change, or open the link to accept it.\n\nTotal: ${total}\n${materialsStatus.badge}\n\n${company}`
   const say = (value: string) => translatePainting(value, input.language)
   const lines: string[] = [
     company,
@@ -165,16 +166,15 @@ export function proposalMail(input: {
     }
     lines.push("")
   }
-  if (scheduledProducts.length > 0 || document.template.materials.length > 0) {
-    lines.push(input.language === "es" ? "Materiales y Pinturas" : "Materials & Paint System")
-    for (const product of scheduledProducts) {
-      lines.push(...wrap(`- ${say(product.productName)}: ${product.details.join("; ")}`))
-    }
-    for (const mat of document.template.materials) {
-      lines.push(...wrap(`- ${say(mat)}`))
-    }
-    lines.push("")
+  lines.push(input.language === "es" ? "Materiales y Pinturas" : "Materials & Paint System")
+  lines.push(...wrap(materialsStatus.detail))
+  for (const product of scheduledProducts) {
+    lines.push(...wrap(`- ${say(product.productName)}: ${product.details.join("; ")}`))
   }
+  for (const mat of document.template.materials) {
+    lines.push(...wrap(`- ${say(mat)}`))
+  }
+  lines.push("")
   if (document.template.exclusions.length > 0) {
     lines.push(input.language === "es" ? "Exclusiones" : "Exclusions")
     for (const item of document.template.exclusions) {
@@ -188,6 +188,7 @@ export function proposalMail(input: {
     lines.push("")
   }
   lines.push(input.language === "es" ? `Total ${total}` : `Total ${total}`)
+  lines.push(materialsStatus.badge)
   if (figures.deposit > 0) {
     const deposit = moneyExact(figures.deposit)
     const balance = moneyExact(balanceAfterDeposit(figures.quote.total, figures.depositPercent))

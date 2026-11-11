@@ -1,9 +1,10 @@
 import { CompanyMark } from "@/components/brand/company-mark"
 import { money } from "@/lib/format"
-import type {
-  ProposalPageRef,
-  ResolvedProposalKindTemplate,
-  ScheduledProposalProduct,
+import {
+  paintMaterialsInclusionLabel,
+  type ProposalPageRef,
+  type ResolvedProposalKindTemplate,
+  type ScheduledProposalProduct,
 } from "@/lib/proposals/document"
 import type { ProposalPhoto, ProposalTestimonial } from "@/lib/types"
 
@@ -212,10 +213,15 @@ export function ProposalTermsPage({
 export function ProposalTemplateSections({
   template,
   scheduledProducts,
+  excludeMaterials,
+  language = "en",
 }: {
   template: ResolvedProposalKindTemplate
   scheduledProducts: ScheduledProposalProduct[]
+  excludeMaterials?: boolean
+  language?: "en" | "es"
 }) {
+  const materialsStatus = paintMaterialsInclusionLabel(excludeMaterials, language)
   return (
     <section
       data-testid="proposal-template-sections"
@@ -250,6 +256,12 @@ export function ProposalTemplateSections({
           <h3 className="text-xs font-bold tracking-wider text-slate-700 uppercase">
             Materials &amp; Paint System
           </h3>
+          <p
+            data-testid="proposal-materials-status"
+            className="mt-2 text-xs font-semibold text-slate-700"
+          >
+            {materialsStatus.detail}
+          </p>
           {scheduledProducts.length > 0 ? (
             <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-xs font-semibold text-slate-500 uppercase">Scheduled Products on This Job</p>

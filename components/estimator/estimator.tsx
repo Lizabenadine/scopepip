@@ -130,8 +130,7 @@ export function Estimator({
     )
   }
 
-  const unpricedMaterialPaint = hasMissingMaterialPricing(quote)
-  const excludeMaterials = Boolean(draft.settings.excludeMaterials) || (draft.settings.hourlyRateBuild?.sundriesPerHour ?? 0) > 0
+  const excludeMaterials = Boolean(draft.settings.excludeMaterials)
   const missingMaterialPrices = hasMissingMaterialPricing(quote, draft.settings)
 
   const onSubmit = (event: React.FormEvent) => {
@@ -367,19 +366,19 @@ export function Estimator({
                 Add paint price per gallon in Settings → App or Advanced surface options before sending this quote.
               </p>
             ) : null}
-            {unpricedMaterialPaint && !((draft.settings.hourlyRateBuild?.sundriesPerHour ?? 0) > 0) ? (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  data-testid="exclude-materials-toggle"
-                  checked={Boolean(draft.settings.excludeMaterials)}
-                  onChange={(event) =>
-                    patch({ settings: { ...draft.settings, excludeMaterials: event.target.checked } })
-                  }
-                />
-                <span>Labor-only quote (intentionally exclude materials)</span>
-              </label>
-            ) : null}
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                data-testid="include-paint-costs-toggle"
+                checked={!excludeMaterials}
+                onChange={(event) =>
+                  patch({
+                    settings: { ...draft.settings, excludeMaterials: !event.target.checked },
+                  })
+                }
+              />
+              <span>Include paint costs in estimate</span>
+            </label>
             {sendFeedback ? (
               <p
                 role={sendFeedback.tone === "error" ? "alert" : "status"}
@@ -452,7 +451,7 @@ export function Estimator({
             onGroups={(areaGroups) => patch({ areaGroups })}
             onDuplicate={(areas) => patch({ areas })}
           />
-          <MaterialsBuyList quote={quote} estimateId={draft.id} />
+          <MaterialsBuyList quote={quote} estimateId={draft.id} excludeMaterials={excludeMaterials} />
           {stage?.slug === "completed" && draft.id ? (
             <FinishedHours
               estimateId={draft.id}

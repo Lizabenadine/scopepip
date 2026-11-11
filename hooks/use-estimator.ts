@@ -116,7 +116,11 @@ function buildInitialDraft(
       })),
       scope.productionRates,
     ),
-    settings: selectEstimateKind(scope.estimateSettings, "interior"),
+    settings: {
+      ...selectEstimateKind(scope.estimateSettings, "interior"),
+      // New estimates default to labor-only (paint material pricing OFF) unless toggled on.
+      excludeMaterials: true,
+    },
     scheduledOn: null,
     notes: "",
     crewNote: "",

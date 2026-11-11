@@ -300,6 +300,35 @@ function photoSrc(value: string | undefined): string | null {
   }
 }
 
+/** Clear customer-facing label indicating whether paint materials are included or excluded. */
+export function paintMaterialsInclusionLabel(
+  excludeMaterials: boolean | undefined,
+  language: "en" | "es" = "en",
+): { badge: string; detail: string } {
+  if (excludeMaterials) {
+    return language === "es"
+      ? {
+          badge: "Materiales de pintura excluidos",
+          detail:
+            "Materiales de pintura excluidos — la cotización cubre mano de obra; la pintura se provee o factura por separado.",
+        }
+      : {
+          badge: "Paint materials excluded",
+          detail:
+            "Paint materials excluded — quote covers labor only; paint is supplied or billed separately.",
+        }
+  }
+  return language === "es"
+    ? {
+        badge: "Materiales de pintura incluidos",
+        detail: "Materiales de pintura incluidos en el precio total de este presupuesto.",
+      }
+    : {
+        badge: "Paint materials included",
+        detail: "Paint materials included in the total project price.",
+      }
+}
+
 function clip(value: string | undefined, max: number): string {
   return (value ?? "").trim().slice(0, max)
 }

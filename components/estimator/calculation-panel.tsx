@@ -22,6 +22,7 @@ export function CalculationPanel({
   showCharges?: boolean
 }) {
   const charges = estimateCharges(quote)
+  const excludeMaterials = Boolean(settings.excludeMaterials)
   const missingMaterials = hasMissingMaterialPricing(quote, settings)
   const deposit = depositAmount(quote.total, depositPercent)
   const balance = balanceAfterDeposit(quote.total, depositPercent)
@@ -48,7 +49,13 @@ export function CalculationPanel({
               <dd className="tabular-nums">
                 {label === "Estimated paint" ? (
                   amount
-                ) : label === "Materials" && amount === 0 && quote.paintGallons > 0 ? (
+                ) : label === "Materials" && excludeMaterials ? (
+                  typeof amount === "number" && amount > 0 ? (
+                    `${moneyExact(amount)} (paint excluded)`
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Paint materials excluded</span>
+                  )
+                ) : label === "Materials" && missingMaterials && amount === 0 && quote.paintGallons > 0 ? (
                   <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Price not configured</span>
                 ) : label === "Discounts" && typeof amount === "number" && amount > 0 ? (
                   `−${moneyExact(amount)}`
@@ -65,6 +72,10 @@ export function CalculationPanel({
       {showCharges && missingMaterials ? (
         <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
           Total excludes unpriced materials. Configure paint price per gallon before sending.
+        </p>
+      ) : showCharges && excludeMaterials ? (
+        <p className="text-xs text-muted-foreground">
+          Paint materials excluded from quote total.
         </p>
       ) : null}
       <p className="text-muted-foreground">

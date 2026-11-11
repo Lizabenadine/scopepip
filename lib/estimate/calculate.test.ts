@@ -837,5 +837,21 @@ describe("calculateEstimate", () => {
       }),
       false,
     )
+
+    // When excludeMaterials is ON (paint costs toggle OFF), gallons & labor still calculate,
+    // configured paint prices are excluded from materialCost/total, and no missing-price warning triggers.
+    const excludedPricedQuote = calculateEstimate({
+      areas: [allPricedArea],
+      lineItems: [],
+      rates,
+      settings: { ...settings, excludeMaterials: true },
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(excludedPricedQuote.allocatedHours, 13.5)
+    assert.equal(excludedPricedQuote.paintGallons, allPricedQuote.paintGallons)
+    assert.equal(excludedPricedQuote.laborPrice, 1012.5)
+    assert.equal(excludedPricedQuote.materialCost, 0)
+    assert.equal(excludedPricedQuote.total, 1012.5)
+    assert.equal(hasMissingMaterialPricing(excludedPricedQuote, { ...settings, excludeMaterials: true }), false)
   })
 })

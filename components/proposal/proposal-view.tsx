@@ -20,6 +20,7 @@ import { useScope } from "@/lib/data/store"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { jobDate, money } from "@/lib/format"
 import {
+  paintMaterialsInclusionLabel,
   proposalDocument,
   proposalPageList,
   scheduledProductsFromAreas,
@@ -165,6 +166,8 @@ export function ProposalView({ id }: { id: string }) {
       <ProposalTemplateSections
         template={pagesDocument.template}
         scheduledProducts={scheduledProducts}
+        excludeMaterials={estimate.settings.excludeMaterials}
+        language={language}
       />
       <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
         <Row label="Subtotal" value={money(quote.subtotal)} />
@@ -174,6 +177,9 @@ export function ProposalView({ id }: { id: string }) {
           <p className="font-medium">Total</p>
           <p className="font-display text-3xl text-primary tabular-nums">{money(quote.total)}</p>
         </div>
+        <p className="mt-1 text-xs font-medium text-muted-foreground" data-testid="proposal-materials-status-summary">
+          {paintMaterialsInclusionLabel(estimate.settings.excludeMaterials, language).badge}
+        </p>
         <div className="mt-2 flex items-baseline justify-between">
           <p className="text-sm text-muted-foreground">Deposit required ({depositPercent}%)</p>
           <p className="text-lg font-semibold tabular-nums">{money(deposit)}</p>

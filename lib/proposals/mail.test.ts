@@ -6,6 +6,7 @@ import { sendProposalEmail } from "./send.ts"
 import { moneyExact } from "../format.ts"
 import { proposalFigures } from "./figures.ts"
 import { customerLineIds, proposalMail } from "./mail.ts"
+import { renderProposalHtml } from "./renderHtml.ts"
 
 describe("proposalMail", () => {
   it("writes the client link and the customer price into the email and the PDF", () => {
@@ -365,5 +366,75 @@ describe("proposalMail", () => {
     assert.equal(pdf.includes("per hour"), false)
     assert.equal(pdf.includes("laborCost"), false)
     assert.equal(pdf.includes("grossProfit"), false)
+  })
+
+  it("clearly indicates whether paint materials are included or excluded across HTML, email, and PDF", () => {
+    const state = createSeedState()
+    const baseEstimate = state.estimates.find((item) => item.id === "est-ortiz")
+    const client = state.clients.find((item) => item.id === baseEstimate?.clientId)
+    assert.ok(baseEstimate && client)
+
+    const includedMail = proposalMail({
+      estimate: {
+        ...baseEstimate,
+        settings: { ...baseEstimate.settings, excludeMaterials: false },
+      },
+      clientName: client.name,
+      clientEmail: client.email,
+      language: "en",
+      companyName: state.estimateSettings.companyName,
+      paymentMethods: state.paymentMethods,
+      origin: "https://office.example",
+    })
+    assert.ok(!("error" in includedMail))
+    if ("error" in includedMail) return
+    assert.match(includedMail.text, /Paint materials included/)
+    assert.match(new TextDecoder().decode(includedMail.pdf), /Paint materials included/)
+
+    const excludedEstimate = {
+      ...baseEstimate,
+      settings: { ...baseEstimate.settings, excludeMaterials: true },
+    }
+    const excludedMail = proposalMail({
+      estimate: excludedEstimate,
+      clientName: client.name,
+      clientEmail: client.email,
+      language: "en",
+      companyName: state.estimateSettings.companyName,
+      paymentMethods: state.paymentMethods,
+      origin: "https://office.example",
+    })
+    assert.ok(!("error" in excludedMail))
+    if ("error" in excludedMail) return
+    assert.match(excludedMail.text, /Paint materials excluded/)
+    assert.match(new TextDecoder().decode(excludedMail.pdf), /Paint materials excluded/)
+
+    const excludedHtml = renderProposalHtml({
+      estimate: excludedEstimate,
+      clientName: client.name,
+      clientEmail: client.email,
+      language: "en",
+      companyName: state.estimateSettings.companyName,
+      paymentMethods: state.paymentMethods,
+      estimateSettings: excludedEstimate.settings,
+      origin: "https://office.example",
+    })
+    assert.match(excludedHtml, /Paint materials excluded/)
+    assert.equal(excludedHtml.includes("All labor, prep materials &amp; specified coatings included"), false)
+
+    const includedHtml = renderProposalHtml({
+      estimate: {
+        ...baseEstimate,
+        settings: { ...baseEstimate.settings, excludeMaterials: false },
+      },
+      clientName: client.name,
+      clientEmail: client.email,
+      language: "en",
+      companyName: state.estimateSettings.companyName,
+      paymentMethods: state.paymentMethods,
+      estimateSettings: { ...baseEstimate.settings, excludeMaterials: false },
+      origin: "https://office.example",
+    })
+    assert.match(includedHtml, /Paint materials included/)
   })
 })

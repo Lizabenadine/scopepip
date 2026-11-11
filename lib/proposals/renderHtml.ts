@@ -5,7 +5,7 @@ import { paintingText, translatePainting } from "../field/terms.ts"
 import { balanceAfterDeposit } from "../payments/deposit.ts"
 import { financingTerms, monthlyPayment } from "../financing/offer.ts"
 import type { Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
-import { proposalDocument, scheduledProductsFromAreas } from "./document.ts"
+import { paintMaterialsInclusionLabel, proposalDocument, scheduledProductsFromAreas } from "./document.ts"
 import { proposalFigures } from "./figures.ts"
 import { customerLineIds } from "./mail.ts"
 
@@ -114,6 +114,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
   const quote = figures.quote
   const document = proposalDocument(effectiveSettings, input.estimate.estimateKind)
   const scheduledProducts = scheduledProductsFromAreas(quote.areas)
+  const materialsStatus = paintMaterialsInclusionLabel(effectiveSettings.excludeMaterials, input.language ?? "en")
   const deposit = figures.deposit
   const depositPercent = figures.depositPercent
   const balance = balanceAfterDeposit(quote.total, depositPercent)
@@ -930,7 +931,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       <div class="inv-item">
         <p class="inv-label">Total Project Investment</p>
         <p class="inv-amount" data-testid="proposal-total">${escapeHtml(moneyExact(quote.total))}</p>
-        <p class="inv-note">All labor, prep materials &amp; specified coatings included</p>
+        <p class="inv-note" data-testid="proposal-materials-status-summary">${escapeHtml(materialsStatus.badge)}</p>
       </div>
       <div class="inv-item">
         <p class="inv-label">Deposit Required (${depositPercent}%)</p>
@@ -974,6 +975,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     <section class="proposal-section" data-testid="proposal-section-materials">
       <p class="eyebrow">Materials</p>
       <h2 class="section-title">Materials &amp; Paint System</h2>
+      <p style="font-size: 13px; font-weight: 600; color: var(--brand); margin: 8px 0 10px;" data-testid="proposal-materials-status">${escapeHtml(materialsStatus.detail)}</p>
 
       ${
         scheduledProducts.length > 0

@@ -28,6 +28,7 @@ import type { Estimate, EstimateSettings, PaymentMethod } from "@/lib/types"
 import { jobDate, money, moneyExact } from "@/lib/format"
 import { financingTerms, monthlyPayment } from "@/lib/financing/offer"
 import {
+  paintMaterialsInclusionLabel,
   proposalDocument,
   proposalPageList,
   scheduledProductsFromAreas,
@@ -419,6 +420,8 @@ export function ProposalDocument({
       <ProposalTemplateSections
         template={pagesDocument.template}
         scheduledProducts={scheduledProducts}
+        excludeMaterials={estimate.settings.excludeMaterials}
+        language={language}
       />
 
       <section data-proposal-section="Price" className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
@@ -431,6 +434,9 @@ export function ProposalDocument({
             {money(quote.total)}
           </p>
         </div>
+        <p className="mt-1 text-xs font-medium text-muted-foreground" data-testid="proposal-materials-status-summary">
+          {paintMaterialsInclusionLabel(estimate.settings.excludeMaterials, language).badge}
+        </p>
         <div className="mt-2 flex items-baseline justify-between">
           <p className="text-sm text-muted-foreground">{say("Deposit required")} ({figures.depositPercent}%)</p>
           <p data-testid="proposal-deposit" className="text-lg font-semibold tabular-nums">
