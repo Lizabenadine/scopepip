@@ -93,6 +93,12 @@ export function MaterialsBuyList({
     (g) => !g.productCostPerGallon || g.productCostPerGallon === 0,
   )
 
+  const hasSelectedSurfaces = quote.areas.some((area) => area.surfaces.length > 0)
+
+  if (!hasSelectedSurfaces && customMaterials.length === 0) {
+    return null
+  }
+
   return (
     <section className="flex min-w-0 flex-col gap-2" data-testid="materials-buy-list-section">
       <div className="flex items-center justify-between">

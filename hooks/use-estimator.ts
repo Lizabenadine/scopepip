@@ -130,7 +130,7 @@ function buildInitialDraft(
   }
   return {
     missing: false,
-    draft: withSubstrateRates(readSession(null) ?? blank, scope.productionRates),
+    draft: withSubstrateRates(blank, scope.productionRates),
   }
 }
 
