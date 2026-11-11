@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTypedNumber } from "@/hooks/use-typed-number"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
@@ -39,7 +39,8 @@ import {
 } from "@/components/ui/sheet"
 import { useEstimator } from "@/hooks/use-estimator"
 import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
-import { flushBook, useScope } from "@/lib/data/store"
+import { confirmEstimateSavedOnServer, flushBook, useScope } from "@/lib/data/store"
+import { runSendEstimateWorkflow } from "@/lib/proposals/send-workflow"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
@@ -76,6 +77,7 @@ export function Estimator({
   const [templateName, setTemplateName] = useState("")
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const sendingRef = useRef(false)
   const [sendFeedback, setSendFeedback] = useState<{
     tone: "success" | "error"
     message: string
@@ -141,7 +143,7 @@ export function Estimator({
   }
 
   const sendEstimate = async () => {
-    if (sending) return
+    if (sendingRef.current || sending) return
     if (missingMaterialPrices) {
       const msg = "Configure paint price per gallon before sending this quote. Total currently excludes materials."
       setStatus(msg)
@@ -155,59 +157,84 @@ export function Estimator({
       setSendFeedback({ tone: "error", message: msg })
       return
     }
-    const saved = persist()
-    if (!saved) return
-    if (mode === "new" && typeof window !== "undefined") {
-      window.history.replaceState(null, "", `/estimates/${saved.id}`)
-    }
+    sendingRef.current = true
     setSending(true)
     setSendFeedback(null)
     try {
-      await flushBook()
-      const response = await fetch(`/api/proposals/${saved.id}/email`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email,
-          clientName: draft.clientName,
-          estimate: saved,
-        }),
+      const result = await runSendEstimateWorkflow({
+        persistLocal: () => persist(),
+        confirmServerSave: confirmEstimateSavedOnServer,
+        onConfirmedSave: (saved) => {
+          if (mode === "new" && typeof window !== "undefined") {
+            window.history.replaceState(null, "", `/estimates/${saved.id}`)
+          }
+        },
+        sendEmail: async (saved) => {
+          try {
+            const response = await fetch(`/api/proposals/${saved.id}/email`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                email,
+                clientName: draft.clientName,
+              }),
+            })
+            const body = (await response.json().catch(() => null)) as {
+              detail?: string
+              reason?: string
+              delivery?: string
+            } | null
+            if (!response.ok || body?.delivery !== "sent") {
+              return {
+                ok: false,
+                reason: body?.reason || body?.detail || "The estimate could not be emailed.",
+              }
+            }
+            return {
+              ok: true,
+              message: "Sent. The job is in Estimate Sent. The client accepts from the link in the email.",
+            }
+          } catch {
+            return { ok: false, reason: "The estimate could not be emailed." }
+          }
+        },
+        onSentSuccess: async (saved) => {
+          const sentStage = stages.find((item) => item.slug === "estimate_sent")
+          const hold =
+            !sentStage ||
+            draft.clientStatus === "accepted" ||
+            stage?.slug === "scheduled" ||
+            stage?.slug === "completed" ||
+            stage?.id === sentStage.id
+          if (!hold && sentStage) {
+            moveStage(saved.id, sentStage.id)
+            patch({
+              id: saved.id,
+              clientId: saved.clientId,
+              stageId: sentStage.id,
+              clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
+            })
+          }
+          if (
+            draft.clientStatus !== "accepted" &&
+            draft.clientStatus !== "declined" &&
+            stage?.slug !== "scheduled" &&
+            stage?.slug !== "completed"
+          ) {
+            placeOnColumn(saved.id, "proposal_sent")
+          }
+          await flushBook()
+        },
       })
-      const body = (await response.json().catch(() => null)) as { detail?: string; reason?: string; delivery?: string } | null
-      if (!response.ok || body?.delivery !== "sent") {
-        const msg = body?.reason || body?.detail || "The estimate could not be emailed."
-        setStatus(msg)
-        setSendFeedback({ tone: "error", message: msg })
+      if (!result.ok) {
+        setStatus(result.reason)
+        setSendFeedback({ tone: "error", message: result.reason })
         return
       }
-      const sentStage = stages.find((item) => item.slug === "estimate_sent")
-      const hold =
-        !sentStage ||
-        draft.clientStatus === "accepted" ||
-        stage?.slug === "scheduled" ||
-        stage?.slug === "completed" ||
-        stage?.id === sentStage.id
-      if (!hold && sentStage) {
-        moveStage(saved.id, sentStage.id)
-        patch({
-          id: saved.id,
-          clientId: saved.clientId,
-          stageId: sentStage.id,
-          clientStatus: draft.clientStatus === "draft" ? "sent" : draft.clientStatus,
-        })
-      }
-      if (draft.clientStatus !== "accepted" && draft.clientStatus !== "declined" && stage?.slug !== "scheduled" && stage?.slug !== "completed") {
-        placeOnColumn(saved.id, "proposal_sent")
-      }
-      await flushBook()
-      const sentMessage = "Sent. The job is in Estimate Sent. The client accepts from the link in the email."
-      setStatus(sentMessage)
-      setSendFeedback({ tone: "success", message: sentMessage })
-    } catch {
-      const msg = "The estimate could not be emailed."
-      setStatus(msg)
-      setSendFeedback({ tone: "error", message: msg })
+      setStatus(result.message)
+      setSendFeedback({ tone: "success", message: result.message })
     } finally {
+      sendingRef.current = false
       setSending(false)
     }
   }

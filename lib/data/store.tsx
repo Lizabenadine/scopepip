@@ -91,6 +91,8 @@ let bookRevision = 0
 let lastSyncedState: ScopeState | null = null
 let saving = false
 let dirty = false
+let activePump: Promise<void> | null = null
+let lastSyncResult: { ok: true } | { ok: false; reason: string } = { ok: true }
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -179,21 +181,65 @@ function withBookSubstrates(state: ScopeState): ScopeState {
   return { ...state, productionRates }
 }
 
-export function flushBook(): Promise<void> {
+export function flushBook(): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!officeSession) {
+    return Promise.resolve({ ok: false, reason: "Sign in before saving this estimate." })
+  }
+  if (dirty && !saving) void pumpBook()
   return new Promise((resolve) => {
     const start = Date.now()
     const tick = () => {
-      if ((!dirty && !saving) || Date.now() - start > 4000) resolve()
-      else setTimeout(tick, 40)
+      if (!dirty && !saving) {
+        resolve(lastSyncResult)
+      } else if (Date.now() - start > 15000) {
+        resolve({ ok: false, reason: "Saving timed out. Check your connection and try again." })
+      } else {
+        setTimeout(tick, 40)
+      }
     }
     tick()
   })
+}
+
+export async function confirmEstimateSavedOnServer(
+  estimateId: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const flushed = await flushBook()
+  if (!flushed.ok) return flushed
+  try {
+    const response = await fetch("/api/account/book", { cache: "no-store" })
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { reason?: string } | null
+      return {
+        ok: false,
+        reason: payload?.reason || "Could not verify the saved proposal on the server.",
+      }
+    }
+    const payload = (await response.json().catch(() => null)) as { state?: unknown } | null
+    if (!isScopeState(payload?.state)) {
+      return { ok: false, reason: "Could not read the saved company book from the server." }
+    }
+    const savedOnServer = payload.state.estimates.find((item) => item.id === estimateId)
+    if (!savedOnServer || !savedOnServer.publicToken) {
+      return {
+        ok: false,
+        reason: "The saved proposal could not be confirmed on the server. Save and try again.",
+      }
+    }
+    return { ok: true }
+  } catch {
+    return {
+      ok: false,
+      reason: "Connection error verifying the saved proposal. Your edits are still on screen.",
+    }
+  }
 }
 
 function persist(state: ScopeState) {
   if (!officeSession) return
   void state
   dirty = true
+  lastSyncResult = { ok: true }
   if (!saving) void pumpBook()
 }
 
@@ -336,62 +382,95 @@ function mergeBookConflict(base: ScopeState | null, server: ScopeState, local: S
 }
 
 async function pumpBook() {
+  if (activePump) return activePump
   saving = true
   let retriedConflict = false
-  while (dirty && officeSession) {
-    await Promise.resolve()
-    dirty = false
-    const state = getSnapshot().state
-    const revision = bookRevision
-    if (officeSession) saveBrowserBook(officeSession.companyId, revision, state)
+  const run = (async () => {
     try {
-      const response = await fetch("/api/account/book", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ revision, state }),
-      })
-      if (response.status === 409) {
-        const fresh = (await response.json()) as { revision?: number; state?: unknown }
-        if (typeof fresh.revision === "number" && isScopeState(fresh.state)) {
-          const merged = withBookSubstrates(mergeBookConflict(lastSyncedState, fresh.state, getSnapshot().state))
-          bookRevision = fresh.revision
-          lastSyncedState = fresh.state
-          const hasUnsavedLocalDiff = JSON.stringify(merged) !== JSON.stringify(fresh.state)
-          current = {
-            state: merged,
-            notice: retriedConflict
-              ? "This book was updated somewhere else. Your unsaved changes were preserved."
-              : current.notice,
-            ready: true,
-            session: officeSession,
+      if (!officeSession) {
+        lastSyncResult = { ok: false, reason: "Sign in before saving this estimate." }
+        dirty = false
+        return
+      }
+      while (dirty && officeSession) {
+        await Promise.resolve()
+        dirty = false
+        const state = getSnapshot().state
+        const revision = bookRevision
+        if (officeSession) saveBrowserBook(officeSession.companyId, revision, state)
+        try {
+          const response = await fetch("/api/account/book", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ revision, state }),
+          })
+          if (response.status === 409) {
+            const fresh = (await response.json()) as { revision?: number; state?: unknown }
+            if (typeof fresh.revision === "number" && isScopeState(fresh.state)) {
+              const merged = withBookSubstrates(mergeBookConflict(lastSyncedState, fresh.state, getSnapshot().state))
+              bookRevision = fresh.revision
+              lastSyncedState = fresh.state
+              const hasUnsavedLocalDiff = JSON.stringify(merged) !== JSON.stringify(fresh.state)
+              current = {
+                state: merged,
+                notice: retriedConflict
+                  ? "This book was updated somewhere else. Your unsaved changes were preserved."
+                  : current.notice,
+                ready: true,
+                session: officeSession,
+              }
+              if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, merged)
+              emit()
+              if (!retriedConflict && hasUnsavedLocalDiff) {
+                retriedConflict = true
+                dirty = true
+                continue
+              }
+              if (!hasUnsavedLocalDiff) {
+                lastSyncResult = { ok: true }
+                dirty = false
+                break
+              }
+            }
+            lastSyncResult = {
+              ok: false,
+              reason: "This account changed in another session. Reload and save again before sending.",
+            }
+            dirty = false
+            break
           }
-          if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, merged)
-          emit()
-          if (!retriedConflict && hasUnsavedLocalDiff) {
-            retriedConflict = true
-            dirty = true
-            continue
+          if (response.ok) {
+            const saved = (await response.json()) as { revision?: number }
+            if (typeof saved.revision === "number") bookRevision = saved.revision
+            lastSyncedState = state
+            retriedConflict = false
+            lastSyncResult = { ok: true }
+            if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, state)
+          } else {
+            const failed = (await response.json().catch(() => null)) as { reason?: string } | null
+            lastSyncResult = {
+              ok: false,
+              reason: failed?.reason || "Could not save this estimate to your account. Your edits are still on screen.",
+            }
+            dirty = false
+            break
           }
+        } catch {
+          lastSyncResult = {
+            ok: false,
+            reason: "Connection error saving this estimate. Your edits are still on screen.",
+          }
+          dirty = false
+          break
         }
-        dirty = false
-        break
       }
-      if (response.ok) {
-        const saved = (await response.json()) as { revision?: number }
-        if (typeof saved.revision === "number") bookRevision = saved.revision
-        lastSyncedState = state
-        retriedConflict = false
-        if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, state)
-      } else if (response.status !== 409) {
-        dirty = false
-        break
-      }
-    } catch {
-      dirty = false
-      break
+    } finally {
+      saving = false
+      activePump = null
     }
-  }
-  saving = false
+  })()
+  activePump = run
+  return run
 }
 
 async function loadOfficeBook() {

@@ -4,22 +4,9 @@ import { pdfLogoFromUrl } from "@/lib/brand/logo-pdf"
 import { htmlPdf, resolveCompanyBrand } from "@/lib/proposals/htmlPdf"
 import { sendProposalEmail } from "@/lib/proposals/send"
 import { proposalMail } from "@/lib/proposals/mail"
-import type { Estimate } from "@/lib/types"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
-
-function isEstimateMatch(value: unknown, expectedId: string): value is Estimate {
-  if (!value || typeof value !== "object") return false
-  const candidate = value as Partial<Estimate>
-  return (
-    candidate.id === expectedId &&
-    Array.isArray(candidate.areas) &&
-    Array.isArray(candidate.lineItems) &&
-    typeof candidate.settings === "object" &&
-    candidate.settings !== null
-  )
-}
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await sessionFromRequest(request)
@@ -33,17 +20,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     to?: unknown
     clientName?: unknown
     name?: unknown
-    estimate?: unknown
   } | null
   const book = await readCompanyBook(session.companyId)
-  const storedEstimate = book?.state.estimates.find((item) => item.id === id)
-  const fallbackEstimate = isEstimateMatch(body?.estimate, id) ? body.estimate : undefined
-  const estimate = storedEstimate ?? fallbackEstimate
-  if (!book || !estimate) {
+  const estimate = book?.state.estimates.find((item) => item.id === id)
+  if (!book || !estimate || !estimate.publicToken) {
     console.error("[proposal-email] Proposal not found", {
       companyId: session.companyId,
       estimateId: id,
       hasBook: Boolean(book),
+      hasPublicToken: Boolean(estimate?.publicToken),
     })
     return Response.json({ ok: false, reason: "This proposal is not on file." }, { status: 404 })
   }

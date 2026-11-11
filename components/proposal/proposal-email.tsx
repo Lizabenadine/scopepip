@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useScope } from "@/lib/data/store"
+import { useRef, useState } from "react"
+import { confirmEstimateSavedOnServer, useScope } from "@/lib/data/store"
 
 export function ProposalEmail({
   estimateId,
@@ -17,6 +17,7 @@ export function ProposalEmail({
     hasEmail ? "" : "Add an email on the client before this proposal can go to an inbox.",
   )
   const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
 
   const placeInSent = () => {
     const estimate = estimates.find((item) => item.id === estimateId)
@@ -39,14 +40,22 @@ export function ProposalEmail({
         data-testid="email-proposal"
         disabled={!hasEmail || busy}
         onClick={() => {
+          if (busyRef.current || busy) return
+          busyRef.current = true
           setBusy(true)
           setNote("")
-          void fetch(`/api/proposals/${estimateId}/email`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ email: clientEmail?.trim() || "" }),
-          })
-            .then(async (response) => {
+          void (async () => {
+            try {
+              const saved = await confirmEstimateSavedOnServer(estimateId)
+              if (!saved.ok) {
+                setNote(saved.reason)
+                return
+              }
+              const response = await fetch(`/api/proposals/${estimateId}/email`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ email: clientEmail?.trim() || "" }),
+              })
               const body = (await response.json().catch(() => null)) as {
                 detail?: string
                 reason?: string
@@ -55,9 +64,13 @@ export function ProposalEmail({
               } | null
               if (response.ok && body?.delivery === "sent") placeInSent()
               setNote(body?.detail || body?.reason || "The proposal email could not be prepared.")
-            })
-            .catch(() => setNote("The proposal email could not be prepared."))
-            .finally(() => setBusy(false))
+            } catch {
+              setNote("The proposal email could not be prepared.")
+            } finally {
+              busyRef.current = false
+              setBusy(false)
+            }
+          })()
         }}
       >
         {busy ? "Emailing…" : "Email proposal"}
