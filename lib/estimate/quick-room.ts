@@ -27,7 +27,7 @@ export function quickRoom(name: string, kind: EstimateKind): AreaInput | null {
       areaType: "surface",
       lengthFt: 0,
       widthFt: 0,
-      heightFt: 10,
+      heightFt: 0,
       crewNote: "",
       surfaces: [surface("siding", 2)],
     }
@@ -41,7 +41,7 @@ export function quickRoom(name: string, kind: EstimateKind): AreaInput | null {
       widthFt: 0,
       heightFt: 0,
       crewNote: "",
-      surfaces: [surface("cabinet-doors", 2, 1)],
+      surfaces: [surface("cabinet-doors", 2, 0)],
     }
   }
   return {
@@ -50,7 +50,7 @@ export function quickRoom(name: string, kind: EstimateKind): AreaInput | null {
     areaType: "room",
     lengthFt: 0,
     widthFt: 0,
-    heightFt: 8,
+    heightFt: 0,
     crewNote: "",
     surfaces: [surface("walls", 2), surface("ceiling", 2), surface("baseboards", 2)],
   }

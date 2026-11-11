@@ -56,7 +56,7 @@ export function areaFromName(name: string): AreaInput {
     areaType: "room",
     lengthFt: 0,
     widthFt: 0,
-    heightFt: 8,
+    heightFt: 0,
     crewNote: "",
     surfaces: [],
   }

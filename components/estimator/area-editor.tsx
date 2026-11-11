@@ -31,6 +31,16 @@ import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type LineItemInput, type ProductionRate, type Substrate, type SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+function withBlankDimensions(room: AreaInput): AreaInput {
+  return {
+    ...room,
+    lengthFt: 0,
+    widthFt: 0,
+    heightFt: 0,
+    surfaces: room.surfaces.map((surface) => ({ ...surface, itemCount: 0 })),
+  }
+}
+
 export function AreaEditor({
 areas,
 areaGroups,
@@ -71,9 +81,10 @@ const [focusAreaId, setFocusAreaId] = useState<string | null>(null)
 const addRoom = (name: string) => {
 const room = quickRoom(name, kind)
     if (!room) return
-    onChange([...areas, room])
+    const blank = withBlankDimensions(room)
+    onChange([...areas, blank])
     setRoomDraft("")
-    setFocusAreaId(room.id)
+    setFocusAreaId(blank.id)
   }
 const [groupDraft, setGroupDraft] = useState("")
 const [groupError, setGroupError] = useState<string | null>(null)
@@ -156,10 +167,11 @@ const group = createAreaGroup(groupDraft)
               data-testid={`add-room-${template.id}`}
               className="rounded-full bg-muted px-3 py-1.5 text-sm"
               onClick={() => {
-const room = areaFromTemplate(template.id)
+                const room = areaFromTemplate(template.id)
                 if (!room) return
-                onChange([...areas, room])
-                setFocusAreaId(room.id)
+                const blank = withBlankDimensions(room)
+                onChange([...areas, blank])
+                setFocusAreaId(blank.id)
               }}
             >
               {template.name}
@@ -403,7 +415,7 @@ const surfaces = existing
             id: crypto.randomUUID(),
             rateId: rate.id,
             coatCount: rate.coatRates[rate.coatRates.length - 1]?.coats ?? 2,
-            itemCount: rate.measure === "items" ? 1 : 0,
+            itemCount: 0,
             quantityOverride: null,
             hoursOverride: null,
             crewNote: "",
@@ -706,7 +718,8 @@ const substrate = event.target.value as Substrate
                         {active.measure === "items" || active.measure === "shutters" ? (
                           <Input
                             aria-label={`${rate.internalLabel} count`}
-                            value={String(surface.itemCount)}
+                            placeholder="0"
+                            value={surface.itemCount === 0 ? "" : String(surface.itemCount)}
                             className="h-10 w-16 text-center"
                             onValueChange={(value) =>
                               updateSurface(surface, { itemCount: Number(value) || 0 })
@@ -1058,7 +1071,8 @@ const typed = useTypedNumber(value, onChange)
       <Input
         id={id}
         inputMode="decimal"
-        value={typed.value}
+        placeholder="0"
+        value={typed.value === "0" && value === 0 ? "" : typed.value}
         className="h-11"
         onFocus={typed.onFocus}
         onBlur={typed.onBlur}

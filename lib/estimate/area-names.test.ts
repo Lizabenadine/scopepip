@@ -37,7 +37,7 @@ describe("area names", () => {
     const area = areaFromName("East wall")
     assert.equal(area.name, "East wall")
     assert.equal(area.areaType, "room")
-    assert.equal(area.heightFt, 8)
+    assert.equal(area.heightFt, 0)
     assert.deepEqual(area.surfaces, [])
     assert.equal(area.lengthFt, 0)
   })
