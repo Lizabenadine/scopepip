@@ -265,7 +265,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     .map((line) => {
       const label = paintingText(line.label, line.labelEs, language)
       const note = line.clientNote ? paintingText(line.clientNote, line.clientNoteEs, language) : ""
-      return `<div class="surface-item" style="background: rgba(246, 242, 234, 0.7); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px;">
+      return `<div class="surface-item" style="background: #ffffff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px;">
         <div style="flex: 1; min-width: 0;">
           <span class="eyebrow">Included Carpentry &amp; Millwork Line</span>
           <p style="font-size: 15px; font-weight: 700; margin-top: 2px;">${escapeHtml(label)}</p>
@@ -341,7 +341,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
           hasCustomWarranty
             ? `<p class="eyebrow">Warranty</p>
         <h2 class="section-title" style="font-size: 25px;">Workmanship Warranty</h2>
-        <div style="margin-top: 14px; background: rgba(246, 242, 234, 0.68); border: 1px solid var(--line); border-radius: 16px; padding: 15px; font-size: 13px;">
+        <div style="margin-top: 14px; background: #ffffff; border: 1px solid var(--line); border-radius: 16px; padding: 15px; font-size: 13px;">
           ${(() => {
             const wText = say(rawWarranty)
             const colonIdx = wText.indexOf(":")
@@ -356,7 +356,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
         ${
           hasCustomPaymentTerms || hasFinancing
             ? `<p class="eyebrow" style="${hasCustomWarranty ? "margin-top: 16px;" : ""}">Payment Terms</p>
-        <div data-testid="proposal-section-payment-terms" style="margin-top: 8px; background: rgba(246, 242, 234, 0.68); border: 1px solid var(--line); border-radius: 16px; padding: 14px; font-size: 13px;">
+        <div data-testid="proposal-section-payment-terms" style="margin-top: 8px; background: #ffffff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; font-size: 13px;">
           ${hasCustomPaymentTerms ? escapeHtml(say(rawPaymentTerms)) : ""}
           ${hasFinancing ? `<div style="${hasCustomPaymentTerms ? "margin-top: 8px; " : ""}font-weight: 600; color: var(--brand);">Financing available: as low as ${escapeHtml(moneyExact(monthly))}/mo for ${financing.months} months (${financing.aprPercent}% APR).</div>` : ""}
         </div>`
@@ -413,11 +413,11 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --paper: #f6f2ea;
-      --paper-card: rgba(255, 255, 255, 0.88);
+      --paper: #ffffff;
+      --paper-card: #ffffff;
       --ink: #17191c;
       --ink-soft: #525866;
-      --line: rgba(23, 25, 28, 0.12);
+      --line: rgba(23, 25, 28, 0.14);
       --brand: ${palette.brand};
       --brand-soft: ${palette.brandSoft};
       --accent: #b85d27;
@@ -431,7 +431,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
     @page {
       size: letter;
-      margin: 0.22in 0.3in;
+      margin: 0.35in 0.35in;
     }
 
     * {
@@ -443,26 +443,31 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     }
 
     html, body {
-      background: #ebe5d9 !important;
+      background: #ffffff !important;
       color: var(--ink);
       font-family: var(--sans);
       line-height: 1.42;
       -webkit-font-smoothing: antialiased;
     }
 
+    h1, h2, h3, .section-title, .eyebrow {
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+
     .container {
       max-width: 940px;
       margin: 0 auto;
       padding: 4px 8px;
+      background: #ffffff;
     }
 
     .proposal-section {
-      background: var(--paper-card);
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 22px;
       padding: 14px 20px;
       margin-bottom: 10px;
-      box-shadow: 0 10px 26px -16px rgba(23, 25, 28, 0.08);
       break-inside: auto;
       page-break-inside: auto;
     }
@@ -474,13 +479,14 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
     .cover-card,
     .investment-bar,
+    .signature-pad,
     #proposal-page-sign {
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
     .cover-card {
-      background: linear-gradient(155deg, rgba(255,255,255,0.96) 0%, rgba(246,242,234,0.94) 100%);
+      background: #ffffff;
       border: 2px solid var(--brand);
       position: relative;
       overflow: hidden;
@@ -584,7 +590,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
     }
 
     .meta-box {
-      background: rgba(246, 242, 234, 0.78);
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 9px 12px;
@@ -664,7 +670,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
     .scope-overview-banner {
       margin-top: 8px;
-      background: rgba(246, 242, 234, 0.78);
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 7px 12px;
@@ -674,7 +680,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
     /* Room Cards */
     .room-card {
-      background: rgba(246, 242, 234, 0.58);
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 16px;
       padding: 12px 14px;
@@ -787,12 +793,14 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      background: rgba(246, 242, 234, 0.58);
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 10px 14px;
       font-size: 13px;
       color: var(--ink);
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .bullet-dot {
@@ -810,10 +818,12 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
     .scheduled-box {
       margin-top: 14px;
-      background: rgba(246, 242, 234, 0.68);
+      background: #ffffff;
       border: 1px solid var(--line);
       border-radius: 16px;
       padding: 16px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .scheduled-grid {
@@ -828,6 +838,8 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 10px 12px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .scheduled-prod {
@@ -847,8 +859,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
       margin-bottom: 18px;
-      break-inside: avoid;
-      page-break-inside: avoid;
+      align-items: start;
     }
 
     .two-col-sections .proposal-section {

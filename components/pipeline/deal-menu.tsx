@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
+import { cardNoteEntries, formatNoteTimestamp } from "@/components/pipeline/card-notes-section"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,8 +28,9 @@ export function DealMenu({
   clientName: string
   mode: "sales" | "jobs"
 }) {
-  const { session, stages, moveStage, addEstimateNote, scheduleSalesVisit, advanceSalesStage, archiveEstimate, assignWorkOrder, workOrders, markCustomerReply, placeOnColumn, customColumns, columnLabels } =
+  const { session, stages, crews, addEstimateNote, scheduleSalesVisit, advanceSalesStage, archiveEstimate, assignWorkOrder, workOrders, markCustomerReply, placeOnColumn, customColumns, columnLabels } =
     useScope()
+  const noteEntries = cardNoteEntries(estimate)
   const limited = session?.role === "project_manager"
   const menuRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -38,7 +40,6 @@ export function DealMenu({
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [note, setNote] = useState("")
   const [point, setPoint] = useState<{ top: number; left: number } | null>(null)
-  const scheduledStage = stages.find((stage) => stage.slug === "scheduled")
   const order = workOrders.find((item) => item.estimateId === estimate.id)
   const salesStage = salesStageOf(estimate)
   const nextSales = salesStage ? nextSalesStage(salesStage) : null
@@ -111,6 +112,24 @@ export function DealMenu({
                 <MenuLink href="/payments" onClick={() => setOpen(false)}>
                   Invoices
                 </MenuLink>
+                <MenuButton
+                  testId={`pm-schedule-${estimate.id}`}
+                  onClick={() => {
+                    setOpen(false)
+                    setSchedule("job")
+                  }}
+                >
+                  Schedule / Crew
+                </MenuButton>
+                <MenuButton
+                  testId={`pm-notes-${estimate.id}`}
+                  onClick={() => {
+                    setOpen(false)
+                    setNoteOpen(true)
+                  }}
+                >
+                  Notes
+                </MenuButton>
               </>
             ) : null}
             {limited ? null : (
@@ -269,15 +288,29 @@ export function DealMenu({
           open
           kind={schedule}
           clientName={clientName}
-          initialDate={schedule === "visit" ? (estimate.estimateVisitOn ?? null) : estimate.scheduledOn}
+          initialDate={schedule === "visit" ? (estimate.estimateVisitOn ?? null) : (order?.scheduledStartDate ?? estimate.scheduledOn)}
+          initialCrewId={schedule === "job" ? (order?.assignedCrewId ?? null) : null}
+          crews={schedule === "job" ? crews : []}
           initialTime={schedule === "visit" ? localVisitClock(estimate.estimateVisitAt) : ""}
           initialAddress={estimate.jobAddress}
           onOpenChange={(next) => {
             if (!next) setSchedule(null)
           }}
-          onConfirm={(date, time, address) => {
+          onConfirm={(date, time, address, crewId) => {
             if (schedule === "visit" && time) scheduleSalesVisit(estimate.id, date, time, address)
-            if (schedule === "job" && scheduledStage) moveStage(estimate.id, scheduledStage.id, date)
+            if (schedule === "job") {
+              const nextStatus =
+                order?.status === "complete" || order?.status === "in_progress"
+                  ? order.status
+                  : date
+                    ? "scheduled"
+                    : "unscheduled"
+              assignWorkOrder(estimate.id, {
+                status: nextStatus,
+                scheduledStartDate: date || null,
+                assignedCrewId: crewId ?? null,
+              })
+            }
             setSchedule(null)
           }}
         />
@@ -309,11 +342,18 @@ export function DealMenu({
       <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Notes</DialogTitle>
-            <DialogDescription>Notes on {clientName}&apos;s deal. There is no character cap.</DialogDescription>
+            <DialogTitle>Internal Notes</DialogTitle>
+            <DialogDescription>Persistent internal notes on {clientName}&apos;s job with timestamps.</DialogDescription>
           </DialogHeader>
-          {estimate.notes.trim() ? (
-            <p className="max-h-40 overflow-y-auto text-sm whitespace-pre-wrap text-slate-700">{estimate.notes}</p>
+          {noteEntries.length > 0 ? (
+            <ul className="flex max-h-48 flex-col gap-2 overflow-y-auto">
+              {noteEntries.map((entry) => (
+                <li key={entry.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                  <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(entry.at)}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-slate-800">{entry.body}</p>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="text-sm text-muted-foreground">No notes yet.</p>
           )}

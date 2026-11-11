@@ -64,6 +64,7 @@ export function SalesPipelineBoard() {
   const [columnError, setColumnError] = useState("")
   const [optimisticOverrides, setOptimisticOverrides] = useState<Record<string, string>>({})
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [activeMobileColumnId, setActiveMobileColumnId] = useState<string>("")
 
   // Drag and drop state
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null)
@@ -356,9 +357,15 @@ export function SalesPipelineBoard() {
   const title = fieldJobHeading("Sales Pipeline", language)
   const totalLeads = columns.reduce((sum, col) => sum + col.cards.length, 0)
   const totalPipelineDollar = columns.reduce((sum, col) => sum + col.total, 0)
+  const activeColumnIndex = Math.max(
+    0,
+    columns.findIndex((col) => col.id === activeMobileColumnId),
+  )
+  const activeColumn = columns[activeColumnIndex] ?? columns[0]
+  const activeColumnId = activeColumn?.id ?? ""
 
   return (
-    <div className="flex flex-col gap-4" data-testid="sales-pipeline">
+    <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden" data-testid="sales-pipeline">
       {/* Tab Navigation */}
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Pipeline">
         <Link
@@ -479,16 +486,89 @@ export function SalesPipelineBoard() {
         </div>
       )}
 
-      {/* Kanban Board Container */}
+      {/* Mobile Single-Stage Horizontal Navigation */}
+      <div className="flex flex-col gap-2 md:hidden" data-testid="mobile-stage-nav">
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-xs">
+          <button
+            type="button"
+            data-testid="mobile-stage-prev"
+            aria-label="Previous pipeline stage"
+            disabled={activeColumnIndex <= 0}
+            onClick={() => {
+              const prev = columns[activeColumnIndex - 1]
+              if (prev) setActiveMobileColumnId(prev.id)
+            }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 disabled:opacity-35"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-xs font-bold uppercase tracking-wider text-slate-800">
+              {activeColumn ? fieldJobHeading(activeColumn.label, language) : ""}
+            </p>
+            <p className="text-[11px] text-slate-500 tabular-nums">
+              {activeColumn ? `${activeColumn.cards.length} · ${moneyExact(activeColumn.total)}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="mobile-stage-next"
+            aria-label="Next pipeline stage"
+            disabled={activeColumnIndex >= columns.length - 1}
+            onClick={() => {
+              const next = columns[activeColumnIndex + 1]
+              if (next) setActiveMobileColumnId(next.id)
+            }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 disabled:opacity-35"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+
+        <div
+          role="tablist"
+          aria-label="Sales pipeline stages"
+          className="flex gap-1.5 overflow-x-auto pb-1"
+        >
+          {columns.map((column) => {
+            const selected = column.id === activeColumnId
+            return (
+              <button
+                key={column.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                data-testid={`mobile-stage-tab-${column.id}`}
+                onClick={() => setActiveMobileColumnId(column.id)}
+                className={cn(
+                  "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                  selected
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                )}
+              >
+                {fieldJobHeading(column.label, language)}
+                <span className="ml-1.5 tabular-nums opacity-80">{column.cards.length}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Kanban Board Container (single stage on mobile, full Kanban columns on md+) */}
       <div
         ref={scrollContainerRef}
-        className="flex items-start gap-3.5 overflow-x-auto pb-6 pt-1 select-none scroll-smooth focus:outline-none"
+        className={cn(
+          "flex flex-col gap-3 md:flex-row md:items-start md:gap-3.5 md:overflow-x-auto pb-6 pt-1 scroll-smooth focus:outline-none",
+          activeDrag && "select-none",
+        )}
         tabIndex={0}
         aria-label="Sales pipeline stages board"
       >
         {columns.map((column) => {
           const isHoverTarget = activeDrag && hasMoved && hoveredColumnId === column.id
           const isSourceColumn = activeDrag?.sourceColumnId === column.id
+          const isMobileActive = column.id === activeColumnId
 
           return (
             <section
@@ -499,7 +579,8 @@ export function SalesPipelineBoard() {
               data-testid={`column-${column.id}`}
               data-column-id={column.id}
               className={cn(
-                "flex w-76 shrink-0 flex-col gap-2.5 rounded-2xl bg-slate-100/75 p-3 border transition-colors duration-150",
+                "w-full min-w-0 flex-col gap-2.5 rounded-2xl bg-slate-100/75 p-3 border transition-colors duration-150 md:flex md:w-76 md:shrink-0",
+                isMobileActive ? "flex" : "hidden",
                 isHoverTarget ? "border-primary/50 bg-primary/[0.04] ring-2 ring-primary/20" : "border-slate-200/80",
               )}
             >
@@ -632,7 +713,7 @@ export function SalesPipelineBoard() {
 
         {/* Add Column Form */}
         <form
-          className="flex w-76 shrink-0 flex-col gap-2 self-start rounded-2xl border border-dashed border-slate-300 bg-white/40 p-3 shadow-xs"
+          className="flex w-full shrink-0 flex-col gap-2 self-start rounded-2xl border border-dashed border-slate-300 bg-white/40 p-3 shadow-xs md:w-76"
           data-testid="add-column"
           onSubmit={(e) => {
             e.preventDefault()

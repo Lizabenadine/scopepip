@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { FieldLanguage } from "@/lib/field/language"
 import { officeLabel, officeScheduleTitle } from "@/lib/office/dashboard-copy"
+import type { CrewLead } from "@/lib/types"
 
 function tomorrow(): string {
   const date = new Date()
@@ -27,6 +28,8 @@ export function ScheduleDialog({
   open,
   clientName,
   initialDate,
+  initialCrewId = null,
+  crews = [],
   initialTime = "",
   initialAddress = "",
   kind = "job",
@@ -37,15 +40,18 @@ export function ScheduleDialog({
   open: boolean
   clientName: string
   initialDate: string | null
+  initialCrewId?: string | null
+  crews?: CrewLead[]
   initialTime?: string
   initialAddress?: string
   kind?: "job" | "visit"
   language?: FieldLanguage
   onOpenChange: (open: boolean) => void
-  onConfirm: (date: string, time?: string, address?: string) => void
+  onConfirm: (date: string, time?: string, address?: string, crewId?: string | null) => void
 }) {
   const say = (text: string) => officeLabel(text, language)
-  const [date, setDate] = useState(initialDate || tomorrow())
+  const [date, setDate] = useState(kind === "visit" ? (initialDate || tomorrow()) : (initialDate ?? ""))
+  const [crewId, setCrewId] = useState(initialCrewId ?? "")
   const [time, setTime] = useState(initialTime)
   const [address, setAddress] = useState(initialAddress)
 
@@ -54,7 +60,8 @@ export function ScheduleDialog({
       open={open}
       onOpenChange={(next) => {
         if (next) {
-          setDate(initialDate || tomorrow())
+          setDate(kind === "visit" ? (initialDate || tomorrow()) : (initialDate ?? ""))
+          setCrewId(initialCrewId ?? "")
           setTime(initialTime)
           setAddress(initialAddress)
         }
@@ -67,12 +74,23 @@ export function ScheduleDialog({
           <DialogDescription>
             {kind === "visit"
               ? "Pick the day and the start time. The reminder is counted back from that start."
-              : say("Pick the day you're on site. You can change it from the estimate.")}
+              : say("Pick the start date and assigned crew for this job.")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="schedule-date">{kind === "visit" ? "Visit day" : say("On site")}</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="schedule-date">{kind === "visit" ? "Visit day" : say("On site")}</Label>
+              {kind === "job" && date ? (
+                <button
+                  type="button"
+                  onClick={() => setDate("")}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Clear date
+                </button>
+              ) : null}
+            </div>
             <Input
               id="schedule-date"
               data-testid="schedule-date"
@@ -82,6 +100,25 @@ export function ScheduleDialog({
               className="h-11"
             />
           </div>
+          {kind === "job" && crews.length > 0 ? (
+            <div className="grid gap-2">
+              <Label htmlFor="schedule-crew">{say("Assigned crew")}</Label>
+              <select
+                id="schedule-crew"
+                data-testid="schedule-crew"
+                value={crewId}
+                onChange={(event) => setCrewId(event.target.value)}
+                className="h-11 rounded-lg border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="">Unassigned</option>
+                {crews.map((crew) => (
+                  <option key={crew.id} value={crew.id}>
+                    {crew.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           {kind === "visit" ? (
             <>
               <div className="grid gap-2">
@@ -114,8 +151,8 @@ export function ScheduleDialog({
             type="button"
             className="h-11"
             data-testid="schedule-confirm"
-            disabled={kind === "visit" ? !date || !time : !date}
-            onClick={() => onConfirm(date, kind === "visit" ? time : undefined, address)}
+            disabled={kind === "visit" ? !date || !time : !date && !crewId && !initialDate && !initialCrewId}
+            onClick={() => onConfirm(date, kind === "visit" ? time : undefined, address, crewId || null)}
           >
             {kind === "visit" ? "Book visit" : say("Schedule job")}
           </Button>

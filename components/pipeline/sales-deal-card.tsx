@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { type MouseEvent, type PointerEvent } from "react"
 import { Calendar, ChevronRight, Eye, FileText, GripVertical, Mail, MessageSquare, Phone, PhoneCall } from "lucide-react"
+import { CardNotesSection } from "@/components/pipeline/card-notes-section"
 import { DealMenu } from "@/components/pipeline/deal-menu"
 import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { Badge } from "@/components/ui/badge"
@@ -149,7 +150,7 @@ export function SalesDealCard({
   })()
 
   const cardClasses = cn(
-    "group relative flex flex-col gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
+    "group relative flex w-full min-w-0 flex-col gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
     !isOverlay && "hover:border-slate-300 hover:shadow-md cursor-pointer",
     isDragging && "opacity-30 border-2 border-dashed border-primary/40 bg-primary/[0.03]",
     isOverlay && "shadow-2xl border-primary ring-2 ring-primary/20 rotate-1 scale-[1.02] cursor-grabbing bg-white",
@@ -255,7 +256,7 @@ export function SalesDealCard({
       {/* Property Address & Dark Navy "Navigate to Jobsite" button where applicable */}
       {estimate.jobAddress ? (
         <div className="flex flex-col gap-1.5" data-interactive="true" onClick={(e) => e.stopPropagation()}>
-          <p className="text-sm font-medium text-slate-800">{estimate.jobAddress}</p>
+          <p className="break-words text-sm font-medium text-slate-800">{estimate.jobAddress}</p>
           <NavigateToJobsite address={estimate.jobAddress} />
         </div>
       ) : null}
@@ -278,6 +279,8 @@ export function SalesDealCard({
           )}
         </div>
       )}
+
+      <CardNotesSection estimate={estimate} />
 
       {/* Bottom Footer: Quick Actions, Move Dropdown & Deal Menu */}
       <div className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-3">

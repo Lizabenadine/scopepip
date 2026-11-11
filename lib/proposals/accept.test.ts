@@ -50,7 +50,11 @@ describe("applyAcceptance", () => {
     assert.equal(estimate?.versions?.some((version) => version.approved), true)
     assert.equal(salesStageOf(estimate!), null)
     const stage = result.state.stages.find((item) => item.id === estimate?.stageId)
-    assert.equal(jobStageOf(estimate!, order, stage?.slug), "project_accepted")
+    assert.equal(stage?.slug, "scheduled")
+    assert.equal(jobStageOf(estimate!, order, stage?.slug), "project_scheduled")
+    assert.equal(estimate?.scheduledOn, null)
+    assert.equal(order?.status, "unscheduled")
+    assert.equal(order?.scheduledStartDate, null)
     const edited = {
       ...estimate!,
       areas: estimate!.areas.map((area) => ({ ...area, name: "Changed after signing" })),
@@ -87,14 +91,45 @@ describe("applyAcceptance", () => {
     assert.equal(estimate.lineItems.some((item) => item.label === "Accent wall" && item.optional), true)
   })
 
-  it("rejects a second signature", () => {
+  it("rejects a second signature cleanly without duplicating work orders or altering job stage", () => {
     const state = createSeedState()
-    const result = applyAcceptance(state, "a4c8e1b7d092", {
+    const first = applyAcceptance(state, "k7m2p9qx4n", {
+      signedName: "Alex Ortiz",
+      signaturePayload: "typed:Alex Ortiz",
+      signedAt,
+      selectedLineIds: ["ortiz-trim"],
+    })
+    assert.equal(first.ok, true)
+    if (!first.ok) return
+    const workOrderCount = first.state.workOrders.filter((o) => o.estimateId === "est-ortiz").length
+    assert.equal(workOrderCount, 1)
+
+    // Advance manually to in_progress, then replay acceptance
+    const inProgressState = {
+      ...first.state,
+      workOrders: first.state.workOrders.map((o) =>
+        o.estimateId === "est-ortiz" ? { ...o, status: "in_progress" as const, scheduledStartDate: "2026-10-12" } : o,
+      ),
+    }
+    const replay = applyAcceptance(inProgressState, "k7m2p9qx4n", {
+      signedName: "Alex Ortiz",
+      signaturePayload: "typed:Alex Ortiz",
+      signedAt: "2026-10-03T10:00:00.000Z",
+      selectedLineIds: [],
+    })
+    assert.equal(replay.ok, false)
+    assert.equal(inProgressState.workOrders.filter((o) => o.estimateId === "est-ortiz").length, 1)
+    assert.equal(
+      inProgressState.workOrders.find((o) => o.estimateId === "est-ortiz")?.status,
+      "in_progress",
+    )
+
+    const existing = applyAcceptance(state, "a4c8e1b7d092", {
       signedName: "Someone Else",
       signaturePayload: "typed:Someone Else",
       signedAt,
       selectedLineIds: [],
     })
-    assert.equal(result.ok, false)
+    assert.equal(existing.ok, false)
   })
 })

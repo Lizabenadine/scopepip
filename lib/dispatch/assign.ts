@@ -135,13 +135,13 @@ export function applyAssignment(
   }
 
   const status = input.status
-  const assignedCrewId = status === "unscheduled" ? null : crewId
+  const assignedCrewId = status === "unscheduled" && !crewId ? null : crewId
   const scheduledStartDate = status === "unscheduled" ? null : startDate
   const previous = state.workOrders.find((order) => order.estimateId === estimate.id)
   const base = previous ?? createWorkOrder(estimate)
   const crewChanged = Boolean(assignedCrewId) && base.assignedCrewId !== assignedCrewId
   const notifiedAt =
-    status === "unscheduled" ? null : crewChanged ? input.notifiedAt : base.notifiedAt
+    status === "unscheduled" && !assignedCrewId ? null : crewChanged ? input.notifiedAt : base.notifiedAt
 
   const unchanged =
     base.status === status &&
@@ -174,8 +174,14 @@ export function applyAssignment(
   } else if ((status === "scheduled" || status === "in_progress") && scheduledStage) {
     stageId = scheduledStage.id
     scheduledOn = scheduledStartDate
-  } else if (status === "unscheduled" && sentStage) {
-    stageId = sentStage.id
+  } else if (status === "unscheduled") {
+    // Clearing a start date keeps an accepted job in Scheduled (awaiting date assignment) if already there.
+    stageId =
+      stage?.slug === "scheduled" && scheduledStage
+        ? scheduledStage.id
+        : estimate.clientStatus === "accepted" && scheduledStage
+          ? scheduledStage.id
+          : (sentStage?.id ?? estimate.stageId)
     scheduledOn = null
   }
 

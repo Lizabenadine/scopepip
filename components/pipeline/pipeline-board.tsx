@@ -171,7 +171,12 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   }, [rawColumns, optimisticOverrides])
 
   const visibleColumns = progressOnly
-    ? columns.filter((column) => column.id === "project_in_progress")
+    ? columns.filter(
+        (column) =>
+          column.id === "project_accepted" ||
+          column.id === "project_scheduled" ||
+          column.id === "project_in_progress",
+      )
     : columns
 
   const allColumnOptions = useMemo(() => {
@@ -372,7 +377,7 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
   const footerLabel = kind === "sales" ? "Total Value" : "Total Revenue"
 
   return (
-    <div className="flex flex-col gap-4" data-testid={kind === "sales" ? "sales-pipeline" : "jobs-pipeline"}>
+    <div className="flex min-w-0 flex-col gap-4 overflow-x-hidden" data-testid={kind === "sales" ? "sales-pipeline" : "jobs-pipeline"}>
       {progressOnly ? null : <PipelineTabs kind={kind} crew={crew} onCrew={setCrew} language={jobLanguage} />}
       {crew && kind === "jobs" && !progressOnly ? (
         <DispatchBoard />
@@ -577,7 +582,7 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             ))}
             {progressOnly ? null : (
             <form
-              className="flex w-72 shrink-0 flex-col gap-2 self-start rounded-2xl border border-dashed border-border p-3"
+              className="flex w-full shrink-0 flex-col gap-2 self-start rounded-2xl border border-dashed border-border p-3 md:w-72"
               data-testid="add-column"
               onSubmit={(event) => {
                 event.preventDefault()

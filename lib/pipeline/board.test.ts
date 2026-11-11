@@ -1,7 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { appendNote } from "../clients/activity.ts"
 import { createSeedState } from "../data/seed.ts"
 import { moneyExact } from "../format.ts"
+import { applyAcceptance } from "../proposals/accept.ts"
+import { applyAssignment } from "../dispatch/assign.ts"
 import { buildPipeline, invoiceStatus, nextSalesStage, OPEN_FILTERS } from "./board.ts"
 
 const TODAY = "2026-10-02"
@@ -97,5 +100,78 @@ describe("sales and job pipelines", () => {
       ),
       "Invoice balance $551.25",
     )
+  })
+
+  it("keeps timestamped internal notes and schedule/crew info attached across sales -> scheduled -> in_progress -> complete", () => {
+    const base = createSeedState()
+    const withNote = {
+      ...base,
+      estimates: base.estimates.map((e) =>
+        e.id === "est-ortiz"
+          ? appendNote(e, "Gate code #4421, dog inside.", "2026-10-01T14:30:00.000Z")
+          : e,
+      ),
+    }
+
+    // Moves from Proposal Sent -> Scheduled on homeowner signature, with no auto start date
+    const accepted = applyAcceptance(withNote, "k7m2p9qx4n", {
+      signedName: "Alex Ortiz",
+      signaturePayload: "typed:Alex Ortiz",
+      signedAt: "2026-10-02T16:00:00.000Z",
+      selectedLineIds: [],
+    })
+    assert.equal(accepted.ok, true)
+    if (!accepted.ok) return
+    const salesAfterAccept = buildPipeline(accepted.state, "sales", OPEN_FILTERS, TODAY)
+    const sentCol = salesAfterAccept.find((c) => c.id === "proposal_sent")
+    assert.equal(sentCol?.cards.some((c) => c.estimateId === "est-ortiz"), false)
+
+    const jobsAfterAccept = buildPipeline(accepted.state, "jobs", OPEN_FILTERS, TODAY)
+    assert.equal(
+      jobsAfterAccept.find((c) => c.id === "project_scheduled")?.cards.some((c) => c.estimateId === "est-ortiz"),
+      true,
+    )
+    const ortizAfterAccept = accepted.state.estimates.find((e) => e.id === "est-ortiz")
+    assert.equal(ortizAfterAccept?.noteLog?.[0]?.body, "Gate code #4421, dog inside.")
+    assert.equal(ortizAfterAccept?.noteLog?.[0]?.at, "2026-10-01T14:30:00.000Z")
+    assert.equal(ortizAfterAccept?.scheduledOn, null)
+
+    // Assign start date and crew, then advance to in_progress and complete
+    const scheduled = applyAssignment(accepted.state, {
+      estimateId: "est-ortiz",
+      status: "scheduled",
+      assignedCrewId: "crew-south",
+      scheduledStartDate: "2026-10-14",
+      notifiedAt: "2026-10-03T09:00:00.000Z",
+    })
+    assert.equal(scheduled.ok, true)
+    if (!scheduled.ok) return
+
+    const inProg = applyAssignment(scheduled.state, {
+      estimateId: "est-ortiz",
+      status: "in_progress",
+      assignedCrewId: "crew-south",
+      scheduledStartDate: "2026-10-14",
+      notifiedAt: "2026-10-14T08:00:00.000Z",
+    })
+    assert.equal(inProg.ok, true)
+    if (!inProg.ok) return
+
+    const completed = applyAssignment(inProg.state, {
+      estimateId: "est-ortiz",
+      status: "complete",
+      assignedCrewId: "crew-south",
+      scheduledStartDate: "2026-10-14",
+      notifiedAt: "2026-10-18T17:00:00.000Z",
+    })
+    assert.equal(completed.ok, true)
+    if (!completed.ok) return
+
+    const finalEstimate = completed.state.estimates.find((e) => e.id === "est-ortiz")
+    const finalOrder = completed.state.workOrders.find((o) => o.estimateId === "est-ortiz")
+    assert.equal(finalEstimate?.noteLog?.[0]?.body, "Gate code #4421, dog inside.")
+    assert.equal(finalEstimate?.noteLog?.[0]?.at, "2026-10-01T14:30:00.000Z")
+    assert.equal(finalOrder?.scheduledStartDate, "2026-10-14")
+    assert.equal(finalOrder?.assignedCrewId, "crew-south")
   })
 })

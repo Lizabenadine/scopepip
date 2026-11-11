@@ -885,17 +885,27 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     acceptEstimate: (id) => {
       const latest = getSnapshot().state
       const signedAt = new Date().toISOString()
-      const estimates = latest.estimates.map((estimate) =>
-        estimate.id === id
-          ? {
-              ...estimate,
-              clientStatus: "accepted" as const,
-              acceptedAt: signedAt,
-              declinedAt: null,
-              updatedAt: signedAt,
-            }
-          : estimate,
-      )
+      const scheduledStage = latest.stages.find((stage) => stage.slug === "scheduled")
+      const estimates = latest.estimates.map((estimate) => {
+        if (estimate.id !== id) return estimate
+        if (estimate.clientStatus === "accepted") return estimate
+        const currentStage = latest.stages.find((stage) => stage.id === estimate.stageId)
+        const shouldMoveToScheduled =
+          Boolean(scheduledStage) &&
+          currentStage?.slug !== "scheduled" &&
+          currentStage?.slug !== "completed"
+        return {
+          ...estimate,
+          stageId: shouldMoveToScheduled && scheduledStage ? scheduledStage.id : estimate.stageId,
+          salesStage: null,
+          boardColumnId: null,
+          scheduledOn: estimate.scheduledOn ?? null,
+          clientStatus: "accepted" as const,
+          acceptedAt: estimate.acceptedAt ?? signedAt,
+          declinedAt: null,
+          updatedAt: signedAt,
+        }
+      })
       const accepted = estimates.find((estimate) => estimate.id === id)
       const workOrders =
         accepted && !latest.workOrders.some((order) => order.estimateId === id)

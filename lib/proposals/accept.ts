@@ -31,6 +31,13 @@ export function applyAcceptance(
   if (!signedName) return { ok: false, reason: "Sign with your name." }
   if (!input.signaturePayload) return { ok: false, reason: "Add a signature." }
 
+  const scheduledStage = state.stages.find((stage) => stage.slug === "scheduled")
+  const currentStage = state.stages.find((stage) => stage.id === estimate.stageId)
+  const shouldMoveToScheduled =
+    Boolean(scheduledStage) &&
+    currentStage?.slug !== "scheduled" &&
+    currentStage?.slug !== "completed"
+
   const selected = new Set(input.selectedLineIds)
   const signature: ClientSignature = {
     signedName,
@@ -41,6 +48,10 @@ export function applyAcceptance(
   const updated: Estimate = lockApprovedScope(
     {
       ...estimate,
+      stageId: shouldMoveToScheduled && scheduledStage ? scheduledStage.id : estimate.stageId,
+      salesStage: null,
+      boardColumnId: null,
+      scheduledOn: estimate.scheduledOn ?? null,
       clientStatus: "accepted",
       acceptedAt: input.signedAt,
       declinedAt: null,

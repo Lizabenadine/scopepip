@@ -437,4 +437,26 @@ describe("proposalMail", () => {
     })
     assert.match(includedHtml, /Paint materials included/)
   })
+
+  it("renders a clean white PDF print background with break-after heading guards and no beige surfaces", () => {
+    const state = createSeedState()
+    const estimate = state.estimates.find((item) => item.id === "est-ortiz")
+    const client = state.clients.find((item) => item.id === estimate?.clientId)
+    assert.ok(estimate && client)
+    const html = renderProposalHtml({
+      estimate,
+      clientName: client.name,
+      clientEmail: client.email,
+      language: "en",
+      companyName: state.estimateSettings.companyName,
+      paymentMethods: state.paymentMethods,
+      estimateSettings: estimate.settings,
+      origin: "https://office.example",
+    })
+    assert.match(html, /background:\s*#ffffff !important/)
+    assert.equal(html.includes("#ebe5d9"), false)
+    assert.equal(html.includes("246, 242, 234"), false)
+    assert.match(html, /break-after:\s*avoid/)
+    assert.match(html, /break-inside:\s*avoid/)
+  })
 })

@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, type MouseEvent, type PointerEvent } from "react"
-import { GripVertical } from "lucide-react"
+import { CalendarClock, GripVertical, Users } from "lucide-react"
+import { CardNotesSection } from "@/components/pipeline/card-notes-section"
 import { DealMenu } from "@/components/pipeline/deal-menu"
 import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
@@ -64,6 +65,7 @@ export function DealCard({
   const [contactOpen, setContactOpen] = useState(false)
   const [contactNote, setContactNote] = useState("")
   const [visitOpen, setVisitOpen] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const [sendingSuggestion, setSendingSuggestion] = useState(false)
   const source = estimate.leadSource
   const tags = estimate.tags ?? []
@@ -189,8 +191,13 @@ export function DealCard({
             ? "bg-amber-100 text-amber-800 border-amber-200"
             : "bg-indigo-100 text-indigo-800 border-indigo-200"
 
+    const scheduledDate = order?.scheduledStartDate || estimate.scheduledOn
+    const assignedCrew = order?.assignedCrewId
+      ? scope.crews.find((c) => c.id === order.assignedCrewId)
+      : undefined
+
     const cardClasses = cn(
-      "group relative flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
+      "group relative flex w-full min-w-0 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm select-none transition-all duration-150",
       !isOverlay && "hover:border-slate-300 hover:shadow-md cursor-pointer",
       isDragging && "opacity-30 border-2 border-dashed border-primary/40 bg-primary/[0.03]",
       isOverlay && "shadow-2xl border-primary ring-2 ring-primary/20 rotate-1 scale-[1.02] cursor-grabbing bg-white",
@@ -269,22 +276,69 @@ export function DealCard({
 
         {/* Property Address & Navigate to Jobsite */}
         <div className="flex flex-col gap-1.5" data-interactive="true" onClick={(e) => e.stopPropagation()}>
-          <p className="text-sm font-medium text-slate-800">
+          <p className="break-words text-sm font-medium text-slate-800">
             {estimate.jobAddress || fieldJobHeading("No address yet", jobLanguage)}
           </p>
           <NavigateToJobsite address={estimate.jobAddress} />
         </div>
 
-        {/* Scheduled Job Dates */}
-        {estimate.scheduledOn ? (
-          <p className="text-sm font-medium text-slate-900">
-            {officeOnSite(estimate.scheduledOn, jobLanguage)}
+        {/* Scheduled Job Date & Assigned Crew */}
+        <div
+          className="flex flex-col gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2 text-xs"
+          data-interactive="true"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 font-medium text-slate-700" data-testid={`date-status-${estimate.id}`}>
+              <CalendarClock className="size-3.5 shrink-0 text-slate-500" />
+              {scheduledDate ? (
+                <span>{officeOnSite(scheduledDate, jobLanguage)}</span>
+              ) : (
+                <span className="font-semibold text-amber-700">Date not assigned</span>
+              )}
+            </span>
+            <button
+              type="button"
+              data-interactive="true"
+              data-testid={`schedule-job-${estimate.id}`}
+              onClick={() => setScheduleOpen(true)}
+              className="shrink-0 font-semibold text-primary hover:underline"
+            >
+              {scheduledDate || assignedCrew ? "Edit schedule" : "Schedule / Crew"}
+            </button>
+          </div>
+          <p className="inline-flex items-center gap-1.5 text-slate-600" data-testid={`crew-status-${estimate.id}`}>
+            <Users className="size-3.5 shrink-0 text-slate-400" />
+            <span>Crew: {assignedCrew ? assignedCrew.name : "Unassigned"}</span>
           </p>
-        ) : (
-          <p className="text-xs italic text-muted-foreground">
-            {fieldJobHeading("Not scheduled yet", jobLanguage)}
-          </p>
-        )}
+        </div>
+
+        <CardNotesSection estimate={estimate} />
+
+        <ScheduleDialog
+          open={scheduleOpen}
+          kind="job"
+          clientName={clientName}
+          initialDate={scheduledDate ?? null}
+          initialCrewId={order?.assignedCrewId ?? null}
+          crews={scope.crews}
+          language={jobLanguage}
+          onOpenChange={setScheduleOpen}
+          onConfirm={(date, _time, _address, crewId) => {
+            const nextStatus =
+              order?.status === "complete" || order?.status === "in_progress"
+                ? order.status
+                : date
+                  ? "scheduled"
+                  : "unscheduled"
+            scope.assignWorkOrder(estimate.id, {
+              status: nextStatus,
+              scheduledStartDate: date || null,
+              assignedCrewId: crewId ?? null,
+            })
+            setScheduleOpen(false)
+          }}
+        />
 
         {estimate.paymentStatus === "deposit_paid" &&
         (estimate.depositReceipt?.amount ?? 0) < total ? (
@@ -513,6 +567,7 @@ export function DealCard({
           ))}
         </div>
       ) : null}
+      <CardNotesSection estimate={estimate} />
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
         <DialogContent>
           <DialogHeader>

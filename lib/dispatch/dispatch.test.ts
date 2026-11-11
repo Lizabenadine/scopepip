@@ -113,6 +113,31 @@ describe("dispatch board", () => {
     assert.equal(order?.status, "unscheduled")
     assert.equal(order?.scheduledStartDate, null)
   })
+
+  it("allows assigning a crew before a start date is chosen without dropping Scheduled stage", () => {
+    const state = createSeedState()
+    const accepted = {
+      ...state,
+      estimates: state.estimates.map((e) =>
+        e.id === "est-ortiz" ? { ...e, clientStatus: "accepted" as const, stageId: "stage-scheduled" } : e,
+      ),
+    }
+    const result = applyAssignment(accepted, {
+      estimateId: "est-ortiz",
+      status: "unscheduled",
+      assignedCrewId: "crew-north",
+      scheduledStartDate: null,
+      notifiedAt: "2026-10-03T12:00:00.000Z",
+    })
+    assert.equal(result.ok, true)
+    if (!result.ok) return
+    const order = result.state.workOrders.find((o) => o.estimateId === "est-ortiz")
+    const estimate = result.state.estimates.find((e) => e.id === "est-ortiz")
+    assert.equal(order?.assignedCrewId, "crew-north")
+    assert.equal(order?.scheduledStartDate, null)
+    assert.equal(estimate?.stageId, "stage-scheduled")
+    assert.equal(estimate?.scheduledOn, null)
+  })
 })
 
 describe("crew calendar", () => {
