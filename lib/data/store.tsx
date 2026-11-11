@@ -10,6 +10,7 @@ import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
 import { writeFieldLanguage } from "@/lib/field/language"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
+import { singleChangedEstimate } from "@/lib/data/book-payload"
 import { isScopeState, type ScopeState } from "@/lib/data/seed"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
 import { applyAssignment, workOrderForStage } from "@/lib/dispatch/assign"
@@ -207,23 +208,14 @@ export async function confirmEstimateSavedOnServer(
   const flushed = await flushBook()
   if (!flushed.ok) return flushed
   try {
-    const response = await fetch("/api/account/book", { cache: "no-store" })
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { reason?: string } | null
+    const response = await fetch(`/api/account/book/estimate?id=${encodeURIComponent(estimateId)}`, {
+      cache: "no-store",
+    })
+    const payload = (await response.json().catch(() => null)) as { ok?: boolean; reason?: string } | null
+    if (!response.ok || !payload?.ok) {
       return {
         ok: false,
-        reason: payload?.reason || "Could not verify the saved proposal on the server.",
-      }
-    }
-    const payload = (await response.json().catch(() => null)) as { state?: unknown } | null
-    if (!isScopeState(payload?.state)) {
-      return { ok: false, reason: "Could not read the saved company book from the server." }
-    }
-    const savedOnServer = payload.state.estimates.find((item) => item.id === estimateId)
-    if (!savedOnServer || !savedOnServer.publicToken) {
-      return {
-        ok: false,
-        reason: "The saved proposal could not be confirmed on the server. Save and try again.",
+        reason: payload?.reason || "The saved proposal could not be confirmed on the server. Save and try again.",
       }
     }
     return { ok: true }
@@ -232,6 +224,31 @@ export async function confirmEstimateSavedOnServer(
       ok: false,
       reason: "Connection error verifying the saved proposal. Your edits are still on screen.",
     }
+  }
+}
+
+async function encodeBookBody(payload: unknown): Promise<{ body: BodyInit; headers: Record<string, string> }> {
+  const json = JSON.stringify(payload)
+  if (json.length >= 64 * 1024 && typeof CompressionStream === "function") {
+    try {
+      const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"))
+      const compressed = await new Response(stream).arrayBuffer()
+      if (compressed.byteLength > 0 && compressed.byteLength < json.length) {
+        return {
+          body: compressed,
+          headers: {
+            "content-type": "application/octet-stream",
+            "x-scopepipe-encoding": "gzip",
+          },
+        }
+      }
+    } catch {
+      // Fall back to plain JSON if CompressionStream fails in the browser.
+    }
+  }
+  return {
+    body: json,
+    headers: { "content-type": "application/json" },
   }
 }
 
@@ -399,10 +416,14 @@ async function pumpBook() {
         const revision = bookRevision
         if (officeSession) saveBrowserBook(officeSession.companyId, revision, state)
         try {
-          const response = await fetch("/api/account/book", {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ revision, state }),
+          const single = singleChangedEstimate(lastSyncedState, state)
+          const encoded = single
+            ? await encodeBookBody({ revision, ...single })
+            : await encodeBookBody({ revision, state })
+          const response = await fetch(single ? "/api/account/book/estimate" : "/api/account/book", {
+            method: single ? "PATCH" : "PUT",
+            headers: encoded.headers,
+            body: encoded.body,
           })
           if (response.status === 409) {
             const fresh = (await response.json()) as { revision?: number; state?: unknown }
@@ -450,7 +471,11 @@ async function pumpBook() {
             const failed = (await response.json().catch(() => null)) as { reason?: string } | null
             lastSyncResult = {
               ok: false,
-              reason: failed?.reason || "Could not save this estimate to your account. Your edits are still on screen.",
+              reason:
+                failed?.reason ||
+                (response.status === 413
+                  ? "This save exceeded the server upload size limit. Try removing large embedded photos or save again."
+                  : "Could not save this estimate to your account. Your edits are still on screen."),
             }
             dirty = false
             break

@@ -77,7 +77,9 @@ export function Estimator({
   const [templateName, setTemplateName] = useState("")
   const [templateError, setTemplateError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [saving, setSaving] = useState(false)
   const sendingRef = useRef(false)
+  const savingRef = useRef(false)
   const [sendFeedback, setSendFeedback] = useState<{
     tone: "success" | "error"
     message: string
@@ -135,11 +137,29 @@ export function Estimator({
   const excludeMaterials = Boolean(draft.settings.excludeMaterials)
   const missingMaterialPrices = hasMissingMaterialPricing(quote, draft.settings)
 
-  const onSubmit = (event: React.FormEvent) => {
+  const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (disabled) return
-    const saved = persist()
-    if (saved && mode === "new") router.push(`/estimates/${saved.id}`)
+    if (disabled || savingRef.current || sendingRef.current || saving || sending) return
+    savingRef.current = true
+    setSaving(true)
+    try {
+      const saved = persist()
+      if (!saved) {
+        setStatus("Could not save this estimate. Check required fields and try again.")
+        return
+      }
+      setStatus("Saving…")
+      const confirmed = await confirmEstimateSavedOnServer(saved.id)
+      if (!confirmed.ok) {
+        setStatus(confirmed.reason)
+        return
+      }
+      setStatus("Saved")
+      if (mode === "new") router.push(`/estimates/${saved.id}`)
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
   }
 
   const sendEstimate = async () => {
@@ -980,8 +1000,8 @@ export function Estimator({
           variant="card"
           depositPercent={draft.settings.depositPercent ?? 30}
           quote={quote}
-          saveLabel={draft.id ? "Save" : "Save to Lead"}
-          disabled={disabled}
+          saveLabel={saving ? "Saving…" : draft.id ? "Save" : "Save to Lead"}
+          disabled={disabled || saving || sending}
           disabledReason={disabledReason}
           advanceDisabled={next?.slug === "estimate_sent" && missingMaterialPrices}
           excludeMaterials={excludeMaterials}
@@ -996,8 +1016,8 @@ export function Estimator({
         variant="dock"
         depositPercent={draft.settings.depositPercent ?? 30}
         quote={quote}
-        saveLabel={draft.id ? "Save" : "Save to Lead"}
-        disabled={disabled}
+        saveLabel={saving ? "Saving…" : draft.id ? "Save" : "Save to Lead"}
+        disabled={disabled || saving || sending}
         disabledReason={disabledReason}
         advanceDisabled={next?.slug === "estimate_sent" && missingMaterialPrices}
         excludeMaterials={excludeMaterials}
