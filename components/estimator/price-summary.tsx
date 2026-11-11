@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
+import { estimateCharges, hasMissingMaterialPricing, type EstimateQuote } from "@/lib/estimate/calculate"
 import { gallonsLabel, hoursLabel, money, moneyExact } from "@/lib/format"
 import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
 
@@ -11,6 +11,8 @@ export function PriceSummary({
   saveLabel,
   disabled,
   disabledReason,
+  advanceDisabled,
+  excludeMaterials,
   nextLabel,
   status,
   onAdvance,
@@ -23,6 +25,8 @@ export function PriceSummary({
   saveLabel: string
   disabled: boolean
   disabledReason: string | null
+  advanceDisabled?: boolean
+  excludeMaterials?: boolean
   nextLabel: string | null
   status: string | null
   onAdvance: () => void
@@ -32,6 +36,8 @@ export function PriceSummary({
   depositPercent: number
 }) {
   const charges = estimateCharges(quote)
+  const unpricedMaterials = hasMissingMaterialPricing(quote)
+  const missingMaterials = unpricedMaterials && !excludeMaterials
   const rows: Array<[string, number | string]> = [
     ["Labor", charges.labor],
     ["Estimated paint", gallonsLabel(quote.paintGallons)],
@@ -58,6 +64,15 @@ export function PriceSummary({
           <p className="mt-1 text-xs text-muted-foreground" data-testid="estimate-summary">
             {hoursLabel(quote.allocatedHours)} · {gallonsLabel(quote.paintGallons)} · sales {money(quote.salesRate)}/hr
           </p>
+          {missingMaterials ? (
+            <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400" data-testid="materials-excluded-warning">
+              Total excludes unpriced materials. Configure paint price/gal before sending.
+            </p>
+          ) : unpricedMaterials && excludeMaterials ? (
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="materials-excluded-note">
+              Labor-only quote — materials excluded from total.
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
@@ -76,6 +91,11 @@ export function PriceSummary({
                 amount
               ) : label === "Materials" && amount === 0 && quote.paintGallons > 0 ? (
                 <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Price not configured</span>
+              ) : label === "Materials" && missingMaterials && typeof amount === "number" ? (
+                <span>
+                  {moneyExact(amount)}{" "}
+                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">(partial)</span>
+                </span>
               ) : label === "Discounts" && typeof amount === "number" && amount > 0 ? (
                 `−${moneyExact(amount)}`
               ) : typeof amount === "number" ? (
@@ -97,7 +117,7 @@ export function PriceSummary({
             type="button"
             variant="outline"
             className="h-12 flex-1"
-            disabled={disabled}
+            disabled={disabled || advanceDisabled}
             onClick={onAdvance}
           >
             {nextLabel}
@@ -118,13 +138,18 @@ export function PriceSummary({
             <p className="font-display text-2xl leading-none text-price tabular-nums" aria-live="polite">
               {money(quote.total)}
             </p>
+            {missingMaterials ? (
+              <p className="mt-0.5 truncate text-xs font-medium text-amber-600 dark:text-amber-400">
+                Excludes unpriced materials
+              </p>
+            ) : null}
             <button type="button" onClick={onExplain} className="mt-1 block truncate text-xs font-medium text-primary">
               How it prices
             </button>
           </div>
           <div className="flex shrink-0 gap-2">
             {nextLabel ? (
-              <Button type="button" variant="outline" className="h-11 px-3" disabled={disabled} onClick={onAdvance}>
+              <Button type="button" variant="outline" className="h-11 px-3" disabled={disabled || advanceDisabled} onClick={onAdvance}>
                 {nextLabel}
               </Button>
             ) : null}

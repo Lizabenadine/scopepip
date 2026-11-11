@@ -1,4 +1,4 @@
-import { estimateCharges, type EstimateQuote } from "@/lib/estimate/calculate"
+import { estimateCharges, hasMissingMaterialPricing, type EstimateQuote } from "@/lib/estimate/calculate"
 import { sectionByGroup } from "@/lib/estimate/groups"
 import { gallonsLabel, hoursLabel, moneyExact } from "@/lib/format"
 import { balanceAfterDeposit, depositAmount } from "@/lib/payments/deposit"
@@ -22,6 +22,7 @@ export function CalculationPanel({
   showCharges?: boolean
 }) {
   const charges = estimateCharges(quote)
+  const missingMaterials = hasMissingMaterialPricing(quote, settings)
   const deposit = depositAmount(quote.total, depositPercent)
   const balance = balanceAfterDeposit(quote.total, depositPercent)
   const paintingHours = Math.round(quote.areas.reduce((sum, area) => sum + area.allocatedHours, 0) * 1000) / 1000
@@ -60,6 +61,11 @@ export function CalculationPanel({
             </div>
           ))}
         </dl>
+      ) : null}
+      {showCharges && missingMaterials ? (
+        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          Total excludes unpriced materials. Configure paint price per gallon before sending.
+        </p>
       ) : null}
       <p className="text-muted-foreground">
         Area and trim hours are the measurement divided by the time rate for that coat count. Item

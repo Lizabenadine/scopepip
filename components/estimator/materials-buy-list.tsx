@@ -129,13 +129,14 @@ export function MaterialsBuyList({
             </span>
           </div>
           <div className="text-xs">
-            {quote.materialCost > 0 ? (
+            {quote.materialCost > 0 && !hasMissingPrice ? (
               <span className="font-semibold text-foreground">
                 Total Materials: {money(quote.materialCost)}
               </span>
             ) : hasMissingPrice && quote.paintGallons > 0 ? (
               <span className="font-medium text-amber-600 dark:text-amber-400">
-                Paint prices not configured ($0.00 rate)
+                {quote.materialCost > 0 ? `Total Materials: ${money(quote.materialCost)} · ` : ""}
+                Paint prices missing — total excludes unpriced materials
               </span>
             ) : (
               <span className="text-muted-foreground">{money(0)}</span>

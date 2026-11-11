@@ -73,7 +73,12 @@ export function withCurrentRates(
   const next = draftRates.map((rate) => {
     if (rate.oneOff || !used.has(rate.id)) return rate
     const fresh = currentById.get(rate.id)
-    return fresh ? cloneRate(fresh) : rate
+    if (!fresh) return rate
+    const cloned = cloneRate(fresh)
+    if (cloned.productCostPerGallon <= 0 && rate.productCostPerGallon > 0) {
+      cloned.productCostPerGallon = rate.productCostPerGallon
+    }
+    return cloned
   })
   for (const rateId of used) {
     if (next.some((rate) => rate.id === rateId)) continue

@@ -16,6 +16,7 @@ import {
   calculateEstimate,
   calculateProduction,
   estimateCharges,
+  hasMissingMaterialPricing,
   measureArea,
   openingSqFt,
   prepHoursFor,
@@ -780,6 +781,61 @@ describe("calculateEstimate", () => {
     assert.equal(
       surfaceGallonsEstimate(bedroom, { ...wallSurface, coatCount: 2, finishCoats: 2, primerCoats: 1, coveragePerCoat: 400 }, customCoverageWall),
       Math.round(((432 * 3) / 400) * 100) / 100,
+    )
+
+    // Detects missing material pricing vs surface-level price/gal override
+    assert.equal(hasMissingMaterialPricing(quoteBedroom()), true)
+    assert.equal(hasMissingMaterialPricing(base), true) // baseboards and window-frames still have 0 cost/gal
+    const allPricedArea = {
+      ...bedroom,
+      surfaces: bedroom.surfaces.map((surface) => ({ ...surface, productCostPerGallon: 45 })),
+    }
+    const allPricedQuote = calculateEstimate({
+      areas: [allPricedArea],
+      lineItems: [],
+      rates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(hasMissingMaterialPricing(allPricedQuote), false)
+    // 3.87 gal * $45 * 1.2 = $208.98; labor stays $1012.50 -> total $1221.48
+    assert.equal(allPricedQuote.allocatedHours, 13.5)
+    assert.equal(allPricedQuote.laborPrice, 1012.5)
+    assert.equal(allPricedQuote.materialCost, 208.98)
+    assert.equal(allPricedQuote.total, 1221.48)
+
+    // Labor-only estimates can still be sent when materials are intentionally excluded
+    const hourlyOnlyQuote = calculateEstimate({
+      areas: [],
+      lineItems: [
+        {
+          id: "labor-only",
+          label: "Prep & painting labor",
+          clientNote: "",
+          crewNote: "",
+          mode: "hourly",
+          hours: 8,
+          units: 0,
+          pricePerUnit: 0,
+          customPrice: 0,
+          workOrderHours: 0,
+          hiddenOnWorkOrder: false,
+          materials: [],
+        },
+      ],
+      rates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(hourlyOnlyQuote.paintGallons, 0)
+    assert.equal(hasMissingMaterialPricing(hourlyOnlyQuote, settings), false)
+    assert.equal(hasMissingMaterialPricing(quoteBedroom(), { ...settings, excludeMaterials: true }), false)
+    assert.equal(
+      hasMissingMaterialPricing(quoteBedroom(), {
+        ...settings,
+        hourlyRateBuild: { laborCostPerHour: 30, overheadPerHour: 15, sundriesPerHour: 10, profitPercent: 20 },
+      }),
+      false,
     )
   })
 })

@@ -111,6 +111,8 @@ export interface EstimateSettings {
   surchargePercent: number
   expiryDays: number
   materialMarkup: number
+  /** True when the contractor intentionally sends a labor-only quote excluding materials. */
+  excludeMaterials?: boolean
   taxBasis: TaxBasis
   minimumJobCharge: number
   depositPercent: number
@@ -263,6 +265,8 @@ export interface SurfaceInput {
   substrate?: Substrate
   /** Paint named on this surface. Blank uses the rate's product. */
   productName?: string
+  /** Cost per gallon for this surface. Blank uses the rate. */
+  productCostPerGallon?: number | null
   /** One-coat coverage. Blank uses the rate. Square feet, linear feet, or gallons per item. */
   coveragePerCoat?: number | null
   /** Paint brand on this surface. */

@@ -420,12 +420,18 @@ function priceSurface(
   const allocatedHours = typed !== null ? typed : roundHours(rawHours, settings.hourRounding)
   if (!pricedByArea) laborPrice = allocatedHours * nonNegative(hourlyRate)
   const paintGallons = calculateSurfaceGallons(area, surface, rate, settings.materialRounding)
+  const costPerGallon =
+    surface.productCostPerGallon !== null &&
+    surface.productCostPerGallon !== undefined &&
+    Number.isFinite(surface.productCostPerGallon)
+      ? nonNegative(surface.productCostPerGallon)
+      : nonNegative(rate.productCostPerGallon)
   const materialMarkup = Number.isFinite(settings.materialMarkup)
     ? nonNegative(settings.materialMarkup)
     : DEFAULT_MATERIAL_MARKUP
   const materialCost = materialCostFor(
     paintGallons,
-    rate.productCostPerGallon,
+    costPerGallon,
     materialMarkup,
   )
   const price = roundMoney(laborPrice + materialCost, settings.priceRounding)
@@ -450,7 +456,7 @@ function priceSurface(
     materialCost: cents(materialCost),
     price,
     productName: surface.productName?.trim() || rate.productName,
-    productCostPerGallon: rate.productCostPerGallon,
+    productCostPerGallon: costPerGallon,
     paintBrand: surface.paintBrand?.trim() || area.paintBrand?.trim() || undefined,
     colorCode: surface.colorCode?.trim() || area.colorCode?.trim() || undefined,
     colorName: surface.colorName?.trim() || area.colorName?.trim() || undefined,
@@ -784,6 +790,22 @@ export function estimateCharges(quote: EstimateQuote): EstimateCharges {
   const drift = Math.round((quote.total - (labor + materials + additional - discount + tax)) * 100) / 100
   additional = Math.round((additional + drift) * 100) / 100
   return { labor, materials, additional, discount, tax }
+}
+
+/** True when any surface requires paint gallons (> 0) without a configured cost per gallon, unless materials are intentionally excluded. */
+export function hasMissingMaterialPricing(
+  quote: Pick<EstimateQuote, "areas">,
+  settings?: Pick<EstimateSettings, "excludeMaterials" | "hourlyRateBuild">,
+): boolean {
+  if (settings?.excludeMaterials) return false
+  if ((settings?.hourlyRateBuild?.sundriesPerHour ?? 0) > 0) return false
+  return quote.areas.some((area) =>
+    area.surfaces.some(
+      (surface) =>
+        surface.paintGallons > 0 &&
+        (!surface.productCostPerGallon || surface.productCostPerGallon <= 0),
+    ),
+  )
 }
 
 function productionLine(

@@ -580,6 +580,7 @@ export interface ScopeApi {
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
+  setRateProductCost: (rateId: string, costPerGallon: number) => void
   learnedPaces: LearnedPace[]
   rememberPace: (pace: LearnedPace) => void
   forgetPace: (estimateId: string, areaId: string) => void
@@ -1244,6 +1245,17 @@ function buildApi(snapshot: Snapshot): ScopeApi {
             : [...rate.coatRates, { coats: count, value: speed }].sort((left, right) => left.coats - right.coats)
           return { ...rate, coatRates }
         }),
+      })
+    },
+    setRateProductCost: (rateId, costPerGallon) => {
+      if (!Number.isFinite(costPerGallon) || costPerGallon < 0) return
+      const cost = Math.round(costPerGallon * 100) / 100
+      const latest = getSnapshot().state
+      commit({
+        ...latest,
+        productionRates: latest.productionRates.map((rate) =>
+          rate.id === rateId ? { ...rate, productCostPerGallon: cost } : rate,
+        ),
       })
     },
     savedTemplates: state.savedTemplates ?? [],

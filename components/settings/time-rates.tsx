@@ -132,6 +132,12 @@ export function TimeRates() {
                   onCommit={(value) => scope.setCoatRate(rate.id, entry.coats, value)}
                 />
               ))}
+              <CoatField
+                label={`${rate.internalLabel}, Paint $/gal`}
+                testId={`product-cost-${rate.id}`}
+                value={rate.productCostPerGallon}
+                onCommit={(value) => scope.setRateProductCost(rate.id, value)}
+              />
             </div>
           </div>
         ))}

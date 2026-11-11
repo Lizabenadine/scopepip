@@ -63,4 +63,19 @@ describe("saved estimate templates", () => {
       null,
     )
   })
+
+  it("preserves draft productCostPerGallon when company rate is still unconfigured (0)", () => {
+    const bedroom = documentedBedroom()
+    const draftRates = DEFAULT_PRODUCTION_RATES.map((rate) =>
+      rate.id === "walls" ? { ...rate, productCostPerGallon: 48 } : rate,
+    )
+    const merged = withCurrentRates(draftRates, DEFAULT_PRODUCTION_RATES, [bedroom])
+    assert.equal(merged.find((rate) => rate.id === "walls")?.productCostPerGallon, 48)
+
+    const companyPriced = DEFAULT_PRODUCTION_RATES.map((rate) =>
+      rate.id === "walls" ? { ...rate, productCostPerGallon: 55 } : rate,
+    )
+    const updated = withCurrentRates(draftRates, companyPriced, [bedroom])
+    assert.equal(updated.find((rate) => rate.id === "walls")?.productCostPerGallon, 55)
+  })
 })

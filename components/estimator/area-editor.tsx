@@ -785,7 +785,7 @@ const substrate = event.target.value as Substrate
                     ) : null}
                     <details className="rounded-lg border border-border p-3">
                       <summary className="cursor-pointer text-xs font-medium text-primary">Advanced surface options · paint, coverage & overrides</summary>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       <div className="grid gap-1">
                         <Label htmlFor={`${surface.id}-product`}>Paint</Label>
                         <Input
@@ -797,6 +797,15 @@ const substrate = event.target.value as Substrate
                           onValueChange={(productName) => updateSurface(surface, { productName })}
                         />
                       </div>
+                      <OverrideField
+                        id={`${surface.id}-cost`}
+                        label="Price / gal ($)"
+                        ariaLabel={`${rate.internalLabel} price per gallon`}
+                        testId={`surface-cost-${rate.id}`}
+                        value={surface.productCostPerGallon ?? null}
+                        placeholder={active.productCostPerGallon > 0 ? String(active.productCostPerGallon) : "0"}
+                        onChange={(productCostPerGallon) => updateSurface(surface, { productCostPerGallon })}
+                      />
                       <OverrideField
                         id={`${surface.id}-coverage`}
                         label={unit === "items" ? "Gallons each" : unit === "ln ft" ? "Ln ft / gal" : "Sq ft / gal"}
@@ -1018,6 +1027,7 @@ label,
 ariaLabel,
 testId,
 value,
+placeholder = "Override",
 onChange,
 }: {
   id: string
@@ -1025,6 +1035,7 @@ onChange,
   ariaLabel: string
   testId: string
   value: number | null
+  placeholder?: string
   onChange: (value: number | null) => void
 }) {
 const [text, setText] = useState<string | null>(null)
@@ -1038,7 +1049,7 @@ const shown = text ?? (value === null ? "" : String(value))
         aria-label={ariaLabel}
         data-testid={testId}
         value={shown}
-        placeholder="Override"
+        placeholder={placeholder}
         className="h-10"
         onFocus={() => setText(value === null ? "" : String(value))}
         onBlur={() => setText(null)}

@@ -49,6 +49,7 @@ import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
 import { quoteRates } from "@/lib/estimate/substrate"
+import { hasMissingMaterialPricing } from "@/lib/estimate/calculate"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
@@ -129,6 +130,10 @@ export function Estimator({
     )
   }
 
+  const unpricedMaterialPaint = hasMissingMaterialPricing(quote)
+  const excludeMaterials = Boolean(draft.settings.excludeMaterials) || (draft.settings.hourlyRateBuild?.sundriesPerHour ?? 0) > 0
+  const missingMaterialPrices = hasMissingMaterialPricing(quote, draft.settings)
+
   const onSubmit = (event: React.FormEvent) => {
     event.preventDefault()
     if (disabled) return
@@ -138,6 +143,12 @@ export function Estimator({
 
   const sendEstimate = async () => {
     if (sending) return
+    if (missingMaterialPrices) {
+      const msg = "Configure paint price per gallon before sending this quote. Total currently excludes materials."
+      setStatus(msg)
+      setSendFeedback({ tone: "error", message: msg })
+      return
+    }
     const email = draft.clientEmail.trim()
     if (!email.includes("@") || /\s/.test(email)) {
       const msg = "Add the client's email. They accept the estimate from the link in that email."
@@ -204,6 +215,12 @@ export function Estimator({
 
   const onAdvance = () => {
     if (disabled || !next) return
+    if (next.slug === "estimate_sent" && missingMaterialPrices) {
+      const msg = "Configure paint price per gallon before sending this quote. Total currently excludes materials."
+      setStatus(msg)
+      setSendFeedback({ tone: "error", message: msg })
+      return
+    }
     const saved = persist()
     if (!saved) return
     if (next.slug === "scheduled") {
@@ -339,12 +356,30 @@ export function Estimator({
                 type="button"
                 data-testid="send-estimate"
                 className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
-                disabled={disabled || sending}
+                disabled={disabled || sending || missingMaterialPrices}
                 onClick={() => void sendEstimate()}
               >
                 {sending ? "Sending…" : "Send estimate"}
               </button>
             </div>
+            {missingMaterialPrices ? (
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-400" data-testid="send-materials-warning">
+                Add paint price per gallon in Settings → App or Advanced surface options before sending this quote.
+              </p>
+            ) : null}
+            {unpricedMaterialPaint && !((draft.settings.hourlyRateBuild?.sundriesPerHour ?? 0) > 0) ? (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  data-testid="exclude-materials-toggle"
+                  checked={Boolean(draft.settings.excludeMaterials)}
+                  onChange={(event) =>
+                    patch({ settings: { ...draft.settings, excludeMaterials: event.target.checked } })
+                  }
+                />
+                <span>Labor-only quote (intentionally exclude materials)</span>
+              </label>
+            ) : null}
             {sendFeedback ? (
               <p
                 role={sendFeedback.tone === "error" ? "alert" : "status"}
@@ -922,6 +957,8 @@ export function Estimator({
           saveLabel={draft.id ? "Save" : "Save to Lead"}
           disabled={disabled}
           disabledReason={disabledReason}
+          advanceDisabled={next?.slug === "estimate_sent" && missingMaterialPrices}
+          excludeMaterials={excludeMaterials}
           nextLabel={next && stage ? NEXT_ACTION[stage.slug] : null}
           status={status}
           onAdvance={onAdvance}
@@ -936,6 +973,8 @@ export function Estimator({
         saveLabel={draft.id ? "Save" : "Save to Lead"}
         disabled={disabled}
         disabledReason={disabledReason}
+        advanceDisabled={next?.slug === "estimate_sent" && missingMaterialPrices}
+        excludeMaterials={excludeMaterials}
         nextLabel={next && stage ? NEXT_ACTION[stage.slug] : null}
         status={status}
         onAdvance={onAdvance}
