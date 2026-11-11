@@ -48,6 +48,7 @@ import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
+import { quoteRates } from "@/lib/estimate/substrate"
 import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
@@ -391,7 +392,8 @@ export function Estimator({
           <AreaEditor
             areas={draft.areas}
             areaGroups={draft.areaGroups ?? []}
-            rates={draft.rates}
+            rates={quoteRates(draft.rates, productionRates, draft.areas)}
+            materialRounding={draft.settings.materialRounding}
             kind={draft.estimateKind ?? "interior"}
             savedTemplates={savedTemplates}
             onDeleteSaved={deleteEstimateTemplate}

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import type { EstimateQuote, PricedSurface } from "@/lib/estimate/calculate"
+import { roundGallons, type EstimateQuote } from "@/lib/estimate/calculate"
 import { gallonsLabel, money } from "@/lib/format"
 
 interface MaterialGroup {
@@ -64,8 +64,11 @@ export function MaterialsBuyList({
         groups.push(group)
       }
 
-      group.paintGallons += surface.paintGallons
-      group.materialCost += surface.materialCost
+      if (!group.productCostPerGallon && surface.productCostPerGallon) {
+        group.productCostPerGallon = surface.productCostPerGallon
+      }
+      group.paintGallons = roundGallons(group.paintGallons + surface.paintGallons, "none")
+      group.materialCost = Math.round((group.materialCost + surface.materialCost) * 100) / 100
       group.surfaces.push({
         id: surface.id,
         areaName: area.name,

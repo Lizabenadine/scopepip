@@ -419,20 +419,7 @@ function priceSurface(
   }
   const allocatedHours = typed !== null ? typed : roundHours(rawHours, settings.hourRounding)
   if (!pricedByArea) laborPrice = allocatedHours * nonNegative(hourlyRate)
-  const coverage =
-    surface.coveragePerCoat !== null && surface.coveragePerCoat !== undefined && Number.isFinite(surface.coveragePerCoat)
-      ? nonNegative(surface.coveragePerCoat)
-      : nonNegative(rate.coveragePerCoat)
-  const itemGallons = rate.measure === "items" || rate.measure === "shutters"
-  let paintGallons = 0
-  if (coverage > 0) {
-    paintGallons = itemGallons ? quantity * coverage * finishCoats : (quantity * finishCoats) / coverage
-  }
-  const primerCoverage = Number.isFinite(rate.primerCoveragePerCoat) ? nonNegative(rate.primerCoveragePerCoat) : 0
-  if (primerCoverage > 0 && primerCoats > 0) {
-    paintGallons += itemGallons ? quantity * primerCoverage * primerCoats : (quantity * primerCoats) / primerCoverage
-  }
-  paintGallons = roundGallons(paintGallons, settings.materialRounding)
+  const paintGallons = calculateSurfaceGallons(area, surface, rate, settings.materialRounding)
   const materialMarkup = Number.isFinite(settings.materialMarkup)
     ? nonNegative(settings.materialMarkup)
     : DEFAULT_MATERIAL_MARKUP
@@ -602,10 +589,12 @@ function priceLine(item: LineItemInput, settings: EstimateSettings): PricedLine 
   }
 }
 
-export function surfaceGallonsEstimate(
+/** Shared single-surface paint gallon formula used by quote pricing and live room/surface badges. */
+export function calculateSurfaceGallons(
   area: AreaInput,
   surface: SurfaceInput,
   rate: ProductionRate,
+  materialRounding: EstimateSettings["materialRounding"] = "none",
 ): number {
   const quantity = quantityFor(rate, area, surface)
   const finishCoats = Math.min(Math.round(nonNegative(surface.finishCoats ?? surface.coatCount)), 6)
@@ -616,19 +605,33 @@ export function surfaceGallonsEstimate(
       : nonNegative(rate.coveragePerCoat)
   const itemGallons = rate.measure === "items" || rate.measure === "shutters"
   let paintGallons = 0
-  if (coverage > 0) {
+  if (coverage > 0 && finishCoats > 0) {
     paintGallons = itemGallons ? quantity * coverage * finishCoats : (quantity * finishCoats) / coverage
   }
-  const primerCoverage = Number.isFinite(rate.primerCoveragePerCoat) ? nonNegative(rate.primerCoveragePerCoat) : 0
+  const rawPrimerCoverage = Number.isFinite(rate.primerCoveragePerCoat)
+    ? nonNegative(rate.primerCoveragePerCoat)
+    : 0
+  // Fall back to finish coverage when primer coverage is unconfigured (e.g. one-off or custom-coverage surfaces).
+  const primerCoverage = rawPrimerCoverage > 0 ? rawPrimerCoverage : coverage
   if (primerCoverage > 0 && primerCoats > 0) {
     paintGallons += itemGallons ? quantity * primerCoverage * primerCoats : (quantity * primerCoats) / primerCoverage
   }
-  return roundGallons(paintGallons, "none")
+  return roundGallons(paintGallons, materialRounding)
+}
+
+export function surfaceGallonsEstimate(
+  area: AreaInput,
+  surface: SurfaceInput,
+  rate: ProductionRate,
+  materialRounding: EstimateSettings["materialRounding"] = "none",
+): number {
+  return calculateSurfaceGallons(area, surface, rate, materialRounding)
 }
 
 export function roomGallonsEstimate(
   area: AreaInput,
   rates: ProductionRate[],
+  materialRounding: EstimateSettings["materialRounding"] = "none",
 ): number {
   const rateMap = new Map(rates.map((r) => [r.id, r]))
   const seenSurfaceKeys = new Set<string>()
@@ -641,9 +644,9 @@ export function roomGallonsEstimate(
   const total = uniqueSurfaces.reduce((sum, surface) => {
     const rate = rateMap.get(surface.rateId)
     if (!rate) return sum
-    return sum + surfaceGallonsEstimate(area, surface, rate)
+    return sum + surfaceGallonsEstimate(area, surface, rate, materialRounding)
   }, 0)
-  return Math.round(total * 100) / 100
+  return roundGallons(total, "none")
 }
 
 export function calculateEstimate(input: ScopeInput): EstimateQuote {

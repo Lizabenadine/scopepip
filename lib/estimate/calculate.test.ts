@@ -19,8 +19,10 @@ import {
   measureArea,
   openingSqFt,
   prepHoursFor,
+  roomGallonsEstimate,
   roundHours,
   scaledCoatHours,
+  surfaceGallonsEstimate,
   taxFor,
   timeBasedRate,
 } from "./calculate.ts"
@@ -689,5 +691,95 @@ describe("calculateEstimate", () => {
       paymentMethods: PAYMENT_METHODS,
     })
     assert.equal(shown.areas[0].surfaces.find((surface) => surface.id === "ceiling")?.hideFromCustomer, false)
+  })
+
+  it("recalculates per-surface gallons, room gallons, materials cost, and total across primer, finish, and dimension changes", () => {
+    const pricedRates = rates.map((rate) => {
+      if (rate.id === "walls") return { ...rate, productCostPerGallon: 50 }
+      if (rate.id === "ceiling") return { ...rate, productCostPerGallon: 40 }
+      return rate
+    })
+    const bedroom = documentedBedroom()
+    const base = calculateEstimate({
+      areas: [bedroom],
+      lineItems: [],
+      rates: pricedRates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(base.paintGallons, 3.87)
+    // walls: 2.47 gal * $50 * 1.2 = $148.20; ceiling: 1.03 gal * $40 * 1.2 = $49.44
+    assert.equal(base.materialCost, 197.64)
+    assert.equal(base.total, 1210.14)
+
+    // Changing wall primer and ceiling finish coats updates each surface independently without altering baseboards/windows
+    const coatsChanged: typeof bedroom = {
+      ...bedroom,
+      surfaces: bedroom.surfaces.map((surface) => {
+        if (surface.rateId === "walls") return { ...surface, primerCoats: 2, coatCount: 3, finishCoats: 3 }
+        if (surface.rateId === "ceiling") return { ...surface, primerCoats: 1, coatCount: 1, finishCoats: 1 }
+        return surface
+      }),
+    }
+    const afterCoats = calculateEstimate({
+      areas: [coatsChanged],
+      lineItems: [],
+      rates: pricedRates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    const wallRate = pricedRates.find((r) => r.id === "walls")!
+    const ceilingRate = pricedRates.find((r) => r.id === "ceiling")!
+    const wallSurface = coatsChanged.surfaces.find((s) => s.rateId === "walls")!
+    const ceilingSurface = coatsChanged.surfaces.find((s) => s.rateId === "ceiling")!
+
+    // Walls: 432*3/350 + 432*2/300 = 3.70286 + 2.88 = 6.58286 -> 6.58
+    assert.equal(surfaceGallonsEstimate(coatsChanged, wallSurface, wallRate), 6.58)
+    assert.equal(afterCoats.areas[0].surfaces.find((s) => s.id === "walls")?.paintGallons, 6.58)
+    // Ceiling: 180*1/350 + 180*1/300 = 0.51428 + 0.60 = 1.11428 -> 1.11
+    assert.equal(surfaceGallonsEstimate(coatsChanged, ceilingSurface, ceilingRate), 1.11)
+    assert.equal(afterCoats.areas[0].surfaces.find((s) => s.id === "ceiling")?.paintGallons, 1.11)
+    // Unchanged surfaces stay separate: baseboards 0.17, window-frames 0.20
+    assert.equal(afterCoats.areas[0].surfaces.find((s) => s.id === "baseboards")?.paintGallons, 0.17)
+    assert.equal(afterCoats.areas[0].surfaces.find((s) => s.id === "window-frames")?.paintGallons, 0.2)
+    // Room total & quote total stay synchronized
+    assert.equal(roomGallonsEstimate(coatsChanged, pricedRates), 8.06)
+    assert.equal(afterCoats.paintGallons, 8.06)
+    // Material cost: 6.58 * 50 * 1.2 + 1.11 * 40 * 1.2 = 394.80 + 53.28 = 448.08
+    assert.equal(afterCoats.materialCost, 448.08)
+    assert.equal(afterCoats.total, Math.round((afterCoats.laborPrice + 448.08) * 100) / 100)
+
+    // Changing room dimensions updates all area-based surfaces and totals automatically
+    const resized = { ...coatsChanged, lengthFt: 16, widthFt: 20, heightFt: 10 }
+    const afterResize = calculateEstimate({
+      areas: [resized],
+      lineItems: [],
+      rates: pricedRates,
+      settings,
+      paymentMethods: PAYMENT_METHODS,
+    })
+    assert.equal(roomGallonsEstimate(resized, pricedRates), afterResize.paintGallons)
+    assert.ok(afterResize.paintGallons > afterCoats.paintGallons)
+    assert.ok(afterResize.materialCost > afterCoats.materialCost)
+    assert.ok(afterResize.total > afterCoats.total)
+
+    // Respects materialRounding ("up") consistently across surfaceGallonsEstimate, roomGallonsEstimate, and quote
+    assert.equal(
+      roomGallonsEstimate(bedroom, pricedRates, "up"),
+      calculateEstimate({
+        areas: [bedroom],
+        lineItems: [],
+        rates: pricedRates,
+        settings: { ...settings, materialRounding: "up" },
+        paymentMethods: PAYMENT_METHODS,
+      }).paintGallons,
+    )
+
+    // Falls back to finish coverage for primer when primerCoveragePerCoat is 0 but finish coverage is set
+    const customCoverageWall = { ...wallRate, primerCoveragePerCoat: 0 }
+    assert.equal(
+      surfaceGallonsEstimate(bedroom, { ...wallSurface, coatCount: 2, finishCoats: 2, primerCoats: 1, coveragePerCoat: 400 }, customCoverageWall),
+      Math.round(((432 * 3) / 400) * 100) / 100,
+    )
   })
 })

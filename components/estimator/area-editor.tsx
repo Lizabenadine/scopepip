@@ -28,7 +28,7 @@ import {
   surfaceHeads,
 } from "@/lib/estimate/substrate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type LineItemInput, type ProductionRate, type Substrate, type SurfaceInput } from "@/lib/types"
+import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type EstimateSettings, type LineItemInput, type ProductionRate, type Substrate, type SurfaceInput } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 function withBlankDimensions(room: AreaInput): AreaInput {
@@ -45,6 +45,7 @@ export function AreaEditor({
 areas,
 areaGroups,
 rates,
+materialRounding = "none",
 kind,
 savedTemplates,
 onDeleteSaved,
@@ -58,6 +59,7 @@ onDuplicate,
   areas: AreaInput[]
   areaGroups: AreaGroup[]
   rates: ProductionRate[]
+  materialRounding?: EstimateSettings["materialRounding"]
   kind: EstimateKind
   savedTemplates: SavedEstimateTemplate[]
   onDeleteSaved: (id: string) => void
@@ -321,6 +323,7 @@ const removed = removeAreaGroup(areaGroups, areas, section.groupId!)
                 area={area}
                 kind={kind}
                 rates={ratesForArea(rates, kind, area)}
+                materialRounding={materialRounding}
                 areaNames={areaNames}
                 areaGroups={areaGroups}
                 focusLength={focusAreaId === area.id}
@@ -361,6 +364,7 @@ function AreaCard({
 area,
 kind,
 rates,
+materialRounding,
 areaNames,
 areaGroups,
 focusLength,
@@ -376,6 +380,7 @@ onToggleOneOff,
   area: AreaInput
   kind: EstimateKind
   rates: ProductionRate[]
+  materialRounding: EstimateSettings["materialRounding"]
   areaNames: AreaName[]
   areaGroups: AreaGroup[]
   focusLength: boolean
@@ -394,11 +399,13 @@ onToggleOneOff,
     onFocused()
   }, [focusLength, area.id, onFocused])
 const measures = measureArea(area)
-const roomGallons = roomGallonsEstimate(area, rates)
+const roomGallons = roomGallonsEstimate(area, rates, materialRounding)
 const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
     onChange({
       ...area,
-      surfaces: area.surfaces.map((item) => (item.id === surface.id ? { ...item, ...patch } : item)),
+      surfaces: area.surfaces.map((item) =>
+        (item.id && surface.id ? item.id === surface.id : item === surface) ? { ...item, ...patch } : item,
+      ),
     })
   }
 const toggle = (rate: ProductionRate) => {
@@ -669,7 +676,7 @@ const choices = substrateChoices(rates, rate)
 const chosen = surface?.substrate ?? substrateOf(active)
 const unit = quantityUnit(active)
 const roomQuantity = measuredQuantity(active, area, surface?.itemCount ?? 0)
-const surfaceGallons = surface ? surfaceGallonsEstimate(area, surface, active) : null
+const surfaceGallons = surface ? surfaceGallonsEstimate(area, surface, active, materialRounding) : null
               return (
                 <div key={rate.id} className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -730,6 +737,8 @@ const substrate = event.target.value as Substrate
                           Primer
                           <select
                             className="ml-1 h-10 rounded-lg border border-input bg-transparent px-2"
+                            data-testid={`primer-coats-${rate.id}`}
+                            aria-label={`${rate.internalLabel} primer coats`}
                             value={surface.primerCoats ?? 0}
                             onChange={(event) =>
                               updateSurface(surface, { primerCoats: Number(event.target.value) })
