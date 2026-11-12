@@ -92,7 +92,7 @@ export function SettingsScreen() {
           )
         })}
       </div>
-      <div role="tabpanel" data-testid={`settings-panel-${active}`} className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <div role="tabpanel" data-testid={`settings-panel-${active}`} className={cn("mx-auto flex w-full flex-col gap-6", active === "integrations" ? "max-w-5xl" : "max-w-3xl")}>
         {active === "company" ? (
           <>
             <CompanyFields />

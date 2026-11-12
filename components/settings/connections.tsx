@@ -8,6 +8,7 @@ import { useScope } from "@/lib/data/store"
 import { leadWebhookToken } from "@/lib/webhooks/token"
 import { OutboundHooks } from "@/components/settings/outbound-hooks"
 import { SendingKeys } from "@/components/settings/sending-keys"
+import { IntegrationCards } from "@/components/settings/integration-cards"
 import { zapierTarget } from "@/lib/zapier/events"
 import { usePageOrigin } from "@/lib/browser/client-env"
 
@@ -32,6 +33,10 @@ export function Connections() {
       leadWebhookToken: crypto.randomUUID().replace(/-/g, ""),
     })
   }, [scope, inboundToken])
+
+  useEffect(() => {
+    setWebhook(scope.estimateSettings.zapierWebhookUrl ?? "")
+  }, [scope.estimateSettings.zapierWebhookUrl])
 
   useEffect(() => {
     let cancelled = false
@@ -119,63 +124,70 @@ export function Connections() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="connections">
-      <div>
-        <h2 className="text-lg font-semibold">Lead webhook</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Paste this address into your website or the place leads come from. A post with a name and a phone or email opens a card immediately.
-        </p>
-        <p className="mt-3 break-all font-mono text-sm" data-testid="lead-webhook-url">
-          {inboundUrl || "Preparing the webhook address."}
-        </p>
-        <Button type="button" variant="outline" className="mt-3 h-11" data-testid="lead-webhook-copy" disabled={!inboundUrl} onClick={() => void copyInbound()}>
-          Copy webhook address
-        </Button>
-        {leadDetail ? <p className="mt-2 text-sm">{leadDetail}</p> : null}
-      </div>
-      <div>
-        <h2 className="text-lg font-semibold">Outbound hooks</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Paste a hook address. Scopepipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
-        </p>
-        <div className="mt-3 grid gap-2">
-          <Label htmlFor="zapierWebhook">Webhook URL</Label>
-          <Input id="zapierWebhook" value={webhook} className="h-11" placeholder="https://" onValueChange={setWebhook} data-testid="zapier-webhook" />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button type="button" className="h-11" data-testid="zapier-save" onClick={saveZapier}>
-            Save hook
+    <div className="flex flex-col gap-4">
+      <IntegrationCards />
+      <section className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="connections">
+        <div>
+          <h2 className="text-lg font-semibold">Lead webhook</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Paste this address into your website or the place leads come from. A post with a name and a phone or email opens a card immediately.
+          </p>
+          <p className="mt-3 break-all font-mono text-sm" data-testid="lead-webhook-url">
+            {inboundUrl || "Preparing the webhook address."}
+          </p>
+          <Button type="button" variant="outline" className="mt-3 h-11" data-testid="lead-webhook-copy" disabled={!inboundUrl} onClick={() => void copyInbound()}>
+            Copy webhook address
           </Button>
-          <Button type="button" variant="outline" className="h-11" data-testid="zapier-test" onClick={() => void sendTest()}>
-            Send test
+          {leadDetail ? <p className="mt-2 text-sm">{leadDetail}</p> : null}
+        </div>
+        <div id="zapier-hook" className="scroll-mt-24">
+          <h2 className="text-lg font-semibold">Outbound hooks</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Paste a hook address. Scopepipe posts new leads, booked visits, proposal opens, acceptances, scheduled jobs, and deposits. A new lead posts as soon as the webhook saves it. Older history stays put.
+          </p>
+          <div className="mt-3 grid gap-2">
+            <Label htmlFor="zapierWebhook">Webhook URL</Label>
+            <Input id="zapierWebhook" value={webhook} className="h-11" placeholder="https://" onValueChange={setWebhook} data-testid="zapier-webhook" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" className="h-11" data-testid="zapier-save" onClick={saveZapier}>
+              Save hook
+            </Button>
+            <Button type="button" variant="outline" className="h-11" data-testid="zapier-test" onClick={() => void sendTest()}>
+              Send test
+            </Button>
+          </div>
+          {zapierDetail ? <p className="mt-2 text-sm" data-testid="zapier-status">{zapierDetail}</p> : null}
+        </div>
+        <div id="automatic-hooks" className="scroll-mt-24">
+          <OutboundHooks />
+        </div>
+        <div id="integration-sending" className="scroll-mt-24">
+          <SendingKeys />
+        </div>
+        <div id="job-photos" className="scroll-mt-24">
+          <h2 className="text-lg font-semibold">Job photos</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A token pulls projects and photos onto the work order. A photo link stored on the job is separate.
+          </p>
+          <p className="mt-2 text-sm" data-testid="companycam-status">{companyCam}</p>
+          <div className="mt-3 grid gap-2">
+            <Label htmlFor="companyCamToken">API token</Label>
+            <input
+              id="companyCamToken"
+              type="password"
+              value={token}
+              autoComplete="off"
+              data-testid="companycam-token"
+              onChange={(event) => setToken(event.target.value)}
+              className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
+          <Button type="button" className="mt-3 h-11" data-testid="companycam-save" disabled={savingCam} onClick={() => void saveCompanyCam()}>
+            {savingCam ? "Saving..." : "Save photo token"}
           </Button>
         </div>
-        {zapierDetail ? <p className="mt-2 text-sm" data-testid="zapier-status">{zapierDetail}</p> : null}
-      </div>
-      <OutboundHooks />
-      <SendingKeys />
-      <div>
-        <h2 className="text-lg font-semibold">Job photos</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          A token pulls projects and photos onto the work order. A photo link stored on the job is separate.
-        </p>
-        <p className="mt-2 text-sm" data-testid="companycam-status">{companyCam}</p>
-        <div className="mt-3 grid gap-2">
-          <Label htmlFor="companyCamToken">API token</Label>
-          <input
-            id="companyCamToken"
-            type="password"
-            value={token}
-            autoComplete="off"
-            data-testid="companycam-token"
-            onChange={(event) => setToken(event.target.value)}
-            className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
-        </div>
-        <Button type="button" className="mt-3 h-11" data-testid="companycam-save" disabled={savingCam} onClick={() => void saveCompanyCam()}>
-          {savingCam ? "Saving..." : "Save photo token"}
-        </Button>
-      </div>
-    </section>
+      </section>
+    </div>
   )
 }
