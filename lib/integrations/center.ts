@@ -28,6 +28,7 @@ export interface FeaturedBook {
   zapierWebhookUrl?: string
   companyCamSyncedAt?: string
   quickbooksSyncedAt?: string
+  leadWebhookToken?: string
 }
 
 export function latestTimestamp(values: Array<string | undefined | null>): string | undefined {
@@ -52,6 +53,7 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
   const facebook = hostFlag(host, host?.facebookLeads === true)
   const zapierSaved = zapierTarget(book.zapierWebhookUrl) !== null
   const reviewSaved = reviewLink(book.reviewUrl).length > 0
+  const hasWebhook = Boolean(book.leadWebhookToken || zapierSaved)
 
   return [
     item({
@@ -96,6 +98,56 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
         : "Update the feed from the Calendar tab. Direct push needs the Google calendar keys on the host.",
       ...calendar,
       href: "/settings?tab=calendar",
+    }),
+    item({
+      id: "outlook-calendar",
+      name: "Outlook Calendar",
+      description: "Subscribe to job appointments and visits in Microsoft Outlook via iCal.",
+      setup: "Subscribe to your live calendar feed directly in Outlook Web or desktop.",
+      status: calendar.connected ? "connected" : "disconnected",
+      pending: false,
+      href: "/settings?tab=calendar",
+    }),
+    item({
+      id: "google-sheets",
+      name: "Google Sheets",
+      description: "CSV export for leads, customers, estimates, and jobs. No OAuth needed.",
+      setup: "Export your leads, customers, estimates, or jobs to CSV and open in Google Sheets.",
+      status: zapierSaved ? "configured" : "disconnected",
+      pending: false,
+    }),
+    item({
+      id: "lead-form",
+      name: "Website Lead Form",
+      description: "Mobile-friendly, embeddable contact form feeding inquiries into your Sales Pipeline.",
+      setup: "Embed the form on your website or share the link with prospective clients.",
+      status: hasWebhook ? "configured" : "disconnected",
+      pending: false,
+      anchor: "lead-form-embed",
+    }),
+    item({
+      id: "thumbtack",
+      name: "Thumbtack",
+      description: "Import customer inquiries from Thumbtack into your pipeline via Zapier.",
+      setup: "Connect Thumbtack in Zapier and forward leads into your Scopepipe webhook.",
+      status: zapierSaved ? "configured" : "disconnected",
+      pending: false,
+    }),
+    item({
+      id: "angi",
+      name: "Angi",
+      description: "Import homeowner leads from Angi into your pipeline via Zapier.",
+      setup: "Connect Angi in Zapier and route new leads into your Scopepipe webhook.",
+      status: zapierSaved ? "configured" : "disconnected",
+      pending: false,
+    }),
+    item({
+      id: "google-lsa",
+      name: "Google Local Services Ads",
+      description: "Route phone and message inquiries from Google Screened into your pipeline.",
+      setup: "Connect Google Local Services Ads in Zapier and route inquiries to your webhook.",
+      status: zapierSaved ? "configured" : "disconnected",
+      pending: false,
     }),
     item({
       id: "gmail",

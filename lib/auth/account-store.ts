@@ -43,6 +43,19 @@ export async function writeJsonFile(localPath: string, remoteKey: string, text: 
   if (error) throw new Error(error.message)
 }
 
+export async function deleteJsonFile(localPath: string, remoteKey: string): Promise<void> {
+  const admin = remoteClient()
+  if (!admin) {
+    try {
+      if (fs.existsSync(localPath)) fs.unlinkSync(localPath)
+    } catch {
+      // ignore
+    }
+    return
+  }
+  await admin.storage.from(BUCKET).remove([remoteKey])
+}
+
 export async function listJsonNames(localDir: string, remotePrefix: string): Promise<string[]> {
   const admin = remoteClient()
   if (!admin) {

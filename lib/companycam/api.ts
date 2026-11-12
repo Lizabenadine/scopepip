@@ -1,5 +1,3 @@
-import fs from "node:fs"
-import path from "node:path"
 import {
   matchCompanyCamProject,
   parseCompanyCamPhotos,
@@ -7,6 +5,16 @@ import {
   type CompanyCamPhoto,
   type CompanyCamProject,
 } from "./match.ts"
+import {
+  clearCompanyCamCredentials,
+  getCompanyCamStatus,
+  getDecryptedCompanyCamToken,
+  writeCompanyCamCredentials,
+  type CompanyCamStatus,
+} from "./credentials.ts"
+
+export type { CompanyCamStatus }
+export { clearCompanyCamCredentials, getCompanyCamStatus, getDecryptedCompanyCamToken, writeCompanyCamCredentials }
 
 export interface CompanyCamJobResult {
   estimateId: string
@@ -18,57 +26,87 @@ export interface CompanyCamJobResult {
   detail: string
 }
 
-function tokenFile(): string {
-  return process.env.COMPANYCAM_TOKEN_PATH || path.join(process.cwd(), "data", "companycam.json")
-}
-
-export function companyCamToken(): string {
-  const fromEnv = process.env.COMPANYCAM_API_TOKEN?.trim()
-  if (fromEnv) return fromEnv
-  try {
-    const parsed = JSON.parse(fs.readFileSync(tokenFile(), "utf8")) as { token?: unknown }
-    return typeof parsed.token === "string" ? parsed.token.trim() : ""
-  } catch {
-    return ""
-  }
-}
-
-export function companyCamStatus(): { connected: boolean; last4: string } {
-  const token = companyCamToken()
-  return { connected: token.length >= 20, last4: token.length >= 4 ? token.slice(-4) : "" }
-}
-
-export function saveCompanyCamToken(token: string): { connected: boolean; last4: string } {
-  const file = tokenFile()
-  fs.mkdirSync(path.dirname(file), { recursive: true })
+export async function verifyCompanyCamToken(token: string): Promise<{ ok: boolean; reason?: string }> {
   const trimmed = token.trim()
-  if (trimmed.length < 20) {
-    fs.writeFileSync(file, JSON.stringify({ token: "" }))
-    return { connected: false, last4: "" }
+  if (!trimmed || trimmed.length < 15) {
+    return { ok: false, reason: "Please enter a valid CompanyCam API token." }
   }
-  fs.writeFileSync(file, JSON.stringify({ token: trimmed.slice(0, 200) }))
-  return companyCamStatus()
+  try {
+    const response = await fetch("https://api.companycam.com/v2/users/current", {
+      method: "GET",
+      headers: { authorization: `Bearer ${trimmed}`, accept: "application/json" },
+    })
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, reason: "The photo token was rejected by CompanyCam." }
+    }
+    if (!response.ok) {
+      return { ok: false, reason: `CompanyCam could not be reached (${response.status}).` }
+    }
+    return { ok: true }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "CompanyCam could not be reached."
+    return { ok: false, reason: detail }
+  }
+}
+
+export async function companyCamStatus(companyId?: string): Promise<{ connected: boolean; last4: string; verifiedAt?: string }> {
+  if (!companyId) return { connected: false, last4: "" }
+  return getCompanyCamStatus(companyId)
 }
 
 export async function syncCompanyCam(
+  companyIdOrJobs: string | { estimateId: string; address: string; title: string; projectId?: string }[],
+  maybeJobs?: { estimateId: string; address: string; title: string; projectId?: string }[],
+): Promise<{ connected: boolean; detail: string; jobs: CompanyCamJobResult[] }> {
+  let companyId = ""
+  let jobs: { estimateId: string; address: string; title: string; projectId?: string }[] = []
+
+  if (typeof companyIdOrJobs === "string") {
+    companyId = companyIdOrJobs
+    jobs = Array.isArray(maybeJobs) ? maybeJobs : []
+  } else if (Array.isArray(companyIdOrJobs)) {
+    jobs = companyIdOrJobs
+  }
+
+  if (!companyId) {
+    return { connected: false, detail: "Job photos are not connected.", jobs: [] }
+  }
+
+  const token = await getDecryptedCompanyCamToken(companyId)
+  if (!token || token.length < 15) {
+    return { connected: false, detail: "Job photos are not connected.", jobs: [] }
+  }
+
+  return syncCompanyCamWithToken(token, jobs)
+}
+
+export async function syncCompanyCamWithToken(
+  token: string,
   jobs: { estimateId: string; address: string; title: string; projectId?: string }[],
 ): Promise<{ connected: boolean; detail: string; jobs: CompanyCamJobResult[] }> {
-  const token = companyCamToken()
-  if (token.length < 20) {
+  const trimmed = token.trim()
+  if (!trimmed || trimmed.length < 15) {
     return { connected: false, detail: "Job photos are not connected.", jobs: [] }
   }
   try {
-    const projects = parseCompanyCamProjects(await companyCam(token, "/projects?per_page=50"))
+    const projects = parseCompanyCamProjects(await companyCam(trimmed, "/projects?per_page=50"))
     const results: CompanyCamJobResult[] = []
     for (const job of jobs.slice(0, 8)) {
       const project = matchCompanyCamProject(job, projects)
       if (!project) {
-        results.push({ estimateId: job.estimateId, matched: false, photos: [], detail: "No photo project matches this address." })
+        results.push({
+          estimateId: job.estimateId,
+          matched: false,
+          photos: [],
+          detail: "No photo project matches this address.",
+        })
         continue
       }
       let photos: CompanyCamPhoto[] = []
       try {
-        photos = parseCompanyCamPhotos(await companyCam(token, `/projects/${encodeURIComponent(project.id)}/photos?per_page=12`))
+        photos = parseCompanyCamPhotos(
+          await companyCam(trimmed, `/projects/${encodeURIComponent(project.id)}/photos?per_page=12`),
+        )
       } catch {
         photos = []
       }
@@ -78,7 +116,7 @@ export async function syncCompanyCam(
         projectId: project.id,
         projectName: project.name,
         projectUrl: project.projectUrl,
-        photos,
+        photos: photos.slice(0, 12),
         detail: photos.length > 0 ? `Synced ${photos.length} photos.` : "Project matched. No photos yet.",
       })
     }

@@ -14,13 +14,19 @@ const names = [
   "Zapier",
   "QuickBooks Online",
   "Google Calendar",
+  "Outlook Calendar",
+  "Google Sheets",
+  "Website Lead Form",
+  "Thumbtack",
+  "Angi",
+  "Google Local Services Ads",
   "Gmail",
   "Google Business Profile",
   "Facebook and Instagram",
 ]
 
 describe("featured integrations", () => {
-  it("lists the seven services and leaves each one disconnected until a real connection exists", () => {
+  it("lists all supported services and leaves each one disconnected until a real connection exists", () => {
     const cards = featuredIntegrations({}, emptyHost)
     assert.deepEqual(cards.map((item) => item.name), names)
     const gmail = cards.find((item) => item.id === "gmail")
@@ -48,6 +54,12 @@ describe("featured integrations", () => {
     assert.equal(status.zapier, "connected")
     assert.equal(status.quickbooks, "connected")
     assert.equal(status["google-calendar"], "connected")
+    assert.equal(status["outlook-calendar"], "connected")
+    assert.equal(status["google-sheets"], "configured")
+    assert.equal(status["lead-form"], "configured")
+    assert.equal(status.thumbtack, "configured")
+    assert.equal(status.angi, "configured")
+    assert.equal(status["google-lsa"], "configured")
     assert.equal(status.gmail, "unavailable")
     assert.equal(status["google-business"], "configured")
     assert.equal(status["facebook-instagram"], "connected")

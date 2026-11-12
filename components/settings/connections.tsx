@@ -17,10 +17,15 @@ export function Connections() {
   const [webhook, setWebhook] = useState(scope.estimateSettings.zapierWebhookUrl ?? "")
   const [zapierDetail, setZapierDetail] = useState("")
   const [leadDetail, setLeadDetail] = useState("")
+  const [formDetail, setFormDetail] = useState("")
   const origin = usePageOrigin()
   const [token, setToken] = useState("")
   const [companyCam, setCompanyCam] = useState("Job photos are not connected.")
+  const [companyCamConnected, setCompanyCamConnected] = useState(false)
+  const [companyCamFeedback, setCompanyCamFeedback] = useState("")
   const [savingCam, setSavingCam] = useState(false)
+  const [testingCam, setTestingCam] = useState(false)
+  const [disconnectingCam, setDisconnectingCam] = useState(false)
   const creatingWebhook = useRef(false)
   const inboundToken = leadWebhookToken(scope.estimateSettings.leadWebhookToken)
   const inboundUrl = origin && inboundToken ? `${origin}/api/webhooks/leads/${inboundToken}` : ""
@@ -44,10 +49,14 @@ export function Connections() {
       .then((response) => response.json())
       .then((payload: { connected?: boolean; last4?: string }) => {
         if (cancelled) return
+        setCompanyCamConnected(payload.connected === true)
         setCompanyCam(payload.connected ? `Job photos connected · token ending ${payload.last4}` : "Job photos are not connected.")
       })
       .catch(() => {
-        if (!cancelled) setCompanyCam("Job photos are not connected.")
+        if (!cancelled) {
+          setCompanyCamConnected(false)
+          setCompanyCam("Job photos are not connected.")
+        }
       })
     return () => {
       cancelled = true
@@ -97,19 +106,74 @@ export function Connections() {
 
   async function saveCompanyCam() {
     setSavingCam(true)
+    setCompanyCamFeedback("")
     try {
       const response = await fetch("/api/companycam/connection", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ action: "save", token }),
       })
-      const payload = (await response.json()) as { connected?: boolean; last4?: string }
-      setToken("")
-      setCompanyCam(payload.connected ? `Job photos connected · token ending ${payload.last4}` : "Job photos are not connected.")
+      const payload = (await response.json()) as { ok?: boolean; connected?: boolean; last4?: string; reason?: string }
+      if (response.ok && payload.connected) {
+        setToken("")
+        setCompanyCamConnected(true)
+        setCompanyCam(`Job photos connected · token ending ${payload.last4}`)
+        setCompanyCamFeedback("CompanyCam connected and verified successfully.")
+        window.dispatchEvent(new Event("scopepipe:integrations-refresh"))
+      } else {
+        setCompanyCamFeedback(payload.reason || "The photo token was rejected by CompanyCam.")
+      }
     } catch {
-      setCompanyCam("Job photos could not be saved.")
+      setCompanyCamFeedback("Job photos could not be saved.")
     } finally {
       setSavingCam(false)
+    }
+  }
+
+  async function testCompanyCam() {
+    setTestingCam(true)
+    setCompanyCamFeedback("")
+    try {
+      const response = await fetch("/api/companycam/connection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "test", token: token || undefined }),
+      })
+      const payload = (await response.json()) as { ok?: boolean; reason?: string; message?: string }
+      if (response.ok && payload.ok) {
+        setCompanyCamFeedback(payload.message || "CompanyCam connection verified.")
+      } else {
+        setCompanyCamFeedback(payload.reason || "The photo token was rejected by CompanyCam.")
+      }
+    } catch {
+      setCompanyCamFeedback("CompanyCam could not be reached.")
+    } finally {
+      setTestingCam(false)
+    }
+  }
+
+  async function disconnectCompanyCam() {
+    setDisconnectingCam(true)
+    setCompanyCamFeedback("")
+    try {
+      const response = await fetch("/api/companycam/connection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      })
+      if (response.ok) {
+        setCompanyCamConnected(false)
+        setCompanyCam("Job photos are not connected.")
+        setCompanyCamFeedback("CompanyCam disconnected.")
+        setToken("")
+        window.dispatchEvent(new Event("scopepipe:integrations-refresh"))
+      } else {
+        setCompanyCamFeedback("CompanyCam could not be disconnected.")
+      }
+    } catch {
+      setCompanyCamFeedback("CompanyCam could not be disconnected.")
+    } finally {
+      setDisconnectingCam(false)
     }
   }
 
@@ -120,6 +184,18 @@ export function Connections() {
       setLeadDetail("Webhook address copied.")
     } catch {
       setLeadDetail("Copy the address above.")
+    }
+  }
+
+  async function copyEmbedCode() {
+    if (!inboundUrl || !inboundToken) return
+    const code = `<iframe src="${origin}/lead-form/${inboundToken}" width="100%" height="560" frameborder="0" style="border:none;border-radius:12px;"></iframe>`
+    try {
+      await navigator.clipboard.writeText(code)
+      setFormDetail("Embed code copied to clipboard!")
+      setTimeout(() => setFormDetail(""), 3000)
+    } catch {
+      setFormDetail("Please copy manually from the box.")
     }
   }
 
@@ -139,6 +215,46 @@ export function Connections() {
             Copy webhook address
           </Button>
           {leadDetail ? <p className="mt-2 text-sm">{leadDetail}</p> : null}
+        </div>
+        <div id="lead-form-embed" className="scroll-mt-24 border-t border-slate-100 pt-4">
+          <h2 className="text-lg font-semibold">Website Lead Form</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Embed this mobile-friendly inquiry form on your website (WordPress, Squarespace, Wix, or custom HTML). Submissions flow straight into your Sales Pipeline.
+          </p>
+          <div className="mt-3 grid gap-2">
+            <Label htmlFor="leadFormEmbed" className="text-xs font-medium">Embed Code (iframe)</Label>
+            <textarea
+              id="leadFormEmbed"
+              readOnly
+              rows={2}
+              value={inboundUrl ? `<iframe src="${origin}/lead-form/${inboundToken}" width="100%" height="560" frameborder="0" style="border:none;border-radius:12px;"></iframe>` : ""}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs text-slate-800"
+              data-testid="lead-form-embed-code"
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              data-testid="copy-lead-form-embed-btn"
+              disabled={!inboundUrl}
+              onClick={() => void copyEmbedCode()}
+            >
+              Copy Embed Code
+            </Button>
+            <Button
+              type="button"
+              className="h-11"
+              nativeButton={false}
+              render={<a href={origin && inboundToken ? `/lead-form/${inboundToken}` : "#"} target="_blank" rel="noopener noreferrer" />}
+              data-testid="preview-lead-form-btn"
+              disabled={!inboundUrl}
+            >
+              Open Form Preview
+            </Button>
+          </div>
+          {formDetail ? <p className="mt-2 text-sm font-medium text-cyan-600">{formDetail}</p> : null}
         </div>
         <div id="zapier-hook" className="scroll-mt-24">
           <h2 className="text-lg font-semibold">Outbound hooks</h2>
@@ -171,21 +287,55 @@ export function Connections() {
             A token pulls projects and photos onto the work order. A photo link stored on the job is separate.
           </p>
           <p className="mt-2 text-sm" data-testid="companycam-status">{companyCam}</p>
+          {companyCamFeedback ? (
+            <p className="mt-2 text-sm font-medium text-slate-700" data-testid="companycam-feedback">{companyCamFeedback}</p>
+          ) : null}
           <div className="mt-3 grid gap-2">
-            <Label htmlFor="companyCamToken">API token</Label>
+            <Label htmlFor="companyCamToken">{companyCamConnected ? "Update API token" : "API token"}</Label>
             <input
               id="companyCamToken"
               type="password"
               value={token}
               autoComplete="off"
+              placeholder={companyCamConnected ? "Paste new token to update" : "Paste CompanyCam API token"}
               data-testid="companycam-token"
               onChange={(event) => setToken(event.target.value)}
               className="h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
-          <Button type="button" className="mt-3 h-11" data-testid="companycam-save" disabled={savingCam} onClick={() => void saveCompanyCam()}>
-            {savingCam ? "Saving..." : "Save photo token"}
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              className="h-11"
+              data-testid="companycam-save"
+              disabled={savingCam || !token.trim()}
+              onClick={() => void saveCompanyCam()}
+            >
+              {savingCam ? "Connecting..." : companyCamConnected ? "Update photo token" : "Connect CompanyCam"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              data-testid="companycam-test"
+              disabled={testingCam || (!companyCamConnected && !token.trim())}
+              onClick={() => void testCompanyCam()}
+            >
+              {testingCam ? "Testing..." : "Test Connection"}
+            </Button>
+            {companyCamConnected ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="h-11"
+                data-testid="companycam-disconnect"
+                disabled={disconnectingCam}
+                onClick={() => void disconnectCompanyCam()}
+              >
+                {disconnectingCam ? "Disconnecting..." : "Disconnect"}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </section>
     </div>

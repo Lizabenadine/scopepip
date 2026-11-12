@@ -1,9 +1,9 @@
-import { companyForLeadWebhook, readCompanyBook, writeCompanyBook } from "@/lib/auth/directory"
-import { addLeadSpool } from "@/lib/leads/spool"
-import { readBody } from "@/lib/leads/receive"
-import { landWebhookLead, parseWebhookLead, webhookZapierEvent } from "@/lib/webhooks/leads"
-import { postZapierEvent } from "@/lib/zapier/deliver"
-import type { ScopeState } from "@/lib/data/seed"
+import { companyForLeadWebhook, readCompanyBook, writeCompanyBook } from "../../../../../lib/auth/directory.ts"
+import { addLeadSpool } from "../../../../../lib/leads/spool.ts"
+import { readBody } from "../../../../../lib/leads/receive.ts"
+import { landWebhookLead, parseWebhookLead, webhookZapierEvent } from "../../../../../lib/webhooks/leads.ts"
+import { postZapierEvent } from "../../../../../lib/zapier/deliver.ts"
+import type { ScopeState } from "../../../../../lib/data/seed.ts"
 
 export const runtime = "nodejs"
 

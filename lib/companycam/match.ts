@@ -13,7 +13,49 @@ export interface CompanyCamPhoto {
   capturedAt: string
 }
 
-const SKIP = new Set(["street", "st", "avenue", "ave", "road", "rd", "drive", "dr", "lane", "ln", "court", "ct", "boulevard", "blvd", "portland", "oregon", "suite", "unit"])
+const SKIP = new Set([
+  "street",
+  "st",
+  "avenue",
+  "ave",
+  "road",
+  "rd",
+  "drive",
+  "dr",
+  "lane",
+  "ln",
+  "court",
+  "ct",
+  "boulevard",
+  "blvd",
+  "portland",
+  "oregon",
+  "suite",
+  "unit",
+  "north",
+  "south",
+  "east",
+  "west",
+  "ne",
+  "nw",
+  "se",
+  "sw",
+  "invoice",
+  "quote",
+  "estimate",
+  "proposal",
+  "job",
+  "project",
+  "work",
+  "order",
+  "contract",
+  "phase",
+  "floor",
+  "exterior",
+  "interior",
+  "repaint",
+  "painting",
+])
 
 export function matchCompanyCamProject(
   job: { address: string; title: string; projectId?: string },
@@ -25,12 +67,13 @@ export function matchCompanyCamProject(
   }
   const needle = streetOf(job.address) ?? streetOf(job.title)
   if (!needle) return null
-  return (
-    projects.find((project) => {
-      const hay = streetOf(`${project.address} ${project.name}`)
-      return hay?.number === needle.number && hay.street === needle.street
-    }) ?? null
-  )
+  const matches = projects.filter((project) => {
+    const hay = streetOf(`${project.address} ${project.name}`)
+    return hay?.number === needle.number && hay.street === needle.street
+  })
+  // If ambiguous (multiple projects share the same address), do not attach to an arbitrary project
+  if (matches.length !== 1) return null
+  return matches[0]
 }
 
 export function parseCompanyCamProjects(payload: unknown): CompanyCamProject[] {
@@ -56,7 +99,15 @@ export function parseCompanyCamProjects(payload: unknown): CompanyCamProject[] {
   return projects
 }
 
-export function parseCompanyCamPhotos(payload: unknown): CompanyCamPhoto[] {
+export function parseCompanyCamPhotos(payload: unknown, existingPhotoIds?: Iterable<string>): CompanyCamPhoto[] {
+  const existing = new Set<string>()
+  if (existingPhotoIds) {
+    for (const item of existingPhotoIds) {
+      if (typeof item === "string" && item.trim()) existing.add(item.trim())
+    }
+  }
+  const seenIds = new Set<string>()
+  const seenUrls = new Set<string>()
   const photos: CompanyCamPhoto[] = []
   for (const row of asRows(payload)) {
     if (!row || typeof row !== "object") continue
@@ -64,7 +115,19 @@ export function parseCompanyCamPhotos(payload: unknown): CompanyCamPhoto[] {
     const id = stringOf(photo.id)
     const url = photoUrl(photo)
     if (!id || !url) continue
+    if (
+      seenIds.has(id) ||
+      seenUrls.has(url) ||
+      existing.has(id) ||
+      existing.has(url) ||
+      existing.has(`companycam:${id}`)
+    ) {
+      continue
+    }
+    seenIds.add(id)
+    seenUrls.add(url)
     photos.push({ id, url, capturedAt: capturedAt(photo.captured_at ?? photo.created_at) })
+    if (photos.length >= 12) break
   }
   return photos.slice(0, 12)
 }
