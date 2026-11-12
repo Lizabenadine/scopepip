@@ -362,14 +362,294 @@ export function IntegrationCards() {
 function FacebookSetup() {
   const origin = usePageOrigin()
   const address = origin ? `${origin}/api/leads/facebook` : ""
+  const [status, setStatus] = useState<{
+    connected: boolean
+    pageId?: string
+    pageName?: string
+    verifiedAt?: string
+    oauthConfigured?: boolean
+  } | null>(null)
+  const [pageId, setPageId] = useState("")
+  const [pageAccessToken, setPageAccessToken] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [feedback, setFeedback] = useState("")
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get("facebook") === "connected") {
+        setFeedback("Facebook Page successfully connected via Meta authorization!")
+        const clean = new URL(window.location.href)
+        clean.searchParams.delete("facebook")
+        window.history.replaceState({}, "", clean.toString())
+        window.dispatchEvent(new Event("scopepipe:integrations-refresh"))
+      } else if (params.get("facebook_error")) {
+        const err = params.get("facebook_error")
+        setFeedback(`Facebook connection error: ${err}`)
+        const clean = new URL(window.location.href)
+        clean.searchParams.delete("facebook_error")
+        window.history.replaceState({}, "", clean.toString())
+      }
+    }
+
+    void fetch("/api/facebook/connection")
+      .then((res) => res.json())
+      .then(
+        (data: {
+          connected?: boolean
+          pageId?: string
+          pageName?: string
+          verifiedAt?: string
+          oauthConfigured?: boolean
+        }) => {
+          if (cancelled) return
+          setStatus({
+            connected: data.connected === true,
+            pageId: data.pageId,
+            pageName: data.pageName,
+            verifiedAt: data.verifiedAt,
+            oauthConfigured: data.oauthConfigured === true,
+          })
+          if (data.pageId) setPageId(data.pageId)
+        },
+      )
+      .catch(() => {
+        if (!cancelled) setStatus({ connected: false, oauthConfigured: false })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function connectPage() {
+    if (!pageId.trim() || !pageAccessToken.trim()) {
+      setFeedback("Please enter both your Facebook Page ID and Page Access Token.")
+      return
+    }
+    setSaving(true)
+    setFeedback("")
+    try {
+      const res = await fetch("/api/facebook/connection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "connect", pageId: pageId.trim(), pageAccessToken: pageAccessToken.trim() }),
+      })
+      const data = (await res.json()) as { ok?: boolean; connected?: boolean; pageId?: string; pageName?: string; reason?: string }
+      if (res.ok && data.connected) {
+        setStatus({
+          connected: true,
+          pageId: data.pageId,
+          pageName: data.pageName,
+          oauthConfigured: status?.oauthConfigured,
+        })
+        setPageAccessToken("")
+        setFeedback(`Connected to ${data.pageName || "Facebook Page"}! Leads will sync automatically.`)
+        window.dispatchEvent(new Event("scopepipe:integrations-refresh"))
+      } else {
+        setFeedback(data.reason || "The Page Access Token was rejected by Facebook.")
+      }
+    } catch {
+      setFeedback("Connection failed. Please check your network and try again.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function testConnection() {
+    setTesting(true)
+    setFeedback("")
+    try {
+      const res = await fetch("/api/facebook/connection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "test" }),
+      })
+      const data = (await res.json()) as { ok?: boolean; message?: string; reason?: string }
+      if (res.ok && data.ok) {
+        setFeedback(data.message || "Facebook connection verified successfully.")
+      } else {
+        setFeedback(data.reason || "The connection test failed.")
+      }
+    } catch {
+      setFeedback("Unable to reach Facebook Graph API.")
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  async function disconnectPage() {
+    setDisconnecting(true)
+    setFeedback("")
+    try {
+      const res = await fetch("/api/facebook/connection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      })
+      if (res.ok) {
+        setStatus({ connected: false, oauthConfigured: status?.oauthConfigured })
+        setPageAccessToken("")
+        setFeedback("Facebook Page disconnected.")
+        window.dispatchEvent(new Event("scopepipe:integrations-refresh"))
+      } else {
+        setFeedback("Could not disconnect at this time.")
+      }
+    } catch {
+      setFeedback("Disconnection failed.")
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  async function copyWebhookUrl() {
+    if (!address) return
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // fallback
+    }
+  }
+
   return (
-    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-sm text-muted-foreground">
-        Facebook Lead Ads and Instagram Lead Ads use this address. Saving a value here does not connect the account. Set FACEBOOK_VERIFY_TOKEN on the host.
-      </p>
-      <p className="mt-3 break-all font-mono text-sm" data-testid="facebook-webhook-url">
-        {address || "Preparing the webhook address."}
-      </p>
+    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4" data-testid="facebook-setup-panel">
+      {status?.connected ? (
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex size-2.5 rounded-full bg-emerald-500" />
+            <p className="text-sm font-semibold text-slate-800" data-testid="facebook-connected-page">
+              Connected: {status.pageName}
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-slate-600">
+            Page ID: <span className="font-mono">{status.pageId}</span>. Leads submitted on your Facebook and Instagram Lead Ads are automatically retrieved and placed into your Sales Pipeline.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-xs"
+              data-testid="facebook-test-btn"
+              disabled={testing}
+              onClick={() => void testConnection()}
+            >
+              {testing ? "Testing..." : "Test Connection"}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-9 text-xs"
+              data-testid="facebook-disconnect-btn"
+              disabled={disconnecting}
+              onClick={() => void disconnectPage()}
+            >
+              {disconnecting ? "Disconnecting..." : "Disconnect Page"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm font-medium text-slate-800">Connect Facebook Business Page</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Connect your Facebook page to automatically import leads from Facebook and Instagram Lead Ads directly into your Sales Pipeline.
+          </p>
+
+          <div className="mt-3 space-y-3">
+            <div>
+              <a
+                href="/api/facebook/oauth/start"
+                className={cn(
+                  "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1877F2] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#166fe5]",
+                  !status?.oauthConfigured && "pointer-events-none opacity-50",
+                )}
+                data-testid="facebook-oauth-btn"
+                title={!status?.oauthConfigured ? "FACEBOOK_APP_ID and FACEBOOK_APP_SECRET must be configured in Vercel" : undefined}
+              >
+                <Share2 className="size-3.5" />
+                Connect with Facebook
+              </a>
+              {!status?.oauthConfigured ? (
+                <p className="mt-1 text-[11px] text-amber-700">
+                  One-click authorization requires FACEBOOK_APP_ID & FACEBOOK_APP_SECRET on the host. You can also connect directly below with your Page Access Token.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
+              <div className="relative flex justify-center text-[10px]"><span className="bg-slate-50 px-2 text-slate-400 uppercase tracking-wider font-semibold">Or enter page token manually</span></div>
+            </div>
+
+            <div>
+              <Label htmlFor="fbPageId" className="text-xs">Facebook Page ID</Label>
+              <Input
+                id="fbPageId"
+                value={pageId}
+                placeholder="e.g. 1029384756"
+                className="h-9 mt-1 text-xs"
+                data-testid="facebook-page-id"
+                onValueChange={setPageId}
+              />
+            </div>
+            <div>
+              <Label htmlFor="fbAccessToken" className="text-xs">Page Access Token</Label>
+              <input
+                id="fbAccessToken"
+                type="password"
+                value={pageAccessToken}
+                placeholder="Paste Page Access Token (from Meta Business Suite)"
+                autoComplete="off"
+                className="h-9 mt-1 w-full rounded-lg border border-input bg-white px-3 text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+                data-testid="facebook-access-token"
+                onChange={(e) => setPageAccessToken(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 text-xs"
+              data-testid="facebook-connect-btn"
+              disabled={saving || !pageId.trim() || !pageAccessToken.trim()}
+              onClick={() => void connectPage()}
+            >
+              {saving ? "Verifying..." : "Save Page Credentials"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {feedback ? (
+        <p className="mt-3 text-xs font-medium text-slate-700" data-testid="facebook-feedback">
+          {feedback}
+        </p>
+      ) : null}
+
+      <div className="mt-4 pt-3 border-t border-slate-200">
+        <p className="text-xs font-medium text-slate-700">Webhook Callback URL</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          If configuring in Meta App Dashboard or Zapier, use this destination:
+        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="break-all rounded border border-slate-200 bg-white p-2 font-mono text-xs flex-1 select-all" data-testid="facebook-webhook-url">
+            {address || "Preparing webhook address..."}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 text-xs shrink-0"
+            disabled={!address}
+            onClick={() => void copyWebhookUrl()}
+          >
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

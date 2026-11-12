@@ -171,10 +171,10 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
     item({
       id: "facebook-instagram",
       name: "Facebook and Instagram",
-      description: "Lead generation and marketing.",
+      description: "Import leads from Facebook & Instagram Lead Ads directly into your pipeline.",
       setup: facebook.connected
-        ? "The Facebook verify token is set on the host. Instagram Lead Ads use the same address."
-        : "Point Lead Ads at the Facebook address. The host needs FACEBOOK_VERIFY_TOKEN before the check succeeds.",
+        ? "Connected to your Facebook Business Page. Leads from Facebook and Instagram Lead Ads sync automatically."
+        : "Connect your Facebook Business Page to automatically import leads from Facebook and Instagram Lead Ads.",
       ...facebook,
     }),
   ]

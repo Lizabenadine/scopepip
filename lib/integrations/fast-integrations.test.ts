@@ -66,8 +66,8 @@ describe("Fast Integration Verification", () => {
     const companyA = userA.user.companyId
     const companyB = userB.user.companyId
 
-    const tokenA = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
-    const tokenB = "f0e9d8c7b6a504132231405f6e7d8c9b"
+    const tokenA = crypto.randomUUID().replace(/-/g, "")
+    const tokenB = crypto.randomUUID().replace(/-/g, "")
 
     const bookA = await readCompanyBook(companyA)
     const bookB = await readCompanyBook(companyB)

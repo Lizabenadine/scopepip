@@ -128,7 +128,7 @@ function parseFacebook(body: unknown, now: string): ParsedInbound | RejectedInbo
   return { ok: true, leads }
 }
 
-function fieldDataLead(record: Record<string, unknown>, now: string): InboundLead | null {
+export function fieldDataLead(record: Record<string, unknown>, now: string): InboundLead | null {
   if (!Array.isArray(record.field_data)) return null
   const fields = new Map<string, string>()
   for (const field of record.field_data) {
