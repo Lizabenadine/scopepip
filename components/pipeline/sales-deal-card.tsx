@@ -7,6 +7,7 @@ import { Calendar, ChevronRight, Eye, FileText, GripVertical, Mail, MessageSquar
 import { CardNotesSection } from "@/components/pipeline/card-notes-section"
 import { DealMenu } from "@/components/pipeline/deal-menu"
 import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
+import { SmartFollowUpBanner } from "@/components/pipeline/smart-follow-up-banner"
 import { Badge } from "@/components/ui/badge"
 import { appointmentLabel } from "@/lib/appointments/visit"
 import { useClientNow } from "@/lib/browser/client-env"
@@ -281,6 +282,8 @@ export function SalesDealCard({
       )}
 
       <CardNotesSection estimate={estimate} />
+
+      <SmartFollowUpBanner estimate={estimate} client={client} />
 
       {/* Bottom Footer: Quick Actions, Move Dropdown & Deal Menu */}
       <div className="mt-auto flex flex-col gap-2 border-t border-slate-100 pt-3">

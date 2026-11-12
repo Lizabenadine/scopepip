@@ -8,6 +8,7 @@ import { CardNotesSection } from "@/components/pipeline/card-notes-section"
 import { DealMenu } from "@/components/pipeline/deal-menu"
 import { NavigateToJobsite } from "@/components/pipeline/navigate-jobsite"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
+import { SmartFollowUpBanner } from "@/components/pipeline/smart-follow-up-banner"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -568,6 +569,7 @@ export function DealCard({
         </div>
       ) : null}
       <CardNotesSection estimate={estimate} />
+      <SmartFollowUpBanner estimate={estimate} client={client} />
       <Dialog open={contactOpen} onOpenChange={setContactOpen}>
         <DialogContent>
           <DialogHeader>
