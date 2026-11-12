@@ -1,6 +1,7 @@
 import { saveBillingStatus } from "../auth/directory.ts"
 import { officeStatusFromPaddle } from "./entitlement.ts"
 import { upsertCustomer, upsertSubscription, type CustomerMirror, type SubscriptionMirror } from "./paddle-mirror.ts"
+import { processPaddleRefund, recordCommissionFromPaddle } from "../affiliates/affiliate-store.ts"
 
 const SUBSCRIPTION_EVENTS = new Set([
   "subscription.created",
@@ -106,13 +107,40 @@ export async function handleVerifiedPaddleEvent(event: { eventType: string; data
     return { type: event.eventType }
   }
   if (event.eventType === "transaction.completed") {
+    const email = customText(data.customData, "email")
     const customer = customerMirror({
       id: data.customerId ?? undefined,
-      email: customText(data.customData, "email"),
+      email,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     })
     if (customer) await upsertCustomer(customer)
+
+    // Record affiliate commission on paid settlement
+    const transactionId = text((data as Record<string, unknown>).id)
+    const rawDetails = (data as Record<string, unknown>).details as Record<string, unknown> | undefined
+    const totals = rawDetails?.totals as Record<string, unknown> | undefined
+    const rawAmount = typeof totals?.total === "string" ? parseFloat(totals.total) : typeof totals?.total === "number" ? totals.total : 49.0
+    const companyId = customText(data.customData, "company_id")
+    const subscriptionId = text((data as Record<string, unknown>).subscription_id) || text((data as Record<string, unknown>).subscriptionId)
+
+    if (transactionId) {
+      await recordCommissionFromPaddle({
+        transactionId,
+        amount: rawAmount > 0 ? rawAmount : 49.0,
+        customerEmail: email,
+        companyId,
+        subscriptionId,
+      }).catch(() => null)
+    }
+
+    return { type: event.eventType }
+  }
+  if (event.eventType === "transaction.refunded" || event.eventType === "payment.refunded") {
+    const transactionId = text((data as Record<string, unknown>).id)
+    if (transactionId) {
+      await processPaddleRefund(transactionId).catch(() => null)
+    }
     return { type: event.eventType }
   }
   return { type: event.eventType, ignored: true }

@@ -25,29 +25,35 @@ export function ProposalDemo() {
   const scene = FRAMES[frame] ?? FRAMES[0]
 
   return (
-    <section id="proposal-demo" className="scroll-mt-24 px-4 py-20 md:px-6">
+    <div className="px-4 py-20 md:px-6">
       <div className="mx-auto grid max-w-6xl items-center gap-10 md:grid-cols-[0.8fr_1.2fr]">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sample proposal</h2>
+          <span className="text-xs font-bold tracking-wider uppercase text-cyan-400">
+            Interactive Customer Proposal
+          </span>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">Sample proposal</h2>
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
-            This is the page the customer opens. Press play and the view walks around the outside of the house.
+            This is the interactive page your customer opens on their phone. Press play to see how a line-item video walks around the outside of the house, building instant trust and clarity before they sign.
           </p>
-          <a href="/sample-proposal" className="mt-4 inline-block text-sm font-medium text-cyan-300 hover:text-white">
-            Open the sample proposal
+          <a
+            href="/sample-proposal"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-300 hover:text-white transition-colors"
+          >
+            Open the full sample proposal →
           </a>
         </div>
-        <article className="rounded-2xl border border-white/10 bg-white p-5 text-slate-900 shadow-2xl shadow-blue-500/10">
-          <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">Sample proposal</p>
-          <h3 className="mt-1 text-xl font-semibold">Exterior and trim</h3>
-          <div className="mt-4 rounded-xl border border-slate-200 p-4">
+        <article className="rounded-2xl border border-white/10 bg-white p-6 text-slate-900 shadow-2xl shadow-cyan-500/10">
+          <p className="text-xs font-semibold tracking-wider text-cyan-800 uppercase">Interactive Line Item</p>
+          <h3 className="mt-1 text-xl font-bold text-slate-900">Exterior Repaint & Trim Walkthrough</h3>
+          <div className="mt-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-medium">Front elevation</p>
-                <p className="text-sm text-slate-500">Two coats, body and trim</p>
+                <p className="font-bold text-slate-900">Front Elevation Walkthrough</p>
+                <p className="text-xs text-slate-500">Two coats premium acrylic, body and trim</p>
               </div>
-              <p className="font-semibold">$3,240</p>
+              <p className="font-extrabold text-slate-900">$3,240</p>
             </div>
-            <div className="relative mt-4 aspect-video overflow-hidden rounded-xl bg-slate-900">
+            <div className="relative mt-4 aspect-video overflow-hidden rounded-xl bg-slate-950">
               <HouseWalkthrough x={scene.x} />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-3 pt-8 pb-3 text-white">
                 <p className="text-sm font-semibold">{scene.title}</p>
@@ -68,8 +74,8 @@ export function ProposalDemo() {
                     setPlaying(true)
                   }}
                 >
-                  <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-slate-950 shadow-md">
-                    <Play className="size-3.5" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-3.5 py-1.5 text-xs font-bold text-slate-950 shadow-md hover:bg-cyan-300 transition-colors">
+                    <Play className="size-3.5 fill-slate-950" aria-hidden="true" />
                     Play walkthrough
                   </span>
                 </button>
@@ -77,11 +83,11 @@ export function ProposalDemo() {
             </div>
           </div>
           <p className="mt-4 text-right text-sm text-slate-500">
-            Total <span className="ml-2 text-lg font-semibold text-slate-900">$3,240</span>
+            Total Proposal Value <span className="ml-2 text-xl font-extrabold text-slate-900">$3,240</span>
           </p>
         </article>
       </div>
-    </section>
+    </div>
   )
 }
 

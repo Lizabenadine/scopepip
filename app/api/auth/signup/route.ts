@@ -5,6 +5,7 @@ import { sessionCookie } from "@/lib/auth/session"
 import { signOfficeSession, signSession } from "@/lib/auth/session-token"
 import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
+import { trackReferralSignup } from "@/lib/affiliates/affiliate-store"
 
 export const runtime = "nodejs"
 
@@ -74,6 +75,11 @@ export async function POST(request: NextRequest) {
   try {
     const result = await signup({ ...input, ...(authUserId ? { authUserId } : {}) })
     if (!result.ok) return NextResponse.json(result, { status: 400 })
+
+    const refCode = request.cookies.get("sp_ref")?.value || (body as Record<string, unknown>)?.refCode
+    if (typeof refCode === "string" && refCode.trim()) {
+      await trackReferralSignup(refCode.trim(), result.user.companyId, result.user.email).catch(() => null)
+    }
     if (outcome.kind === "confirm") {
       return attachAuthCookies(NextResponse.json({ ok: true, confirmEmail: true }), pendingCookies, cacheHeaders)
     }
