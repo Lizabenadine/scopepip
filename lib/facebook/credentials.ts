@@ -248,24 +248,83 @@ export async function fetchFacebookLeadDetails(
   }
 }
 
-export function facebookOAuthConfig(): { appId: string; configured: boolean } {
+/**
+ * Fetches user profile name for a given Messenger PSID using Page Access Token.
+ */
+export async function fetchFacebookUserProfile(
+  senderPsid: string,
+  pageAccessToken: string,
+): Promise<{ name?: string; firstName?: string; lastName?: string } | null> {
+  const cleanPsid = senderPsid.trim()
+  const cleanToken = pageAccessToken.trim()
+  if (!cleanPsid || !cleanToken) return null
+
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPsid)}?fields=first_name,last_name,name&access_token=${encodeURIComponent(cleanToken)}`,
+    )
+    if (!res.ok) return null
+    const data = (await res.json().catch(() => null)) as Record<string, unknown> | null
+    if (!data) return null
+    const firstName = typeof data.first_name === "string" ? data.first_name : ""
+    const lastName = typeof data.last_name === "string" ? data.last_name : ""
+    const name = typeof data.name === "string" ? data.name : [firstName, lastName].filter(Boolean).join(" ")
+    return { name: name || undefined, firstName: firstName || undefined, lastName: lastName || undefined }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Verifies the x-hub-signature-256 header sent by Meta Webhooks using FACEBOOK_APP_SECRET.
+ */
+export function verifyFacebookWebhookSignature(rawBody: string | Buffer, signatureHeader: string | null): boolean {
+  const appSecret = process.env.FACEBOOK_APP_SECRET?.trim()
+  // If app secret is not configured on the host, verification is skipped
+  if (!appSecret) return true
+  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) return false
+
+  const signature = signatureHeader.slice(7).trim()
+  const expected = crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex")
+
+  try {
+    const sigBuf = Buffer.from(signature, "hex")
+    const expBuf = Buffer.from(expected, "hex")
+    if (sigBuf.length !== expBuf.length) return false
+    return crypto.timingSafeEqual(sigBuf, expBuf)
+  } catch {
+    return false
+  }
+}
+
+export function facebookOAuthConfig(): { appId: string; configId?: string; configured: boolean } {
   const appId = process.env.FACEBOOK_APP_ID?.trim() || ""
   const appSecret = process.env.FACEBOOK_APP_SECRET?.trim() || ""
+  const configId = process.env.FACEBOOK_CONFIG_ID?.trim() || ""
   return {
     appId,
+    configId: configId || undefined,
     configured: Boolean(appId && appSecret),
   }
 }
 
 export function buildFacebookOAuthUrl(redirectUri: string, state: string): string | null {
-  const { appId, configured } = facebookOAuthConfig()
+  const { appId, configId, configured } = facebookOAuthConfig()
   if (!configured) return null
+
+  // If a Facebook Login for Business Configuration ID is provided, use config_id
+  if (configId) {
+    return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&response_type=code&override_default_response_type=true`
+  }
+
+  // Standard Facebook Login scope parameter
   const scopes = [
     "pages_show_list",
     "pages_read_engagement",
     "leads_retrieval",
     "pages_manage_ads",
     "pages_manage_metadata",
+    "pages_messaging",
   ].join(",")
   return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(state)}&response_type=code`
 }
@@ -318,7 +377,7 @@ export async function exchangeFacebookCodeForPage(
 
 export async function subscribePageToLeadgen(pageId: string, pageAccessToken: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=leadgen&access_token=${encodeURIComponent(pageAccessToken)}`, {
+    const res = await fetch(`https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/subscribed_apps?subscribed_fields=leadgen,messages&access_token=${encodeURIComponent(pageAccessToken)}`, {
       method: "POST",
     })
     return res.ok

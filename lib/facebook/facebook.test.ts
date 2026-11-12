@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import crypto from "node:crypto"
 import {
   clearFacebookCredentials,
   decryptFacebookToken,
@@ -7,6 +8,7 @@ import {
   getCompanyForFacebookPage,
   getDecryptedFacebookToken,
   getFacebookStatus,
+  verifyFacebookWebhookSignature,
   writeFacebookCredentials,
 } from "./credentials.ts"
 import { GET as leadSourceGET, POST as leadSourcePOST } from "../../app/api/leads/[source]/route.ts"
@@ -269,6 +271,19 @@ describe("Facebook & Instagram Lead Ads Integration", () => {
     assert.ok(location.includes("client_id=mock_facebook_app_123"))
     assert.ok(location.includes("state="))
     assert.ok(location.includes("leads_retrieval"))
+
+    // Case 3: Facebook Login for Business with config_id
+    process.env.FACEBOOK_CONFIG_ID = "business_cfg_789"
+    const req3 = new Request("http://localhost:3000/api/facebook/oauth/start", {
+      headers: { cookie: `scopepipe_session=${token}` },
+    })
+    const res3 = await oauthStartGET(req3)
+    assert.equal(res3.status, 302)
+    const location3 = res3.headers.get("location") || ""
+    assert.ok(location3.includes("config_id=business_cfg_789"))
+    assert.ok(location3.includes("override_default_response_type=true"))
+    assert.equal(location3.includes("scope="), false)
+    delete process.env.FACEBOOK_CONFIG_ID
   })
 
   it("handles OAuth callback cancellation and invalid state safely", async () => {
@@ -283,5 +298,206 @@ describe("Facebook & Instagram Lead Ads Integration", () => {
     const forgedRes = await oauthCallbackGET(forgedReq)
     assert.equal(forgedRes.status, 302)
     assert.ok(forgedRes.headers.get("location")?.includes("facebook_error=invalid_state"))
+  })
+
+  it("verifies webhook signature using FACEBOOK_APP_SECRET and rejects forged payloads", async () => {
+    process.env.FACEBOOK_APP_SECRET = "super_secret_app_key_999"
+    const payload = JSON.stringify({ object: "page", entry: [{ id: "mock_page_id", changes: [] }] })
+
+    // Valid HMAC SHA256
+    const validHmac = crypto.createHmac("sha256", "super_secret_app_key_999").update(payload).digest("hex")
+    const validReq = new Request("http://localhost:3000/api/leads/facebook", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-hub-signature-256": `sha256=${validHmac}`,
+      },
+      body: payload,
+    })
+    const validRes = await leadSourcePOST(validReq, { params: Promise.resolve({ source: "facebook" }) })
+    assert.equal(validRes.status, 200)
+
+    // Forged signature
+    const forgedReq = new Request("http://localhost:3000/api/leads/facebook", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-hub-signature-256": "sha256=bad_hex_signature_0000000000000000000000000000000000000000000000000000000000000000",
+      },
+      body: payload,
+    })
+    const forgedRes = await leadSourcePOST(forgedReq, { params: Promise.resolve({ source: "facebook" }) })
+    assert.equal(forgedRes.status, 403)
+    delete process.env.FACEBOOK_APP_SECRET
+  })
+
+  it("creates a new pipeline lead from a Facebook Messenger inquiry and maintains contractor isolation", async () => {
+    const userA = await signup({
+      name: "Messenger Contractor A",
+      email: `msg_alpha_${Date.now()}@test.local`,
+      password: "password123",
+      companyName: "Alpha Painter LLC",
+    })
+    const userB = await signup({
+      name: "Messenger Contractor B",
+      email: `msg_beta_${Date.now()}@test.local`,
+      password: "password123",
+      companyName: "Beta Painter LLC",
+    })
+
+    assert.ok(userA.ok && userB.ok)
+    if (!userA.ok || !userB.ok) return
+
+    const companyA = userA.user.companyId
+    const companyB = userB.user.companyId
+    const pageIdA = `msg_page_a_${Date.now()}`
+    const senderPsid = `psid_homeowner_${Date.now()}`
+
+    await writeFacebookCredentials(companyA, {
+      pageId: pageIdA,
+      pageName: "Alpha Painter Business Page",
+      pageAccessToken: "test_page_access_token",
+    })
+
+    const messengerPayload = {
+      object: "page",
+      entry: [
+        {
+          id: pageIdA,
+          time: 1700000000,
+          messaging: [
+            {
+              sender: { id: senderPsid },
+              recipient: { id: pageIdA },
+              timestamp: 1700000000,
+              message: {
+                mid: "mid_msg_101",
+                text: "Hi! Can I get a quote for exterior painting this month?",
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    const postReq = new Request("http://localhost:3000/api/leads/facebook", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(messengerPayload),
+    })
+
+    const postRes = await leadSourcePOST(postReq, { params: Promise.resolve({ source: "facebook" }) })
+    assert.equal(postRes.status, 200)
+
+    // Verify Contractor A has the new lead in their company book
+    const bookA = await readCompanyBook(companyA)
+    assert.ok(bookA)
+    const estimateA = bookA.state.estimates.find((est) => est.notes.includes(senderPsid))
+    assert.ok(estimateA)
+    assert.ok(estimateA.notes.includes("Can I get a quote for exterior painting"))
+    assert.equal(estimateA.leadSource, "facebook")
+
+    // Verify Contractor B NEVER receives this Messenger lead (100% contractor privacy)
+    const bookB = await readCompanyBook(companyB)
+    assert.ok(bookB)
+    const leakedInB = bookB.state.estimates.find((est) => est.notes.includes(senderPsid))
+    assert.equal(leakedInB, undefined)
+
+    // Clean up
+    await clearFacebookCredentials(companyA)
+  })
+
+  it("updates the existing lead on additional messages from the same sender without creating duplicates", async () => {
+    const user = await signup({
+      name: "Messenger Threading Contractor",
+      email: `msg_thread_${Date.now()}@test.local`,
+      password: "password123",
+      companyName: "Threading Painter LLC",
+    })
+    assert.ok(user.ok)
+    if (!user.ok) return
+
+    const companyId = user.user.companyId
+    const pageId = `msg_thread_page_${Date.now()}`
+    const senderPsid = `psid_repeat_customer_${Date.now()}`
+
+    await writeFacebookCredentials(companyId, {
+      pageId,
+      pageName: "Threading Painter Page",
+      pageAccessToken: "test_token",
+    })
+
+    // 1. Initial Inquiry
+    const msg1 = {
+      object: "page",
+      entry: [
+        {
+          id: pageId,
+          messaging: [
+            {
+              sender: { id: senderPsid },
+              recipient: { id: pageId },
+              message: { mid: "m1", text: "First message: We need 3 bedrooms painted." },
+            },
+          ],
+        },
+      ],
+    }
+    const res1 = await leadSourcePOST(
+      new Request("http://localhost:3000/api/leads/facebook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(msg1),
+      }),
+      { params: Promise.resolve({ source: "facebook" }) },
+    )
+    assert.equal(res1.status, 200)
+
+    const bookAfter1 = await readCompanyBook(companyId)
+    assert.ok(bookAfter1)
+    const initialEstimateCount = bookAfter1.state.estimates.length
+    const initialClientCount = bookAfter1.state.clients.length
+
+    // 2. Second message from the exact same sender
+    const msg2 = {
+      object: "page",
+      entry: [
+        {
+          id: pageId,
+          messaging: [
+            {
+              sender: { id: senderPsid },
+              recipient: { id: pageId },
+              message: { mid: "m2", text: "Second message: Also we'd like ceilings included." },
+            },
+          ],
+        },
+      ],
+    }
+    const res2 = await leadSourcePOST(
+      new Request("http://localhost:3000/api/leads/facebook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(msg2),
+      }),
+      { params: Promise.resolve({ source: "facebook" }) },
+    )
+    assert.equal(res2.status, 200)
+
+    const bookAfter2 = await readCompanyBook(companyId)
+    assert.ok(bookAfter2)
+
+    // MUST NOT create duplicate estimates or clients
+    assert.equal(bookAfter2.state.estimates.length, initialEstimateCount, "Estimates count should remain unchanged")
+    assert.equal(bookAfter2.state.clients.length, initialClientCount, "Clients count should remain unchanged")
+
+    // The existing estimate must contain BOTH messages
+    const threadedEstimate = bookAfter2.state.estimates.find((est) => est.notes.includes(senderPsid))
+    assert.ok(threadedEstimate)
+    assert.ok(threadedEstimate.notes.includes("First message: We need 3 bedrooms painted."))
+    assert.ok(threadedEstimate.notes.includes("Second message: Also we'd like ceilings included."))
+
+    // Clean up
+    await clearFacebookCredentials(companyId)
   })
 })

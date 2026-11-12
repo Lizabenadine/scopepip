@@ -5,8 +5,10 @@ import { fieldDataLead } from "../../../../lib/leads/parse.ts"
 import { landWebhookLead } from "../../../../lib/webhooks/leads.ts"
 import {
   fetchFacebookLeadDetails,
+  fetchFacebookUserProfile,
   getCompanyForFacebookPage,
   getDecryptedFacebookToken,
+  verifyFacebookWebhookSignature,
 } from "../../../../lib/facebook/credentials.ts"
 import type { InboundLeadSource } from "../../../../lib/types.ts"
 import type { InboundLead } from "../../../../lib/leads/types.ts"
@@ -46,22 +48,33 @@ export async function POST(request: Request, context: { params: Promise<{ source
   const url = new URL(request.url)
   const slug = url.searchParams.get("company")?.trim()
   const queryCompanyId = slug ? (await companyBySlug(slug))?.id : undefined
-  const rawBody = await readBody(request)
 
   if (source === "facebook") {
-    return handleFacebookLeadAdWebhook(rawBody, queryCompanyId)
+    const rawText = await request.text()
+    const signature = request.headers.get("x-hub-signature-256")
+    if (signature && !verifyFacebookWebhookSignature(rawText, signature)) {
+      return Response.json({ ok: false, error: "Invalid webhook signature" }, { status: 403 })
+    }
+    let rawBody: unknown = null
+    try {
+      rawBody = rawText ? JSON.parse(rawText) : null
+    } catch {
+      return Response.json({ ok: false, reason: "Invalid JSON payload" }, { status: 400 })
+    }
+    return handleFacebookWebhook(rawBody, queryCompanyId)
   }
 
+  const rawBody = await readBody(request)
   return storeLead(leadSource, rawBody, queryCompanyId)
 }
 
-async function handleFacebookLeadAdWebhook(body: unknown, fallbackCompanyId?: string): Promise<Response> {
+async function handleFacebookWebhook(body: unknown, fallbackCompanyId?: string): Promise<Response> {
   const root = body && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : null
   if (!root) return Response.json({ ok: false, reason: "Invalid JSON payload" }, { status: 400 })
 
   const entries = Array.isArray(root.entry) ? root.entry : []
 
-  // If this is a Meta Lead Ads webhook event with entries
+  // If this is a Meta webhook event with entries (Lead Ads or Messenger)
   if (entries.length > 0) {
     const now = new Date().toISOString()
     const processedIds: string[] = []
@@ -70,8 +83,9 @@ async function handleFacebookLeadAdWebhook(body: unknown, fallbackCompanyId?: st
       if (!entry || typeof entry !== "object") continue
       const entryObj = entry as Record<string, unknown>
       const pageId = typeof entryObj.id === "string" ? entryObj.id : ""
-      const changes = Array.isArray(entryObj.changes) ? entryObj.changes : []
 
+      // 1. Process Lead Ads (if changes array is present)
+      const changes = Array.isArray(entryObj.changes) ? entryObj.changes : []
       for (const change of changes) {
         if (!change || typeof change !== "object") continue
         const changeObj = change as Record<string, unknown>
@@ -82,20 +96,17 @@ async function handleFacebookLeadAdWebhook(body: unknown, fallbackCompanyId?: st
         const mapping = effectivePageId ? await getCompanyForFacebookPage(effectivePageId) : null
         const targetCompanyId = mapping?.companyId || fallbackCompanyId
 
-        // Requirement 5: Prevent leads from being assigned to the wrong contractor
-        if (!targetCompanyId) {
-          // Unmapped page: do not assign to an arbitrary contractor
-          continue
-        }
+        // Contractor data isolation: prevent assigning to wrong contractor
+        if (!targetCompanyId) continue
 
         let lead: InboundLead | null = null
 
-        // 1. Direct field_data in webhook
+        // Direct field_data in webhook
         if (Array.isArray(val.field_data)) {
           lead = fieldDataLead(val, now)
         }
 
-        // 2. Fetch from Meta Graph API if leadgen_id is present
+        // Fetch from Meta Graph API if leadgen_id is present
         const leadgenId = typeof val.leadgen_id === "string" ? val.leadgen_id.trim() : ""
         if (!lead && leadgenId) {
           const pageToken = await getDecryptedFacebookToken(targetCompanyId)
@@ -114,6 +125,37 @@ async function handleFacebookLeadAdWebhook(body: unknown, fallbackCompanyId?: st
           processedIds.push(finalizedLead.id)
         }
       }
+
+      // 2. Process Messenger Inquiries (if messaging array is present)
+      const messaging = Array.isArray(entryObj.messaging) ? entryObj.messaging : []
+      for (const msg of messaging) {
+        if (!msg || typeof msg !== "object") continue
+        const msgObj = msg as Record<string, unknown>
+        const messageData = msgObj.message && typeof msgObj.message === "object" ? (msgObj.message as Record<string, unknown>) : null
+
+        // Ignore echoes (messages sent by the page) and non-message events (read receipts, delivery)
+        if (!messageData || messageData.is_echo === true) continue
+
+        const senderObj = msgObj.sender && typeof msgObj.sender === "object" ? (msgObj.sender as Record<string, unknown>) : null
+        const recipientObj = msgObj.recipient && typeof msgObj.recipient === "object" ? (msgObj.recipient as Record<string, unknown>) : null
+        const senderId = typeof senderObj?.id === "string" ? senderObj.id.trim() : ""
+        const recipientId = typeof recipientObj?.id === "string" ? recipientObj.id.trim() : pageId
+
+        if (!senderId || !recipientId) continue
+
+        const mapping = await getCompanyForFacebookPage(recipientId)
+        const targetCompanyId = mapping?.companyId || fallbackCompanyId
+
+        // Contractor isolation: only route to contractor owning this page
+        if (!targetCompanyId) continue
+
+        const text = typeof messageData.text === "string" ? messageData.text.trim() : ""
+        const attachments = Array.isArray(messageData.attachments) ? messageData.attachments : []
+        const messageText = text || (attachments.length > 0 ? "[Attached media inquiry]" : "Facebook Messenger inquiry")
+
+        const result = await saveOrUpdateMessengerLead(targetCompanyId, senderId, messageText, now)
+        if (result.id) processedIds.push(result.id)
+      }
     }
 
     return Response.json({ ok: true, stored: processedIds.length, ids: processedIds })
@@ -121,6 +163,76 @@ async function handleFacebookLeadAdWebhook(body: unknown, fallbackCompanyId?: st
 
   // Fallback for direct form post or testing payload
   return storeLead("facebook", body, fallbackCompanyId)
+}
+
+async function saveOrUpdateMessengerLead(
+  companyId: string,
+  senderId: string,
+  messageText: string,
+  now: string,
+): Promise<{ created: boolean; id: string }> {
+  try {
+    const book = await readCompanyBook(companyId)
+    if (!book) return { created: false, id: "" }
+
+    const psidTag = `[Messenger PSID: ${senderId}]`
+
+    // Look for existing estimate/lead for this sender PSID (threading / deduplication)
+    const existingEstimate = book.state.estimates.find(
+      (est) => (est.notes && est.notes.includes(psidTag)) || est.inboundLeadId?.includes(senderId),
+    )
+
+    if (existingEstimate) {
+      // Append follow-up message to the existing lead's notes without creating a duplicate
+      const updatedNotes = `${existingEstimate.notes}\n[${now}]: ${messageText}`
+      const updatedEstimates = book.state.estimates.map((est) =>
+        est.id === existingEstimate.id
+          ? {
+              ...est,
+              notes: updatedNotes,
+              updatedAt: now,
+            }
+          : est,
+      )
+
+      const nextState = {
+        ...book.state,
+        estimates: updatedEstimates,
+      }
+
+      await writeCompanyBook(companyId, book.revision, nextState)
+      return { created: false, id: existingEstimate.id }
+    }
+
+    // New inquiry: fetch sender profile name if possible
+    let senderName = "Facebook Messenger Lead"
+    const pageToken = await getDecryptedFacebookToken(companyId)
+    if (pageToken) {
+      const profile = await fetchFacebookUserProfile(senderId, pageToken)
+      if (profile?.name) {
+        senderName = profile.name
+      }
+    }
+
+    const newLead: InboundLead = {
+      id: `fb_msg_${senderId}_${Date.now()}`,
+      source: "facebook",
+      name: senderName,
+      phone: "",
+      email: "",
+      address: "",
+      message: `${psidTag}\n${messageText}`,
+      createdAt: now,
+      companyId,
+    }
+
+    addLeadSpool(newLead)
+    const landed = landWebhookLead(book.state, newLead, now)
+    await writeCompanyBook(companyId, book.revision, landed.state)
+    return { created: true, id: newLead.id }
+  } catch {
+    return { created: false, id: "" }
+  }
 }
 
 async function saveToCompanyBook(companyId: string, lead: InboundLead): Promise<void> {
