@@ -12,6 +12,7 @@ import {
 } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DispatchBoard } from "@/components/dispatch/dispatch-board"
+import { MobileStageNavigator, usePipelineStageSelection } from "@/components/pipeline/stage-navigator"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { fieldJobEmpty, fieldJobHeading } from "@/lib/field/copy"
 import { officeCount, officeLabel, officeSalesNote } from "@/lib/office/dashboard-copy"
@@ -178,6 +179,9 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
           column.id === "project_in_progress",
       )
     : columns
+
+  const { activeColumnId, activeColumnIndex, highlightedStageId, setActiveMobileStageId } =
+    usePipelineStageSelection(visibleColumns, columnRefs, scrollContainerRef)
 
   const allColumnOptions = useMemo(() => {
     return visibleColumns.map((col) => ({ id: col.id, label: col.label }))
@@ -473,20 +477,41 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
             </FilterSelect>
           </div>
           )}
+          <MobileStageNavigator
+            columns={visibleColumns}
+            activeColumnId={activeColumnId}
+            activeColumnIndex={activeColumnIndex}
+            onSelect={setActiveMobileStageId}
+            language={jobLanguage}
+            ariaLabel={kind === "sales" ? "Sales pipeline stages" : "Jobs pipeline stages"}
+            hideTotal={scope.session?.role === "estimator"}
+          />
           <div
             ref={scrollContainerRef}
             className="flex flex-col gap-3 md:flex-row md:items-start md:overflow-x-auto md:pb-2 scroll-smooth"
           >
-            {visibleColumns.map((column) => (
+            {visibleColumns.map((column) => {
+              const isMobileActive = column.id === activeColumnId
+              const isHoverTarget = Boolean(activeDrag && hoveredColumnId === column.id)
+              const isHighlighted = !activeDrag && highlightedStageId === column.id
+
+              return (
               <section
                 key={column.id}
                 ref={(el) => {
                   columnRefs.current[column.id] = el
                 }}
                 data-testid={`column-${column.id}`}
+                data-column-id={column.id}
+                data-highlighted={isHighlighted ? "true" : undefined}
                 className={cn(
-                  "flex w-full flex-col gap-3 self-stretch rounded-2xl bg-muted/40 p-3 md:w-72 md:shrink-0 transition-all duration-150",
-                  activeDrag && hoveredColumnId === column.id && "ring-2 ring-primary/40 bg-primary/[0.04] shadow-md",
+                  "w-full min-w-0 flex-col gap-3 self-stretch rounded-2xl bg-muted/40 border p-3 md:flex md:w-72 md:shrink-0 transition-all duration-150",
+                  isMobileActive ? "flex" : "hidden",
+                  isHoverTarget
+                    ? "border-primary/50 ring-2 ring-primary/40 bg-primary/[0.04] shadow-md"
+                    : isHighlighted
+                      ? "border-primary/50 ring-2 ring-primary/35 bg-primary/[0.03] shadow-sm"
+                      : "border-transparent",
                 )}
               >
                 <header className="flex items-baseline justify-between gap-2 px-1">
@@ -579,7 +604,8 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                   </p>
                 </footer>
               </section>
-            ))}
+              )
+            })}
             {progressOnly ? null : (
             <form
               className="flex w-full shrink-0 flex-col gap-2 self-start rounded-2xl border border-dashed border-border p-3 md:w-72"

@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { SalesPipelineBoard } from "@/components/pipeline/sales-pipeline-board"
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function SalesPipelinePage() {
-  return <SalesPipelineBoard />
+  return (
+    <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-muted" aria-hidden />}>
+      <SalesPipelineBoard />
+    </Suspense>
+  )
 }

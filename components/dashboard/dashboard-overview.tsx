@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import {
   ArrowRight,
   Briefcase,
@@ -10,22 +10,26 @@ import {
   Clock,
   DollarSign,
   FileCheck2,
-  FileText,
   MapPin,
   Plus,
   Send,
   TrendingUp,
-  UserCheck,
   Users,
 } from "lucide-react"
 import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
 import { EstimatorPerformance } from "@/components/pipeline/estimator-performance"
 import { useFieldLanguage } from "@/hooks/use-field-language"
+import { roleCanOpen } from "@/lib/auth/access"
 import { useScope } from "@/lib/data/store"
 import { money } from "@/lib/format"
 import { officeLabel, officeOnSite } from "@/lib/office/dashboard-copy"
 import { appointmentLabel } from "@/lib/appointments/visit"
 import { salesStageOf } from "@/lib/pipeline/board"
+import {
+  DASHBOARD_METRIC_TARGETS,
+  dashboardMetricHref,
+  type DashboardMetricKey,
+} from "@/lib/pipeline/targets"
 import { cn } from "@/lib/utils"
 import type { Estimate } from "@/lib/types"
 
@@ -136,6 +140,70 @@ export function DashboardOverview() {
 
   if (session?.role === "estimator") return <EstimatorPerformance />
 
+  const canOpenRoute = (route: "/sales-pipeline" | "/dispatch") =>
+    !session || roleCanOpen(session.role, route)
+
+  const salesPermitted = canOpenRoute("/sales-pipeline")
+  const jobsPermitted = canOpenRoute("/dispatch")
+
+  const metricCards: {
+    key: DashboardMetricKey
+    label: string
+    subtitle: string
+    value: string | number
+    valueClass: string
+    icon: ReactNode
+  }[] = [
+    {
+      key: "new_leads",
+      label: say("New Leads"),
+      subtitle: say("Inquiries & warm leads"),
+      value: metrics.newLeadsCount,
+      valueClass: "text-2xl text-slate-900",
+      icon: <Users className="size-4 text-sky-500" />,
+    },
+    {
+      key: "estimates_sent",
+      label: say("Estimates Sent"),
+      subtitle: say("Proposals sent"),
+      value: metrics.estimatesSentCount,
+      valueClass: "text-2xl text-slate-900",
+      icon: <Send className="size-4 text-blue-500" />,
+    },
+    {
+      key: "accepted",
+      label: say("Accepted"),
+      subtitle: say("Proposals won"),
+      value: metrics.acceptedCount,
+      valueClass: "text-2xl text-indigo-600",
+      icon: <FileCheck2 className="size-4 text-indigo-500" />,
+    },
+    {
+      key: "scheduled",
+      label: say("Scheduled"),
+      subtitle: say("On schedule"),
+      value: metrics.scheduledJobsCount,
+      valueClass: "text-2xl text-slate-900",
+      icon: <Calendar className="size-4 text-amber-500" />,
+    },
+    {
+      key: "completed",
+      label: say("Completed"),
+      subtitle: say("Finished jobs"),
+      value: metrics.completedJobsCount,
+      valueClass: "text-2xl text-emerald-600",
+      icon: <CheckCircle2 className="size-4 text-emerald-500" />,
+    },
+    {
+      key: "revenue",
+      label: say("Revenue"),
+      subtitle: say("Accepted contracts"),
+      value: money(metrics.totalRevenue),
+      valueClass: "text-xl text-price truncate",
+      icon: <DollarSign className="size-4 text-emerald-600" />,
+    },
+  ]
+
   if (!ready) {
     return (
       <div className="grid gap-4" aria-hidden>
@@ -177,70 +245,108 @@ export function DashboardOverview() {
       {/* Main CRM Shortcuts: Sales Pipeline & Jobs Pipeline */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Sales Pipeline Card */}
-        <Link
-          href="/sales-pipeline"
-          className="group relative flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-5 shadow-xs transition-all hover:border-blue-200 hover:shadow-md"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
-                <TrendingUp className="size-5" />
+        {(() => {
+          const salesCardBody = (
+            <>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                    <TrendingUp className="size-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
+                      {say("Sales Pipeline")}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {metrics.newLeadsCount + metrics.estimatesSentCount} {say("active leads")} ·{" "}
+                      <span className="font-semibold text-slate-700">{money(metrics.salesPipelineValue)}</span> {say("potential")}
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="size-5 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-600 transition-all" />
               </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
-                  {say("Sales Pipeline")}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.newLeadsCount + metrics.estimatesSentCount} {say("active leads")} ·{" "}
-                  <span className="font-semibold text-slate-700">{money(metrics.salesPipelineValue)}</span> {say("potential")}
-                </p>
-              </div>
-            </div>
-            <ArrowRight className="size-5 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-600 transition-all" />
-          </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-blue-50/80 pt-3 text-xs">
-            <span className="text-slate-600 font-medium">
-              {metrics.estimatesSentCount} {say("proposals awaiting customer review")}
-            </span>
-            <span className="font-semibold text-blue-600 group-hover:underline">
-              {say("Open Board")} →
-            </span>
-          </div>
-        </Link>
+              <div className="mt-4 flex items-center justify-between border-t border-blue-50/80 pt-3 text-xs">
+                <span className="text-slate-600 font-medium">
+                  {metrics.estimatesSentCount} {say("proposals awaiting customer review")}
+                </span>
+                <span className="font-semibold text-blue-600 group-hover:underline">
+                  {say("Open Board")} →
+                </span>
+              </div>
+            </>
+          )
+          const salesClass =
+            "group relative flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-5 shadow-xs transition-all"
+          return salesPermitted ? (
+            <Link
+              href="/sales-pipeline"
+              data-testid="summary-card-sales-pipeline"
+              className={cn(
+                salesClass,
+                "cursor-pointer hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2",
+              )}
+            >
+              {salesCardBody}
+            </Link>
+          ) : (
+            <div data-testid="summary-card-sales-pipeline" className={salesClass}>
+              {salesCardBody}
+            </div>
+          )
+        })()}
 
         {/* Jobs Pipeline Card */}
-        <Link
-          href="/dispatch"
-          className="group relative flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 shadow-xs transition-all hover:border-emerald-200 hover:shadow-md"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
-                <Briefcase className="size-5" />
+        {(() => {
+          const jobsCardBody = (
+            <>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                    <Briefcase className="size-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      {say("Jobs Pipeline")}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {metrics.acceptedCount} {say("won jobs")} ·{" "}
+                      <span className="font-semibold text-emerald-700">{money(metrics.totalRevenue)}</span> {say("revenue")}
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="size-5 text-slate-400 group-hover:translate-x-1 group-hover:text-emerald-600 transition-all" />
               </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                  {say("Jobs Pipeline")}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {metrics.acceptedCount} {say("won jobs")} ·{" "}
-                  <span className="font-semibold text-emerald-700">{money(metrics.totalRevenue)}</span> {say("revenue")}
-                </p>
-              </div>
-            </div>
-            <ArrowRight className="size-5 text-slate-400 group-hover:translate-x-1 group-hover:text-emerald-600 transition-all" />
-          </div>
 
-          <div className="mt-4 flex items-center justify-between border-t border-emerald-50/80 pt-3 text-xs">
-            <span className="text-slate-600 font-medium">
-              {metrics.scheduledJobsCount} {say("jobs scheduled on calendar")}
-            </span>
-            <span className="font-semibold text-emerald-600 group-hover:underline">
-              {say("Open Jobs")} →
-            </span>
-          </div>
-        </Link>
+              <div className="mt-4 flex items-center justify-between border-t border-emerald-50/80 pt-3 text-xs">
+                <span className="text-slate-600 font-medium">
+                  {metrics.scheduledJobsCount} {say("jobs scheduled on calendar")}
+                </span>
+                <span className="font-semibold text-emerald-600 group-hover:underline">
+                  {say("Open Jobs")} →
+                </span>
+              </div>
+            </>
+          )
+          const jobsClass =
+            "group relative flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 shadow-xs transition-all"
+          return jobsPermitted ? (
+            <Link
+              href="/dispatch"
+              data-testid="summary-card-jobs-pipeline"
+              className={cn(
+                jobsClass,
+                "cursor-pointer hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2",
+              )}
+            >
+              {jobsCardBody}
+            </Link>
+          ) : (
+            <div data-testid="summary-card-jobs-pipeline" className={jobsClass}>
+              {jobsCardBody}
+            </div>
+          )
+        })()}
       </div>
 
       {/* KPI Business Overview Grid */}
@@ -249,77 +355,46 @@ export function DashboardOverview() {
           {say("Key Metrics")}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {/* New Leads */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{say("New Leads")}</span>
-              <Users className="size-4 text-sky-500" />
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold tracking-tight text-slate-900">
-              {metrics.newLeadsCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{say("Inquiries & warm leads")}</p>
-          </div>
+          {metricCards.map((card) => {
+            const target = DASHBOARD_METRIC_TARGETS[card.key]
+            const allowed = canOpenRoute(target.route)
+            const cardContent = (
+              <>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-medium">{card.label}</span>
+                  {card.icon}
+                </div>
+                <p className={cn("mt-2 font-display font-bold tracking-tight", card.valueClass)}>
+                  {card.value}
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{card.subtitle}</p>
+              </>
+            )
 
-          {/* Estimates Sent */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{say("Estimates Sent")}</span>
-              <Send className="size-4 text-blue-500" />
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold tracking-tight text-slate-900">
-              {metrics.estimatesSentCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{say("Proposals sent")}</p>
-          </div>
+            if (!allowed) {
+              return (
+                <div
+                  key={card.key}
+                  data-testid={`metric-card-${card.key}`}
+                  className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs"
+                >
+                  {cardContent}
+                </div>
+              )
+            }
 
-          {/* Accepted Proposals */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{say("Accepted")}</span>
-              <FileCheck2 className="size-4 text-indigo-500" />
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold tracking-tight text-indigo-600">
-              {metrics.acceptedCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{say("Proposals won")}</p>
-          </div>
-
-          {/* Scheduled Jobs */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{say("Scheduled")}</span>
-              <Calendar className="size-4 text-amber-500" />
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold tracking-tight text-slate-900">
-              {metrics.scheduledJobsCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{say("On schedule")}</p>
-          </div>
-
-          {/* Completed Jobs */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{say("Completed")}</span>
-              <CheckCircle2 className="size-4 text-emerald-500" />
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold tracking-tight text-emerald-600">
-              {metrics.completedJobsCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{say("Finished jobs")}</p>
-          </div>
-
-          {/* Won Revenue */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-medium">{say("Revenue")}</span>
-              <DollarSign className="size-4 text-emerald-600" />
-            </div>
-            <p className="mt-2 font-display text-xl font-bold tracking-tight text-price truncate">
-              {money(metrics.totalRevenue)}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{say("Accepted contracts")}</p>
-          </div>
+            return (
+              <Link
+                key={card.key}
+                href={dashboardMetricHref(card.key)}
+                data-testid={`metric-card-${card.key}`}
+                aria-label={`${card.label}: ${card.value}`}
+                className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                {cardContent}
+              </Link>
+            )
+          })}
         </div>
       </div>
 
