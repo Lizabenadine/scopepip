@@ -17,6 +17,7 @@ import { CalculationPanel } from "@/components/estimator/calculation-panel"
 import { MaterialsBuyList } from "@/components/estimator/materials-buy-list"
 import { ClientField } from "@/components/estimator/client-field"
 import { PriceSummary } from "@/components/estimator/price-summary"
+import { VoiceNoteButton } from "@/components/estimator/voice-note-button"
 import { PhotoGallery } from "@/components/photos/photo-gallery"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
 import { Button } from "@/components/ui/button"
@@ -918,7 +919,18 @@ export function Estimator({
             </section>
           </details>
           <div className="grid gap-2">
-            <Label htmlFor="client-note">Client note</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="client-note">Client note</Label>
+              <VoiceNoteButton
+                targetField="client-note"
+                onTranscript={(text) => {
+                  const current = draft.notes || ""
+                  const nextNotes = current.trim() ? `${current.trim()} ${text}` : text
+                  patch({ notes: nextNotes })
+                  queueSpanish("client-note", nextNotes, (notesEs) => patch({ notesEs }))
+                }}
+              />
+            </div>
             <textarea
               id="client-note"
               value={draft.notes}
@@ -936,7 +948,18 @@ export function Estimator({
             ) : null}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="crew-note">Crew note</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="crew-note">Crew note</Label>
+              <VoiceNoteButton
+                targetField="crew-note"
+                onTranscript={(text) => {
+                  const current = draft.crewNote || ""
+                  const nextCrewNote = current.trim() ? `${current.trim()} ${text}` : text
+                  patch({ crewNote: nextCrewNote })
+                  queueSpanish("crew-note", nextCrewNote, (crewNoteEs) => patch({ crewNoteEs }))
+                }}
+              />
+            </div>
             <textarea
               id="crew-note"
               value={draft.crewNote}
