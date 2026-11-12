@@ -79,7 +79,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     marketingPage ||
     pathname.startsWith("/p/") ||
     pathname.startsWith("/w/") ||
-    pathname.endsWith("/pay") ||
     pathname.startsWith("/book/") ||
     pathname === "/login" ||
     pathname === "/signup" ||

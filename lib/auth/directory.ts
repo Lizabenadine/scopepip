@@ -515,10 +515,32 @@ async function findByEstimate(match: (estimate: Estimate) => boolean): Promise<{
 }
 
 function forCustomer(estimate: Estimate): Estimate {
-  if (!estimate.versions && !estimate.activity && !estimate.settings.hourlyRateBuild) return estimate
-  const copy = { ...estimate }
+  const copy: Estimate = {
+    ...estimate,
+    crewNote: "",
+    areas: estimate.areas.map((area) => ({
+      ...area,
+      crewNote: "",
+      surfaces: area.surfaces.map((surface) => ({ ...surface, crewNote: "" })),
+    })),
+    lineItems: estimate.lineItems.map((item) => ({
+      ...item,
+      crewNote: "",
+      workOrderHours: 0,
+      hiddenOnWorkOrder: false,
+    })),
+  }
   delete copy.versions
   delete copy.activity
+  delete copy.leadSource
+  delete copy.inboundLeadId
+  delete copy.tags
+  delete copy.salesperson
+  delete copy.salesStage
+  delete copy.followUp
+  delete copy.estimatorId
+  delete copy.quickbooksInvoiceId
+  delete copy.quickbooksSyncedAt
   if (copy.settings.hourlyRateBuild) {
     const settings = { ...copy.settings }
     delete settings.hourlyRateBuild
@@ -612,6 +634,137 @@ export async function acceptPublicProposal(
   const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
   const estimate = next.estimates.find((item) => item.id === result.estimateId)
   if (!saved.ok || !estimate) return { ok: false, reason: "This proposal could not be saved. Try again." }
+  return { ok: true, estimate: forCustomer(estimate) }
+}
+
+export async function companyEstimate(
+  companyId: string,
+  id: string,
+): Promise<{ estimate: Estimate; clientName: string; paymentMethods: PaymentMethod[] } | null> {
+  const book = await readCompanyBook(companyId)
+  const estimate = book?.state.estimates.find((item) => item.id === id)
+  if (!book || !estimate) return null
+  const client = book.state.clients.find((item) => item.id === estimate.clientId)
+  return {
+    estimate: forCustomer(estimate),
+    clientName: client?.name ?? "Client",
+    paymentMethods: book.state.paymentMethods,
+  }
+}
+
+export async function publicProposalPdfData(token: string): Promise<{
+  companyId: string
+  estimate: Estimate
+  clientName: string
+  clientEmail: string
+  clientPhone: string
+  language: "en" | "es"
+  companyName: string
+  companyEmail: string
+  logoUrl: string
+  paymentMethods: PaymentMethod[]
+  estimateSettings: EstimateSettings
+} | null> {
+  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  if (!found) return null
+  const client = found.book.state.clients.find((item) => item.id === found.estimate.clientId)
+  const { resolveCompanyBrand } = await import("../proposals/htmlPdf.ts")
+  const brand = await resolveCompanyBrand({
+    estimateSettings: found.book.state.estimateSettings,
+    estimate: found.estimate,
+    companyId: found.companyId,
+  })
+  const effectiveSettings: EstimateSettings = {
+    ...publicSettings(found.book.state.estimateSettings),
+    companyName: brand.companyName || found.book.state.estimateSettings.companyName,
+    companyEmail: brand.companyEmail || found.book.state.estimateSettings.companyEmail,
+    logoUrl: brand.logoUrl || found.book.state.estimateSettings.logoUrl || "",
+  }
+  return {
+    companyId: found.companyId,
+    estimate: forCustomer(found.estimate),
+    clientName: client?.name ?? "Client",
+    clientEmail: client?.email ?? "",
+    clientPhone: client?.phone ?? "",
+    language: client?.language === "es" ? "es" : "en",
+    companyName: effectiveSettings.companyName || "ScopePipe",
+    companyEmail: effectiveSettings.companyEmail || "",
+    logoUrl: effectiveSettings.logoUrl || "",
+    paymentMethods: found.book.state.paymentMethods,
+    estimateSettings: effectiveSettings,
+  }
+}
+
+export async function recordPublicDepositByToken(
+  token: string,
+  receipt: DepositReceipt,
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  if (!found) return { ok: false, reason: "This proposal link is not valid." }
+  if (found.estimate.clientStatus !== "accepted") {
+    return { ok: false, reason: "Accept the proposal before paying the deposit." }
+  }
+  const result = applyDeposit(found.book.state, found.estimate.id, receipt)
+  if (!result.ok) return result
+  const next = reconciled(found.book.state, result.state)
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === found.estimate.id)
+  if (!saved.ok || !estimate) return { ok: false, reason: "The deposit could not be saved. Try again." }
+  return { ok: true, estimate: forCustomer(estimate) }
+}
+
+export async function recordCompanyDeposit(
+  companyId: string,
+  estimateId: string,
+  receipt: DepositReceipt,
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const book = await readCompanyBook(companyId)
+  const existing = book?.state.estimates.find((item) => item.id === estimateId)
+  if (!book || !existing) return { ok: false, reason: "This estimate is not on file." }
+  const result = applyDeposit(book.state, estimateId, receipt)
+  if (!result.ok) return result
+  const next = reconciled(book.state, result.state)
+  const saved = await writeCompanyBook(companyId, book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === estimateId)
+  if (!saved.ok || !estimate) return { ok: false, reason: "The deposit could not be saved. Try again." }
+  return { ok: true, estimate: forCustomer(estimate) }
+}
+
+export async function recordPendingSignatureByToken(
+  token: string,
+  input: { lineIds: string[]; clientSignatureUrl: string },
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  if (!found) return { ok: false, reason: "This proposal link is not valid." }
+  const signed = signPendingWork(found.estimate, input)
+  if (!signed.ok) return signed
+  const next = reconciled(found.book.state, {
+    ...found.book.state,
+    estimates: found.book.state.estimates.map((item) => (item.id === found.estimate.id ? signed.estimate : item)),
+  })
+  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === found.estimate.id)
+  if (!saved.ok || !estimate) return { ok: false, reason: "The signature could not be saved. Try again." }
+  return { ok: true, estimate: forCustomer(estimate) }
+}
+
+export async function recordCompanyPendingSignature(
+  companyId: string,
+  estimateId: string,
+  input: { lineIds: string[]; clientSignatureUrl: string },
+): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
+  const book = await readCompanyBook(companyId)
+  const existing = book?.state.estimates.find((item) => item.id === estimateId)
+  if (!book || !existing) return { ok: false, reason: "This estimate is not on file." }
+  const signed = signPendingWork(existing, input)
+  if (!signed.ok) return signed
+  const next = reconciled(book.state, {
+    ...book.state,
+    estimates: book.state.estimates.map((item) => (item.id === estimateId ? signed.estimate : item)),
+  })
+  const saved = await writeCompanyBook(companyId, book.revision, next)
+  const estimate = next.estimates.find((item) => item.id === estimateId)
+  if (!saved.ok || !estimate) return { ok: false, reason: "The signature could not be saved. Try again." }
   return { ok: true, estimate: forCustomer(estimate) }
 }
 

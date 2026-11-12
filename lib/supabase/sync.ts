@@ -1,4 +1,5 @@
 import type { EstimateQuote } from "../estimate/calculate.ts"
+import { createProposalToken } from "../proposals/token.ts"
 import { createWorkOrder } from "../work-orders/defaults.ts"
 import type { ScopeState } from "../data/seed.ts"
 import type { AreaInput, ChecklistItem, Client, ClientStatus, DispatchStatus, Estimate, LineItemInput, WorkOrder } from "../types.ts"
@@ -313,7 +314,7 @@ export function mergeCloud(state: ScopeState, cloud: CloudSnapshot): { state: Sc
         notes: "",
         crewNote: "",
         acceptedAt: null,
-        publicToken: row.id.replace(/-/g, "").slice(0, 12),
+        publicToken: createProposalToken(),
         clientStatus: asClientStatus(row.status),
         signature: null,
         paymentStatus: "unpaid",

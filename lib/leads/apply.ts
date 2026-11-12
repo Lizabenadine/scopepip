@@ -1,6 +1,7 @@
 import type { ScopeState } from "../data/seed.ts"
 import { phoneKey } from "../messages/thread.ts"
 import type { Client, Estimate } from "../types.ts"
+import { createProposalToken } from "../proposals/token.ts"
 import { createWorkOrder } from "../work-orders/defaults.ts"
 import type { InboundLead } from "./types.ts"
 
@@ -76,7 +77,7 @@ function newEstimate(state: ScopeState, lead: InboundLead, clientId: string): Es
     notes: lead.message,
     crewNote: "",
     acceptedAt: null,
-    publicToken: crypto.randomUUID().replace(/-/g, "").slice(0, 12),
+    publicToken: createProposalToken(),
     clientStatus: "draft",
     signature: null,
     paymentStatus: "unpaid",

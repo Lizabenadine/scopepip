@@ -7,9 +7,11 @@ import type { Estimate } from "@/lib/types"
 
 export function PendingWork({
   estimate,
+  token,
   onSigned,
 }: {
   estimate: Estimate
+  token?: string
   onSigned: (estimate: Estimate) => void
 }) {
   const lines = estimate.lineItems.filter((line) => line.pending)
@@ -17,7 +19,10 @@ export function PendingWork({
   if (lines.length === 0 && credits.length === 0) return null
 
   const sign = async (lineIds: string[], signature: string) => {
-    const response = await fetch(`/api/public/estimates/${encodeURIComponent(estimate.id)}/pending`, {
+    const url = token
+      ? `/api/public/proposals/${encodeURIComponent(token)}/pending`
+      : `/api/public/estimates/${encodeURIComponent(estimate.id)}/pending`
+    const response = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ lineIds, clientSignatureUrl: signature }),

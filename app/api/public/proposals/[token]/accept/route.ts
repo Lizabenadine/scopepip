@@ -1,12 +1,13 @@
 import { acceptPublicProposal } from "@/lib/auth/directory"
 import { syncAcceptance } from "@/lib/proposals/sync"
 import type { AcceptanceInput } from "@/lib/proposals/accept"
+import { isProposalToken } from "@/lib/proposals/token"
 
 export const runtime = "nodejs"
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params
-  if (!/^[a-z0-9]{6,40}$/i.test(token)) {
+  if (!isProposalToken(token)) {
     return Response.json({ ok: false, reason: "This proposal link is not valid." }, { status: 404 })
   }
   const body = (await request.json().catch(() => null)) as Partial<AcceptanceInput> | null

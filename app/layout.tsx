@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Outfit } from "next/font/google";
-import { AppShell } from "@/components/shell/app-shell";
-import { RecoveryListener } from "@/components/auth/recovery-listener";
-import { ScopeProvider } from "@/lib/data/store";
+import { RootBoundary } from "@/components/shell/root-boundary";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -46,10 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <RecoveryListener />
-        <ScopeProvider>
-          <AppShell>{children}</AppShell>
-        </ScopeProvider>
+        <RootBoundary>{children}</RootBoundary>
       </body>
     </html>
   );

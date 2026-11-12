@@ -1,9 +1,10 @@
 import { publicProposal, recordProposalMessage } from "@/lib/auth/directory"
+import { isProposalToken } from "@/lib/proposals/token"
 
 export const runtime = "nodejs"
 
 function validToken(token: string): boolean {
-  return /^[a-z0-9]{6,40}$/i.test(token)
+  return isProposalToken(token)
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ token: string }> }) {

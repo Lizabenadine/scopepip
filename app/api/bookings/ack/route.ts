@@ -1,8 +1,11 @@
+import { sessionFromRequest } from "@/lib/auth/request"
 import { ackBookingSpool } from "@/lib/bookings/spool"
 
 export const runtime = "nodejs"
 
 export async function POST(request: Request) {
+  const session = await sessionFromRequest(request)
+  if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
   const body = await request.json().catch(() => null)
   const ids =
     body && typeof body === "object" && Array.isArray((body as { ids?: unknown }).ids)

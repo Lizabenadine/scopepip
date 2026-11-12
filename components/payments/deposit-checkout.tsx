@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { PaintRoller } from "lucide-react"
+import { Download, Mail, PaintRoller, Phone } from "lucide-react"
 import { PendingWork } from "@/components/payments/pending-work"
 import { StripePaymentForm } from "@/components/payments/stripe-payment-form"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,8 @@ import { useScope } from "@/lib/data/store"
 import { calculateEstimate } from "@/lib/estimate/calculate"
 import { money } from "@/lib/format"
 import { depositAmount, depositMethod, clampDepositPercent, type PaymentIntentPayload } from "@/lib/payments/deposit"
-import type { DepositMethod, DepositReceipt, Estimate, PaymentMethod } from "@/lib/types"
+import { proposalFigures } from "@/lib/proposals/figures"
+import type { DepositMethod, DepositReceipt, Estimate, EstimateSettings, PaymentMethod } from "@/lib/types"
 
 const TEST_CARD = "4242424242424242"
 
@@ -35,20 +36,20 @@ interface IntentResponse {
   error?: string
 }
 
+interface CheckoutState {
+  estimate: Estimate
+  paymentMethods: PaymentMethod[]
+  clientName: string
+  companyName: string
+  companyEmail: string
+  companyPhone: string
+}
+
+/** Contractor deposit view (`/estimates/[id]/pay`) inside authenticated AppShell. */
 export function DepositCheckout({ id }: { id: string }) {
   const scope = useScope()
-  const [estimate, setEstimate] = useState<Estimate | null>(null)
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
-  const [clientName, setClientName] = useState("Client")
+  const [data, setData] = useState<CheckoutState | null>(null)
   const [missing, setMissing] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [intent, setIntent] = useState<IntentResponse | null>(null)
-  const [method, setMethod] = useState<DepositMethod>("card")
-  const [cardNumber, setCardNumber] = useState("")
-  const [expiry, setExpiry] = useState("")
-  const [cvc, setCvc] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -58,11 +59,20 @@ export function DepositCheckout({ id }: { id: string }) {
           if (!cancelled) setMissing(true)
           return
         }
-        const payload = (await response.json()) as { estimate?: Estimate; clientName?: string; paymentMethods?: PaymentMethod[] }
+        const payload = (await response.json()) as {
+          estimate?: Estimate
+          clientName?: string
+          paymentMethods?: PaymentMethod[]
+        }
         if (cancelled || !payload.estimate) return
-        setEstimate(payload.estimate)
-        setClientName(payload.clientName || "Client")
-        setPaymentMethods(payload.paymentMethods ?? [])
+        setData({
+          estimate: payload.estimate,
+          clientName: payload.clientName || "Client",
+          paymentMethods: payload.paymentMethods ?? [],
+          companyName: "",
+          companyEmail: "",
+          companyPhone: "",
+        })
       })
       .catch(() => {
         if (!cancelled) setMissing(true)
@@ -72,30 +82,133 @@ export function DepositCheckout({ id }: { id: string }) {
     }
   }, [id])
 
-  if (!estimate && !missing) {
+  const canAccessInvoice = Boolean(scope.session && roleCanOpen(scope.session.role, "/payments"))
+
+  return (
+    <DepositCheckoutView
+      data={data}
+      missing={missing}
+      missingLabel="This estimate is not available."
+      canAccessInvoice={canAccessInvoice}
+      onUpdate={(next) => {
+        setData((prev) => (prev ? { ...prev, estimate: next } : prev))
+        if (scope.session) void scope.reloadBook()
+      }}
+    />
+  )
+}
+
+/** Isolated homeowner deposit view (`/p/[token]/pay`) validated strictly by proposal token. */
+export function ClientDepositCheckout({ token }: { token: string }) {
+  const [data, setData] = useState<CheckoutState | null>(null)
+  const [missing, setMissing] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch(`/api/public/proposals/${encodeURIComponent(token)}`)
+      .then(async (response) => {
+        if (!response.ok) {
+          if (!cancelled) setMissing(true)
+          return
+        }
+        const payload = (await response.json()) as {
+          estimate?: Estimate
+          clientName?: string
+          companyName?: string
+          companyEmail?: string
+          paymentMethods?: PaymentMethod[]
+          estimateSettings?: EstimateSettings
+        }
+        if (cancelled || !payload.estimate) {
+          if (!cancelled) setMissing(true)
+          return
+        }
+        setData({
+          estimate: payload.estimate,
+          clientName: payload.clientName || "Client",
+          paymentMethods: payload.paymentMethods ?? [],
+          companyName: payload.companyName || "",
+          companyEmail: payload.companyEmail || "",
+          companyPhone: payload.estimateSettings?.businessPhone?.trim() || "",
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setMissing(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  return (
+    <DepositCheckoutView
+      data={data}
+      missing={missing}
+      token={token}
+      missingLabel="This proposal payment link is not valid."
+      canAccessInvoice={false}
+      onUpdate={(next) => setData((prev) => (prev ? { ...prev, estimate: next } : prev))}
+    />
+  )
+}
+
+function DepositCheckoutView({
+  data,
+  missing,
+  token,
+  missingLabel,
+  canAccessInvoice,
+  onUpdate,
+}: {
+  data: CheckoutState | null
+  missing: boolean
+  token?: string
+  missingLabel: string
+  canAccessInvoice: boolean
+  onUpdate: (estimate: Estimate) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [intent, setIntent] = useState<IntentResponse | null>(null)
+  const [method, setMethod] = useState<DepositMethod>("card")
+  const [cardNumber, setCardNumber] = useState("")
+  const [expiry, setExpiry] = useState("")
+  const [cvc, setCvc] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  if (!data && !missing) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
   }
-  if (!estimate) {
+  if (!data) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
-        <h1 className="text-xl font-semibold">This estimate isn&apos;t on this device</h1>
+        <h1 className="text-xl font-semibold">{missingLabel}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Ask your contractor for a new proposal link.</p>
       </div>
     )
   }
 
-  const quote = calculateEstimate({
-    areas: estimate.areas,
-    lineItems: estimate.lineItems,
-    rates: estimate.rates,
-    settings: estimate.settings,
-    paymentMethods,
-  })
+  const { estimate, paymentMethods, clientName, companyName, companyEmail, companyPhone } = data
+  const chosenIds = estimate.signature?.selectedLineIds ?? []
+  const figures = token
+    ? proposalFigures(estimate, paymentMethods, chosenIds)
+    : {
+        quote: calculateEstimate({
+          areas: estimate.areas,
+          lineItems: estimate.lineItems,
+          rates: estimate.rates,
+          settings: estimate.settings,
+          paymentMethods,
+        }),
+        depositPercent: clampDepositPercent(estimate.settings.depositPercent),
+        deposit: 0,
+      }
+  const quote = figures.quote
   const percent = clampDepositPercent(estimate.settings.depositPercent)
   const amount = depositAmount(quote.total, percent)
   const paid = estimate.paymentStatus === "deposit_paid" && estimate.depositReceipt
-  const canAccessInvoice = Boolean(
-    scope.session && roleCanOpen(scope.session.role, "/payments")
-  )
+  const proposalHref = token ? `/p/${encodeURIComponent(token)}` : `/p/${encodeURIComponent(estimate.publicToken)}`
+  const pdfHref = token ? `/api/public/proposals/${encodeURIComponent(token)}/pdf` : null
 
   const handleBackToInvoice = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window !== "undefined" && window.history.length > 1 && document.referrer.includes("/payments")) {
@@ -110,7 +223,7 @@ export function DepositCheckout({ id }: { id: string }) {
     const response = await fetch("/api/payments/create-intent", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ estimateId: estimate.id, total: quote.total, depositPercent: percent }),
+      body: JSON.stringify(token ? { token } : { estimateId: estimate.id }),
     })
     const payload = (await response.json()) as IntentResponse
     setPending(false)
@@ -123,7 +236,10 @@ export function DepositCheckout({ id }: { id: string }) {
   }
 
   const finish = async (receipt: DepositReceipt) => {
-    const response = await fetch(`/api/public/estimates/${encodeURIComponent(estimate.id)}/deposit`, {
+    const depositUrl = token
+      ? `/api/public/proposals/${encodeURIComponent(token)}/deposit`
+      : `/api/public/estimates/${encodeURIComponent(estimate.id)}/deposit`
+    const response = await fetch(depositUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(receipt),
@@ -133,8 +249,7 @@ export function DepositCheckout({ id }: { id: string }) {
       setError(result.reason || "The deposit was not recorded.")
       return
     }
-    setEstimate(result.estimate)
-    if (scope.session) await scope.reloadBook()
+    onUpdate(result.estimate)
     setOpen(false)
   }
 
@@ -180,7 +295,7 @@ export function DepositCheckout({ id }: { id: string }) {
 
   return (
     <article className="mx-auto flex max-w-xl flex-col gap-6">
-      {canAccessInvoice ? (
+      {canAccessInvoice && !token ? (
         <div className="flex items-center">
           <Link
             href={`/payments?id=${encodeURIComponent(estimate.id)}`}
@@ -192,35 +307,49 @@ export function DepositCheckout({ id }: { id: string }) {
             <span>Back to Invoice</span>
           </Link>
         </div>
-      ) : estimate.publicToken ? (
-        <div className="flex items-center">
+      ) : estimate.publicToken || token ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            href={`/p/${estimate.publicToken}`}
+            href={proposalHref}
             data-testid="back-to-proposal"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <span aria-hidden="true">←</span>
             <span>Back to Proposal</span>
           </Link>
+          {pdfHref ? (
+            <a
+              href={pdfHref}
+              download="proposal.pdf"
+              data-testid="payment-download-pdf"
+              className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <Download className="size-4" aria-hidden="true" />
+              <span>Download PDF</span>
+            </a>
+          ) : null}
         </div>
       ) : null}
+
       <header className="flex items-center gap-3">
-        <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <PaintRoller className="size-5" />
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="text-lg font-semibold tracking-tight">
-            Scope<span className="text-primary">Pipe</span>
+            {companyName || "ScopePipe"}
           </p>
-          <p className="text-xs text-muted-foreground">Job deposit</p>
+          <p className="text-xs text-muted-foreground">Job deposit &amp; payment information</p>
         </div>
       </header>
+
       <div>
-        <h1 className="font-display text-4xl leading-none tracking-tight">{estimate.title}</h1>
+        <h1 className="font-display text-3xl leading-none tracking-tight sm:text-4xl">{estimate.title}</h1>
         <p className="mt-3 text-sm">{clientName}</p>
         <p className="text-sm text-muted-foreground">{estimate.jobAddress}</p>
       </div>
-      <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Job total</span>
           <span className="tabular-nums">{money(quote.total)}</span>
@@ -233,27 +362,27 @@ export function DepositCheckout({ id }: { id: string }) {
         ) : null}
         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
           <p className="font-medium">{percent}% deposit</p>
-          <p data-testid="deposit-amount" className="font-display text-4xl text-price tabular-nums">
+          <p data-testid="deposit-amount" className="font-display text-3xl text-price tabular-nums sm:text-4xl">
             {money(amount)}
           </p>
         </div>
       </section>
+
       <PendingWork
         estimate={estimate}
-        onSigned={(next) => {
-          setEstimate(next)
-          if (scope.session) void scope.reloadBook()
-        }}
+        token={token}
+        onSigned={onUpdate}
       />
+
       {estimate.clientStatus !== "accepted" ? (
         <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-center">
           <p className="font-medium">Accept the proposal before paying the deposit.</p>
-          <Link href={`/p/${estimate.publicToken}`} className="mt-3 inline-block text-sm font-medium text-primary">
+          <Link href={proposalHref} className="mt-3 inline-block text-sm font-medium text-primary">
             Open the proposal
           </Link>
         </div>
       ) : paid && estimate.depositReceipt ? (
-        <section data-testid="deposit-status" className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
+        <section data-testid="deposit-status" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Deposit Paid / Scheduled
           </p>
@@ -267,6 +396,18 @@ export function DepositCheckout({ id }: { id: string }) {
           </p>
           {estimate.paymentStatus === "paid" ? <p className="mt-2 text-sm font-medium">Balance paid.</p> : null}
         </section>
+      ) : estimate.paymentStatus === "paid" ? (
+        <section data-testid="deposit-status" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Paid in full</p>
+          <p className="mt-2 text-sm text-muted-foreground">This proposal balance has been marked paid.</p>
+        </section>
+      ) : amount <= 0 ? (
+        <section data-testid="deposit-not-required" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="font-medium">No online deposit payment is required</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your accepted total is {money(quote.total)} due according to the proposal payment terms ({quote.paymentMethodLabel}).
+          </p>
+        </section>
       ) : (
         <div className="flex flex-col gap-3">
           {error && !open ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -275,6 +416,42 @@ export function DepositCheckout({ id }: { id: string }) {
           </Button>
         </div>
       )}
+
+      {token ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="payment-contact-contractor">
+          <h2 className="text-sm font-semibold">Questions? Contact Your Contractor</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {companyName || "Your contractor"} can help with scheduling or payment questions.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {companyPhone ? (
+              <a
+                href={`tel:${companyPhone.replace(/[^+\d]/g, "")}`}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium hover:bg-slate-50"
+              >
+                <Phone className="size-4" aria-hidden="true" />
+                <span>{companyPhone}</span>
+              </a>
+            ) : null}
+            {companyEmail ? (
+              <a
+                href={`mailto:${companyEmail}`}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium hover:bg-slate-50"
+              >
+                <Mail className="size-4" aria-hidden="true" />
+                <span>{companyEmail}</span>
+              </a>
+            ) : null}
+            <Link
+              href={`${proposalHref}#proposal-questions`}
+              className="inline-flex min-h-10 items-center rounded-lg bg-primary/10 px-3 text-sm font-medium text-primary hover:bg-primary/15"
+            >
+              Send a message on your proposal
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -309,17 +486,17 @@ export function DepositCheckout({ id }: { id: string }) {
                     ["apple_pay", "Phone wallet"],
                     ["google_pay", "Browser wallet"],
                   ] as const
-                ).map(([id, label]) => (
+                ).map(([methodId, label]) => (
                   <button
-                    key={id}
+                    key={methodId}
                     type="button"
-                    data-testid={`method-${id}`}
+                    data-testid={`method-${methodId}`}
                     onClick={() => {
-                      setMethod(id)
+                      setMethod(methodId)
                       setError(null)
                     }}
                     className={
-                      method === id
+                      method === methodId
                         ? "h-11 rounded-lg bg-primary px-2 text-sm text-primary-foreground"
                         : "h-11 rounded-lg bg-muted px-2 text-sm"
                     }

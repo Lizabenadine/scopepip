@@ -1,4 +1,5 @@
-import { recordPublicDeposit } from "@/lib/auth/directory"
+import { recordCompanyDeposit } from "@/lib/auth/directory"
+import { sessionFromRequest } from "@/lib/auth/request"
 import type { DepositReceipt } from "@/lib/types"
 
 export const runtime = "nodejs"
@@ -20,13 +21,15 @@ function isReceipt(value: unknown): value is DepositReceipt {
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await sessionFromRequest(request)
+  if (!session) return Response.json({ ok: false, reason: "Sign in first." }, { status: 401 })
   const { id } = await context.params
   if (!/^[a-z0-9-]{4,80}$/i.test(id)) {
     return Response.json({ ok: false, reason: "This estimate is not on file." }, { status: 404 })
   }
   const body = await request.json().catch(() => null)
   if (!isReceipt(body)) return Response.json({ ok: false, reason: "The deposit could not be read." }, { status: 400 })
-  const result = await recordPublicDeposit(id, body)
+  const result = await recordCompanyDeposit(session.companyId, id, body)
   if (!result.ok) return Response.json(result, { status: 400 })
   return Response.json(result)
 }

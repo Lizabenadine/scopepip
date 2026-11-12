@@ -1,8 +1,14 @@
+import fs from "node:fs"
 import path from "node:path"
 import { defineConfig, devices } from "@playwright/test"
 
 const dataDir = path.join(process.cwd(), "data", "e2e")
 const authSecret = "e2e-scopepipe-auth-secret"
+const localChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+const browserLaunchOptions =
+  !process.env.CI && fs.existsSync(localChromePath)
+    ? { launchOptions: { executablePath: localChromePath } }
+    : {}
 
 export default defineConfig({
   testDir: "tests",
@@ -40,7 +46,10 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        ...browserLaunchOptions,
+      },
     },
   ],
 })

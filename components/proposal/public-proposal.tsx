@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { CheckCircle2, CreditCard, Download, Mail, Phone, Printer } from "lucide-react"
 import { ProposalEngagement } from "@/components/proposal/proposal-engagement"
 import { ProposalChat } from "@/components/proposal/proposal-chat"
 import {
@@ -20,7 +21,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { displayCompanyName } from "@/lib/brand/company"
 import { readProposalCompanyName } from "@/lib/brand/profile"
-import { useScope } from "@/lib/data/store"
 import { calculateEstimate } from "@/lib/estimate/calculate"
 import { ensureSubstrateRates } from "@/lib/estimate/substrate"
 import { sectionByGroup } from "@/lib/estimate/groups"
@@ -60,7 +60,6 @@ export function PublicProposal({
   token: string
   initialLanguage?: FieldLanguage | null
 }) {
-  const scope = useScope()
   const [view, setView] = useState<ProposalPayload | null>(null)
   const [missing, setMissing] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null)
@@ -134,6 +133,7 @@ export function PublicProposal({
 
   return (
     <ProposalDocument
+      token={token}
       estimate={view.estimate}
       clientName={view.clientName}
       companyName={displayCompanyName(profileName?.trim() || view.companyName)}
@@ -169,7 +169,6 @@ export function PublicProposal({
         setView((current) =>
           current ? { ...current, estimate: { ...current.estimate, proposalMessages: result.messages } } : current,
         )
-        if (scope.session) await scope.reloadBook()
         return { ok: true as const }
       }}
       onDecline={async () => {
@@ -179,7 +178,6 @@ export function PublicProposal({
           return { ok: false as const, reason: result.reason || "This proposal could not be declined." }
         }
         setView({ ...view, estimate: result.estimate })
-        if (scope.session) await scope.reloadBook()
         return { ok: true as const }
       }}
       onAccept={async (input) => {
@@ -193,7 +191,6 @@ export function PublicProposal({
           return { ok: false as const, reason: result.reason || "This proposal could not be accepted." }
         }
         setView({ ...view, estimate: result.estimate })
-        if (scope.session) await scope.reloadBook()
         return { ok: true as const }
       }}
     />
@@ -201,6 +198,7 @@ export function PublicProposal({
 }
 
 export function ProposalDocument({
+  token,
   estimate,
   clientName,
   companyName,
@@ -221,6 +219,7 @@ export function ProposalDocument({
   onDecline,
   onSendMessage,
 }: {
+  token?: string
   estimate: Estimate
   clientName: string
   companyName: string
@@ -270,8 +269,13 @@ export function ProposalDocument({
   const scheduledProducts = scheduledProductsFromAreas(quote.areas)
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)
   const [confirmDecline, setConfirmDecline] = useState(false)
+  const [accepting, setAccepting] = useState(false)
   const preparedOn = jobDate(estimate.createdAt.slice(0, 10))
   const expiresOn = expires ? jobDate(expires.toISOString().slice(0, 10)) : null
+  const proposalToken = token || estimate.publicToken
+  const pdfHref = `/api/public/proposals/${encodeURIComponent(proposalToken)}/pdf`
+  const payHref = `/p/${encodeURIComponent(proposalToken)}/pay`
+  const companyPhone = estimateSettings.businessPhone?.trim() || ""
 
   const toggle = (id: string) => {
     if (accepted) return
@@ -281,12 +285,22 @@ export function ProposalDocument({
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
+    if (accepting) return
+    setAccepting(true)
     const payload = signaturePayload || (signedName.trim() ? `typed:${signedName.trim()}` : "")
     void onAccept({
       signedName,
       signaturePayload: payload,
       selectedLineIds: chosen,
-    }).then((result) => onError(result.ok ? null : result.reason))
+    }).then((result) => {
+      setAccepting(false)
+      onError(result.ok ? null : result.reason)
+      if (result.ok && typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          document.getElementById("proposal-confirmation")?.scrollIntoView({ behavior: "smooth", block: "start" })
+        })
+      }
+    })
   }
 
   const decline = () => {
@@ -303,12 +317,105 @@ export function ProposalDocument({
       className="flex flex-col gap-8"
       style={brandColor ? ({ "--primary": brandColor } as React.CSSProperties) : undefined}
     >
-      <div className="flex items-center justify-end gap-3">
-        <button type="button" className="text-sm font-medium text-primary" onClick={() => window.print()}>
-          Print
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href={pdfHref}
+            download="proposal.pdf"
+            data-testid="download-proposal-pdf"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-primary shadow-sm hover:bg-slate-50"
+          >
+            <Download className="size-4" aria-hidden="true" />
+            <span>{accepted ? "Download signed PDF" : "Download PDF"}</span>
+          </a>
+          <button
+            type="button"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-primary shadow-sm hover:bg-slate-50"
+            onClick={() => window.print()}
+          >
+            <Printer className="size-4" aria-hidden="true" />
+            <span>Print</span>
+          </button>
+        </div>
         <FieldLanguageSwitch onChange={onLanguage} />
       </div>
+      {accepted && estimate.signature ? (
+        <section
+          id="proposal-confirmation"
+          data-testid="proposal-signed-confirmation"
+          className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm print:hidden sm:p-6"
+        >
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-emerald-700" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold tracking-[0.14em] text-emerald-800 uppercase">
+                Proposal Accepted &amp; Signed
+              </p>
+              <h2 className="mt-1 font-display text-2xl tracking-tight text-slate-950">
+                Thank you, {estimate.signature.signedName}
+              </h2>
+              <p className="mt-1 text-sm text-slate-700">
+                Signed on {signedLabel(estimate.signature.signedAt)} · Approved total{" "}
+                <span className="font-semibold tabular-nums">{money(quote.total)}</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {estimate.paymentStatus === "paid" ? (
+              <Link
+                href={payHref}
+                data-testid="confirmation-payment-link"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-medium text-emerald-900"
+              >
+                <CreditCard className="size-4" aria-hidden="true" />
+                <span>{say("Paid")} · View receipt</span>
+              </Link>
+            ) : estimate.paymentStatus === "deposit_paid" ? (
+              <Link
+                href={payHref}
+                data-testid="confirmation-payment-link"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-medium text-emerald-900"
+              >
+                <CreditCard className="size-4" aria-hidden="true" />
+                <span>{say("Deposit Paid / Scheduled")} · View details</span>
+              </Link>
+            ) : figures.deposit > 0 ? (
+              <Link
+                href={payHref}
+                data-testid="confirmation-pay-deposit"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm"
+              >
+                <CreditCard className="size-4" aria-hidden="true" />
+                <span>{say("Pay deposit")} · {money(figures.deposit)}</span>
+              </Link>
+            ) : (
+              <Link
+                href={payHref}
+                data-testid="confirmation-payment-link"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800"
+              >
+                <CreditCard className="size-4" aria-hidden="true" />
+                <span>View payment information</span>
+              </Link>
+            )}
+            <a
+              href={pdfHref}
+              download="proposal.pdf"
+              data-testid="confirmation-download-pdf"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 hover:bg-slate-50"
+            >
+              <Download className="size-4" aria-hidden="true" />
+              <span>Download signed PDF</span>
+            </a>
+            <a
+              href="#proposal-questions"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Questions? Contact Your Contractor
+            </a>
+          </div>
+        </section>
+      ) : null}
       <ProposalEngagement proposalId={estimate.publicToken} />
       <ProposalPager pages={pages} />
       <ProposalCover
@@ -530,13 +637,41 @@ export function ProposalDocument({
             <p className="text-sm font-medium">{say("Paid")}</p>
           ) : estimate.paymentStatus === "deposit_paid" ? (
             <p className="text-sm font-medium">{say("Deposit Paid / Scheduled")}</p>
+          ) : figures.deposit > 0 ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href={payHref}
+                data-testid="signature-pay-deposit"
+                className="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground sm:flex-1"
+              >
+                {say("Pay deposit")} · {money(figures.deposit)}
+              </Link>
+              <a
+                href={pdfHref}
+                download="proposal.pdf"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 hover:bg-slate-50 sm:flex-1"
+              >
+                <Download className="size-4" aria-hidden="true" />
+                <span>Download signed copy</span>
+              </a>
+            </div>
           ) : (
-            <Link
-              href={`/estimates/${estimate.id}/pay`}
-              className="inline-flex h-12 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
-            >
-              {say("Pay deposit")}
-            </Link>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href={payHref}
+                className="inline-flex h-12 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 hover:bg-slate-50 sm:flex-1"
+              >
+                View payment information
+              </Link>
+              <a
+                href={pdfHref}
+                download="proposal.pdf"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 hover:bg-slate-50 sm:flex-1"
+              >
+                <Download className="size-4" aria-hidden="true" />
+                <span>Download signed copy</span>
+              </a>
+            </div>
           )}
           <p className="text-xs tracking-[0.14em] text-muted-foreground uppercase">
             Signature · {pageNumber(pages, "proposal-page-sign")} of {pages.length}
@@ -580,8 +715,8 @@ export function ProposalDocument({
           />
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="submit" data-testid="accept-proposal" className="h-12 sm:flex-1">
-              Accept proposal · {money(quote.total)}
+            <Button type="submit" data-testid="accept-proposal" disabled={accepting} className="h-12 sm:flex-1">
+              {accepting ? "Submitting signature…" : `Accept proposal · ${money(quote.total)}`}
             </Button>
             {confirmDecline ? (
               <Button type="button" variant="destructive" data-testid="confirm-decline" className="h-12 sm:flex-1" onClick={decline}>
@@ -598,12 +733,48 @@ export function ProposalDocument({
           </p>
         </form>
       )}
-      <ProposalChat
-        messages={estimate.proposalMessages ?? []}
-        customerName={clientName}
-        viewer="customer"
-        onSend={onSendMessage}
-      />
+      <section
+        id="proposal-questions"
+        data-testid="contact-contractor"
+        className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:hidden sm:p-6"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Questions? Contact Your Contractor</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Reach {companyName} directly by phone, email, or send a message below.
+          </p>
+          {companyPhone || companyEmail ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {companyPhone ? (
+                <a
+                  href={`tel:${companyPhone.replace(/[^+\d]/g, "")}`}
+                  data-testid="contractor-phone-link"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium hover:bg-slate-50"
+                >
+                  <Phone className="size-4 text-primary" aria-hidden="true" />
+                  <span>{companyPhone}</span>
+                </a>
+              ) : null}
+              {companyEmail ? (
+                <a
+                  href={`mailto:${companyEmail}`}
+                  data-testid="contractor-email-link"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium hover:bg-slate-50"
+                >
+                  <Mail className="size-4 text-primary" aria-hidden="true" />
+                  <span>{companyEmail}</span>
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <ProposalChat
+          messages={estimate.proposalMessages ?? []}
+          customerName={clientName}
+          viewer="customer"
+          onSend={onSendMessage}
+        />
+      </section>
     </article>
   )
 }

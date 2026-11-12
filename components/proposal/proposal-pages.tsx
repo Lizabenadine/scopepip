@@ -84,7 +84,7 @@ export function ProposalCover({
         <p className="mt-6 text-xs font-semibold tracking-[0.14em] text-primary uppercase">
           {templateLabel ? `Proposal · ${templateLabel}` : "Proposal"}
         </p>
-        <h1 className="mt-2 font-display text-4xl leading-none tracking-tight sm:text-5xl">{title || "Painting proposal"}</h1>
+        <h1 className="mt-2 break-words font-display text-4xl leading-none tracking-tight sm:text-5xl">{title || "Painting proposal"}</h1>
         {coverLine ? (
           <p data-testid="proposal-cover-line" className="mt-4 max-w-xl text-base leading-7">
             {coverLine}
