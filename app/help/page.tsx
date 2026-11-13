@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import { UserGuide } from "@/components/marketing/user-guide"
 
 export const metadata: Metadata = {
-  title: "Help",
+  title: "Help Center • Scopepipe User Guides",
   description:
-    "How to set up the company, sign a proposal, schedule the crew, print a price-free store list, and set the next room's speed from a finished job.",
+    "Comprehensive guides for Scopepipe: room estimating, proposals, Sketch & Notes, voice notes, paint buy lists, sales pipeline, Spanish crew sheets, team management, and billing.",
 }
 
 export default function HelpPage() {

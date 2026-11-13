@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Briefcase, Camera, Check, Download, Link2, Pencil, Plus, Trash2, X } from "lucide-react"
+import Link from "next/link"
+import { Briefcase, Camera, Check, Download, HelpCircle, Link2, Pencil, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RoomSketchpad } from "@/components/estimator/room-sketchpad"
 import { useScope } from "@/lib/data/store"
@@ -187,6 +188,14 @@ export function SketchesScreen() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/help#sketch-notes"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-cyan-700 shadow-xs h-10"
+            title="View Sketch & Notes Guide"
+          >
+            <HelpCircle className="size-3.5 text-cyan-600" />
+            <span>Guide</span>
+          </Link>
           <Button
             type="button"
             onClick={() => {

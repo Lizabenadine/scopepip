@@ -399,6 +399,9 @@ export function SalesPipelineBoard() {
           <Link href="/follow-ups" className="text-sm font-medium text-primary hover:underline">
             {say("Follow-ups")}
           </Link>
+          <Link href="/help#sales-pipeline" className="text-sm font-medium text-slate-500 hover:text-cyan-700 hover:underline">
+            {say("Guide")}
+          </Link>
         </div>
       </div>
 

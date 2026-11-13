@@ -12,6 +12,7 @@ const LABELS: Record<string, string> = {
   Docs: "Docs",
   Settings: "Ajustes",
   Help: "Ayuda",
+  Guide: "Guía",
   Invoices: "Facturas",
   "Sales Pipeline": "Pipeline de ventas",
   "Estimates & Proposals": "Estimados y propuestas",

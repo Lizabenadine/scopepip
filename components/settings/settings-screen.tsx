@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, type ReactNode } from "react"
+import { HelpCircle } from "lucide-react"
 import { CalendarSync } from "@/components/appointments/calendar-sync"
 import { FollowUpEditor } from "@/components/follow-ups/follow-up-editor"
 import { QuickBooksSync } from "@/components/payments/quickbooks-sync"
@@ -63,13 +64,22 @@ export function SettingsScreen() {
 
   return (
     <div className="flex flex-col gap-6" data-testid="settings-screen">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{say("Settings")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {language === "es"
-            ? "Empresa, estimados, mensajes, pagos y conexiones. Un estimado guardado conserva las tarifas con las que se cotizó. Una plantilla guardada toma las tarifas actuales cuando la vuelve a agregar."
-            : "Company, estimating, messages, payments, and connections. A saved estimate keeps the rates it was priced with. A template you save picks up the current production rates when you add it again."}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{say("Settings")}</h1>
+          <p className="text-sm text-muted-foreground">
+            {language === "es"
+              ? "Empresa, estimados, mensajes, pagos y conexiones. Un estimado guardado conserva las tarifas con las que se cotizó. Una plantilla guardada toma las tarifas actuales cuando la vuelve a agregar."
+              : "Company, estimating, messages, payments, and connections. A saved estimate keeps the rates it was priced with. A template you save picks up the current production rates when you add it again."}
+          </p>
+        </div>
+        <Link
+          href="/help"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-cyan-700 hover:bg-slate-50 shadow-xs"
+        >
+          <HelpCircle className="size-3.5 text-cyan-600" />
+          <span>{say("Help")}</span>
+        </Link>
       </div>
       <div role="tablist" aria-label="Settings" className="flex gap-1 overflow-x-auto border-b border-border">
         {TABS.map((tab) => {
