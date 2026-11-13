@@ -38,6 +38,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
           { name: "Appointments", href: "/appointments" },
           { name: "Inbox", href: "/inbox" },
           { name: "Follow-ups", href: "/follow-ups" },
+          { name: "Sketch & Notes", href: "/sketches" },
         ],
       },
       {
@@ -86,6 +87,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
         { name: "Appointments", href: "/appointments" },
         { name: "Inbox", href: "/inbox" },
         { name: "Follow-ups", href: "/follow-ups" },
+        { name: "Sketch & Notes", href: "/sketches" },
       ],
     },
     {

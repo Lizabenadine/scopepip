@@ -15,6 +15,7 @@ const ESTIMATOR_PREFIXES = [
   "/proposal",
   "/follow-ups",
   "/inbox",
+  "/sketches",
   "/work-orders",
   "/help",
 ]

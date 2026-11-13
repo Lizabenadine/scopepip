@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label"
 import type { AreaInput, RoomSketch } from "@/lib/types"
 
 interface RoomSketchpadProps {
-  room: AreaInput
+  room?: Partial<AreaInput>
   initialSketch?: RoomSketch | null
   onSave: (sketch: RoomSketch) => void
   onClose: () => void
@@ -54,15 +54,16 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   const [isDrawing, setIsDrawing] = useState(false)
   const [history, setHistory] = useState<ImageData[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const roomName = room?.name || "Quick Note"
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>(initialSketch?.backgroundImage)
-  const [title, setTitle] = useState(initialSketch?.title || `${room.name || "Room"} Sketch`)
+  const [title, setTitle] = useState(initialSketch?.title || `${roomName} Sketch`)
   const [notes, setNotes] = useState(initialSketch?.notes || "")
   const [includeInProposal, setIncludeInProposal] = useState(initialSketch?.includeInProposal ?? false)
   const [visibleToCrew, setVisibleToCrew] = useState(initialSketch?.visibleToCrew ?? true)
   const [confirmClear, setConfirmClear] = useState(false)
   const [customText, setCustomText] = useState("")
 
-  const dimensionsText = `${room.lengthFt}' × ${room.widthFt}' (${room.heightFt}ft ceiling)`
+  const dimensionsText = room?.lengthFt && room?.widthFt ? `${room.lengthFt}' × ${room.widthFt}' (${room.heightFt || 8}ft ceiling)` : ""
 
   // Initialize canvas
   useEffect(() => {
@@ -310,7 +311,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
 
     const sketch: RoomSketch = {
       id: initialSketch?.id || `sketch_${crypto.randomUUID()}`,
-      title: title.trim() || `${room.name} Sketch`,
+      title: title.trim() || `${roomName} Sketch`,
       createdAt: initialSketch?.createdAt || now,
       updatedAt: now,
       imageData,
@@ -333,8 +334,8 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
           <div className="flex items-center gap-2">
             <Pencil className="size-5 text-cyan-400" />
             <div>
-              <h3 className="text-sm font-bold leading-tight">{title || `${room.name} Sketch`}</h3>
-              <p className="text-[11px] text-slate-400">{dimensionsText}</p>
+              <h3 className="text-sm font-bold leading-tight">{title || `${roomName} Sketch`}</h3>
+              {dimensionsText ? <p className="text-[11px] text-slate-400">{dimensionsText}</p> : null}
             </div>
           </div>
           <div className="flex items-center gap-2">

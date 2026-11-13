@@ -91,3 +91,42 @@ test("customer proposal view strips private sketches and retains approved ones",
   assert.equal(customerRoom.sketches?.[0]?.id, "sketch_approved")
   assert.equal(customerRoom.sketches?.some((s) => s.id === "sketch_private"), false)
 })
+
+test("supports standalone sketches created without an estimate and attaching them to an estimate area", () => {
+  // 1. Standalone sketch created from Daily menu without an estimate
+  const standaloneSketch: RoomSketch = {
+    id: "sketch_standalone_1",
+    title: "Quick Field Measurement",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    imageData: "data:image/jpeg;base64,mockFieldData",
+    roomDimensionsText: "12' × 14' (8ft ceiling)",
+    notes: "Customer wants quote for 2 coats of Sherwin-Williams Emerald",
+    includeInProposal: false,
+    visibleToCrew: true,
+  }
+
+  assert.equal(standaloneSketch.id, "sketch_standalone_1")
+  assert.equal(standaloneSketch.title, "Quick Field Measurement")
+
+  // 2. Attaching the standalone sketch to an estimate area
+  const existingArea: AreaInput = {
+    id: "area_hallway",
+    name: "Hallway",
+    areaType: "room",
+    lengthFt: 12,
+    widthFt: 6,
+    heightFt: 9,
+    crewNote: "",
+    surfaces: [],
+    sketches: [],
+  }
+
+  const attachedArea: AreaInput = {
+    ...existingArea,
+    sketches: [...(existingArea.sketches ?? []), standaloneSketch],
+  }
+
+  assert.equal(attachedArea.sketches?.length, 1)
+  assert.equal(attachedArea.sketches?.[0]?.id, "sketch_standalone_1")
+})

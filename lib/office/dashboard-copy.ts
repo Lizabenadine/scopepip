@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
   Appointments: "Citas",
   Inbox: "Bandeja",
   "Follow-ups": "Seguimientos",
+  "Sketch & Notes": "Bocetos y notas",
   Proposals: "Propuestas",
   "Invoices & Payments": "Facturas y pagos",
   "Daily Operations": "Operaciones del día",

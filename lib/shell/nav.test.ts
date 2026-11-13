@@ -30,6 +30,7 @@ describe("office nav data", () => {
       "Appointments",
       "Inbox",
       "Follow-ups",
+      "Sketch & Notes",
     ])
     assert.deepEqual(owner.find((section) => section.name === "Documents")?.links.map((link) => link.name), [
       "Proposals",
@@ -52,6 +53,7 @@ describe("office nav data", () => {
     assert.equal(roleCanOpen("estimator", "/dispatch"), false)
     assert.equal(roleCanOpen("project_manager", "/work-orders"), true)
     assert.equal(roleCanOpen("estimator", "/help"), true)
+    assert.equal(roleCanOpen("estimator", "/sketches"), true)
     assert.equal(roleCanOpen("project_manager", "/help"), true)
   })
 

@@ -17,6 +17,7 @@ import { CalculationPanel } from "@/components/estimator/calculation-panel"
 import { MaterialsBuyList } from "@/components/estimator/materials-buy-list"
 import { ClientField } from "@/components/estimator/client-field"
 import { PriceSummary } from "@/components/estimator/price-summary"
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete"
 import { VoiceNoteButton } from "@/components/estimator/voice-note-button"
 import { PhotoGallery } from "@/components/photos/photo-gallery"
 import { ScheduleDialog } from "@/components/pipeline/schedule-dialog"
@@ -457,12 +458,11 @@ export function Estimator({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="job-address">Address</Label>
-              <Input
+              <AddressAutocomplete
                 id="job-address"
                 value={draft.jobAddress}
-                placeholder="Street, city"
-                className="h-11"
-                onValueChange={(value) => patch({ jobAddress: value })}
+                placeholder="Street, city, state, zip"
+                onChange={(value) => patch({ jobAddress: value })}
               />
             </div>
           </div>
