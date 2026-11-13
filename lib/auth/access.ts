@@ -2,7 +2,7 @@ import type { ScopeState } from "../data/seed.ts"
 import type { Estimate, EstimateSettings, ProductionRate, SitePhoto, WorkOrder } from "../types.ts"
 import type { UserRole } from "./role.ts"
 
-const MANAGER_PREFIXES = ["/dispatch", "/work-orders", "/payments", "/help"]
+const MANAGER_PREFIXES = ["/dispatch", "/work-orders", "/payments", "/help", "/sketches"]
 
 const ESTIMATOR_PREFIXES = [
   "/dashboard",

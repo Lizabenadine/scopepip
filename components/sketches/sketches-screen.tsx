@@ -176,7 +176,7 @@ export function SketchesScreen() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Sketch & Notes</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Daily Sketch & Notes</h1>
             <span className="rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-800 border border-cyan-200">
               {allSketches.length} {allSketches.length === 1 ? "sketch" : "sketches"}
             </span>

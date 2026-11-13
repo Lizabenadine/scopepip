@@ -32,13 +32,19 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
         links: [{ name: "Work Orders", href: "/work-orders" }],
       },
       {
+        name: "Daily Sketch & Notes",
+        short: "Sketches",
+        href: "/sketches",
+        links: [],
+      },
+      {
         name: "Daily",
         short: "Daily",
         links: [
           { name: "Appointments", href: "/appointments" },
           { name: "Inbox", href: "/inbox" },
           { name: "Follow-ups", href: "/follow-ups" },
-          { name: "Sketch & Notes", href: "/sketches" },
+          { name: "Daily Sketch & Notes", href: "/sketches" },
         ],
       },
       {
@@ -57,6 +63,12 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
           { name: "Progress jobs", href: "/dispatch" },
           { name: "Work Orders", href: "/work-orders" },
         ],
+      },
+      {
+        name: "Daily Sketch & Notes",
+        short: "Sketches",
+        href: "/sketches",
+        links: [],
       },
       { name: "Invoices", short: "Invoices", href: "/payments", links: [] },
     ]
@@ -81,13 +93,19 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       ],
     },
     {
+      name: "Daily Sketch & Notes",
+      short: "Sketches",
+      href: "/sketches",
+      links: [],
+    },
+    {
       name: "Daily",
       short: "Daily",
       links: [
         { name: "Appointments", href: "/appointments" },
         { name: "Inbox", href: "/inbox" },
         { name: "Follow-ups", href: "/follow-ups" },
-        { name: "Sketch & Notes", href: "/sketches" },
+        { name: "Daily Sketch & Notes", href: "/sketches" },
       ],
     },
     {

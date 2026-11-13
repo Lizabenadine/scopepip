@@ -15,8 +15,9 @@ describe("office nav data", () => {
     const manager = navigationSections("project_manager")
     assert.deepEqual(
       owner.map((section) => section.name),
-      ["Dashboard", "Sales", "Jobs", "Daily", "Documents", "Settings"],
+      ["Dashboard", "Sales", "Jobs", "Daily Sketch & Notes", "Daily", "Documents", "Settings"],
     )
+    assert.equal(owner.find((section) => section.name === "Daily Sketch & Notes")?.href, "/sketches")
     assert.deepEqual(owner.find((section) => section.name === "Sales")?.links.map((link) => link.name), [
       "Sales Pipeline",
       "Estimates & Proposals",
@@ -30,7 +31,7 @@ describe("office nav data", () => {
       "Appointments",
       "Inbox",
       "Follow-ups",
-      "Sketch & Notes",
+      "Daily Sketch & Notes",
     ])
     assert.deepEqual(owner.find((section) => section.name === "Documents")?.links.map((link) => link.name), [
       "Proposals",
@@ -38,20 +39,23 @@ describe("office nav data", () => {
     ])
     assert.deepEqual(
       manager.map((section) => section.name),
-      ["Jobs", "Invoices"],
+      ["Jobs", "Daily Sketch & Notes", "Invoices"],
     )
     assert.deepEqual(manager.find((section) => section.name === "Jobs")?.links.map((link) => link.name), [
       "Progress jobs",
       "Work Orders",
     ])
+    assert.equal(manager.find((section) => section.name === "Daily Sketch & Notes")?.href, "/sketches")
     assert.equal(manager.find((section) => section.name === "Invoices")?.href, "/payments")
     const estimator = navigationSections("estimator")
+    assert.equal(estimator.find((section) => section.name === "Daily Sketch & Notes")?.href, "/sketches")
     assert.deepEqual(estimator.find((section) => section.name === "Jobs")?.links.map((link) => link.name), [
       "Work Orders",
     ])
     assert.equal(roleCanOpen("estimator", "/work-orders/est-lena"), true)
     assert.equal(roleCanOpen("estimator", "/dispatch"), false)
     assert.equal(roleCanOpen("project_manager", "/work-orders"), true)
+    assert.equal(roleCanOpen("project_manager", "/sketches"), true)
     assert.equal(roleCanOpen("estimator", "/help"), true)
     assert.equal(roleCanOpen("estimator", "/sketches"), true)
     assert.equal(roleCanOpen("project_manager", "/help"), true)

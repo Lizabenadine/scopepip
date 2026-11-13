@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Plus, Receipt, Settings, X } from "lucide-react"
+import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Pencil, Plus, Receipt, Settings, X } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
@@ -23,6 +23,7 @@ const SECTION_ICONS = {
   Dashboard: LayoutDashboard,
   Sales: Funnel,
   Jobs: ClipboardList,
+  "Daily Sketch & Notes": Pencil,
   Daily: CalendarDays,
   Documents: FileText,
   Invoices: Receipt,
