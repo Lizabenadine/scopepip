@@ -285,13 +285,26 @@ export interface AreaGroup {
   name: string
 }
 
+export interface SketchTextItem {
+  id: string
+  text: string
+  /** Horizontal position as percentage of canvas width (0 - 100) */
+  x: number
+  /** Vertical position as percentage of canvas height (0 - 100) */
+  y: number
+  color: string
+  fontSize?: number
+}
+
 export interface RoomSketch {
   id: string
   title?: string
   createdAt: string
   updatedAt: string
-  /** Data URL or image URL of the final canvas sketch/annotated photo */
+  /** Data URL or image URL of the final canvas sketch/annotated photo (with baked text) */
   imageData: string
+  /** Raw drawing data URL before text overlays, enabling lossless text re-editing when reopened */
+  rawImageData?: string
   /** Optional background photo before annotations */
   backgroundImage?: string
   /** Optional notes or written instructions */
@@ -302,6 +315,8 @@ export interface RoomSketch {
   includeInProposal: boolean
   /** Whether crew can view on crew sheet / work order (defaults to true) */
   visibleToCrew: boolean
+  /** Interactive text items overlaid on the canvas */
+  textItems?: SketchTextItem[]
 }
 
 export interface AreaInput {

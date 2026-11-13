@@ -8,9 +8,11 @@ import {
   Eraser,
   Eye,
   EyeOff,
+  GripVertical,
   Maximize2,
   Paintbrush,
   Pencil,
+  Printer,
   Redo2,
   RotateCcw,
   Tag,
@@ -23,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { AreaInput, RoomSketch } from "@/lib/types"
+import type { AreaInput, RoomSketch, SketchTextItem } from "@/lib/types"
 
 interface RoomSketchpadProps {
   room?: Partial<AreaInput>
@@ -48,7 +50,8 @@ const STROKE_WIDTHS = [
 
 export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSketchpadProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [tool, setTool] = useState<"pen" | "eraser">("pen")
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null)
+  const [tool, setTool] = useState<"pen" | "eraser" | "text">("pen")
   const [color, setColor] = useState<string>("#06b6d4")
   const [lineWidth, setLineWidth] = useState<number>(4)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -62,6 +65,10 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   const [visibleToCrew, setVisibleToCrew] = useState(initialSketch?.visibleToCrew ?? true)
   const [confirmClear, setConfirmClear] = useState(false)
   const [customText, setCustomText] = useState("")
+  const [textItems, setTextItems] = useState<SketchTextItem[]>(initialSketch?.textItems || [])
+  const [activeTextId, setActiveTextId] = useState<string | null>(null)
+  const [isEditingText, setIsEditingText] = useState(false)
+  const [draggingTextId, setDraggingTextId] = useState<string | null>(null)
 
   const dimensionsText = room?.lengthFt && room?.widthFt ? `${room.lengthFt}' × ${room.widthFt}' (${room.heightFt || 8}ft ceiling)` : ""
 
@@ -76,14 +83,15 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
     canvas.width = 720
     canvas.height = 540
 
-    if (initialSketch?.imageData) {
+    const sourceImage = initialSketch?.rawImageData || initialSketch?.imageData
+    if (sourceImage) {
       const img = new Image()
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
         saveState()
       }
-      img.src = initialSketch.imageData
+      img.src = sourceImage
     } else {
       // Clean slate with subtle dark grid
       ctx.fillStyle = "#1e293b" // slate-800 canvas background
@@ -178,6 +186,27 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   }
 
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    if (tool === "text") {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const xPct = Math.max(5, Math.min(95, ((event.clientX - rect.left) / rect.width) * 100))
+      const yPct = Math.max(5, Math.min(95, ((event.clientY - rect.top) / rect.height) * 100))
+
+      const newItem: SketchTextItem = {
+        id: `txt_${crypto.randomUUID()}`,
+        text: "New note",
+        x: Math.round(xPct),
+        y: Math.round(yPct),
+        color: color || "#06b6d4",
+        fontSize: 16,
+      }
+      setTextItems((prev) => [...prev, newItem])
+      setActiveTextId(newItem.id)
+      setIsEditingText(true)
+      return
+    }
+
     const canvas = canvasRef.current
     if (!canvas) return
     canvas.setPointerCapture(event.pointerId)
@@ -202,6 +231,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   }
 
   function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (tool === "text") return
     if (!isDrawing) return
     const canvas = canvasRef.current
     if (!canvas) return
@@ -214,6 +244,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   }
 
   function handlePointerUp(event: PointerEvent<HTMLCanvasElement>) {
+    if (tool === "text") return
     if (!isDrawing) return
     setIsDrawing(false)
     const canvas = canvasRef.current
@@ -224,6 +255,286 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
       // ignore
     }
     saveState()
+  }
+
+  function handleTextDragStart(event: React.PointerEvent, id: string) {
+    event.stopPropagation()
+    const target = event.currentTarget as HTMLElement
+    try {
+      target.setPointerCapture(event.pointerId)
+    } catch {
+      // ignore
+    }
+    setActiveTextId(id)
+    setDraggingTextId(id)
+  }
+
+  function handleTextDragMove(event: React.PointerEvent) {
+    if (!draggingTextId) return
+    const container = canvasContainerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const xPct = Math.max(4, Math.min(96, ((event.clientX - rect.left) / rect.width) * 100))
+    const yPct = Math.max(4, Math.min(96, ((event.clientY - rect.top) / rect.height) * 100))
+
+    setTextItems((prev) =>
+      prev.map((item) =>
+        item.id === draggingTextId ? { ...item, x: Math.round(xPct), y: Math.round(yPct) } : item,
+      ),
+    )
+  }
+
+  function handleTextDragEnd(event: React.PointerEvent) {
+    if (!draggingTextId) return
+    try {
+      const target = event.currentTarget as HTMLElement
+      target.releasePointerCapture(event.pointerId)
+    } catch {
+      // ignore
+    }
+    setDraggingTextId(null)
+  }
+
+  function handleUpdateText(id: string, newText: string) {
+    setTextItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, text: newText } : item)),
+    )
+  }
+
+  function handleDeleteText(id: string) {
+    setTextItems((prev) => prev.filter((item) => item.id !== id))
+    if (activeTextId === id) {
+      setActiveTextId(null)
+      setIsEditingText(false)
+    }
+  }
+
+  function renderCompositeCanvas(): HTMLCanvasElement {
+    const canvas = canvasRef.current
+    if (!canvas) throw new Error("Canvas element missing")
+
+    const composite = document.createElement("canvas")
+    composite.width = canvas.width
+    composite.height = canvas.height
+    const ctx = composite.getContext("2d")
+    if (!ctx) return canvas
+
+    // 1. Draw raw canvas (freehand strokes, photo/grid, stamped badges)
+    ctx.drawImage(canvas, 0, 0)
+
+    // 2. Draw each text item with high contrast badge styling
+    for (const item of textItems) {
+      if (!item.text.trim()) continue
+      const pixelX = (item.x / 100) * composite.width
+      const pixelY = (item.y / 100) * composite.height
+      const fontSize = item.fontSize || 16
+
+      ctx.save()
+      ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+
+      const metrics = ctx.measureText(item.text)
+      const padX = 12
+      const padY = 6
+      const boxW = metrics.width + padX * 2
+      const boxH = fontSize + padY * 2
+      const boxX = pixelX - boxW / 2
+      const boxY = pixelY - boxH / 2
+
+      // Background badge pill
+      ctx.fillStyle = "rgba(15, 23, 42, 0.92)"
+      ctx.strokeStyle = item.color || "#06b6d4"
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6)
+      ctx.fill()
+      ctx.stroke()
+
+      // Crisp white text
+      ctx.fillStyle = "#ffffff"
+      ctx.fillText(item.text, pixelX, pixelY)
+      ctx.restore()
+    }
+
+    return composite
+  }
+
+  function handlePrint() {
+    const composite = renderCompositeCanvas()
+    const dataUrl = composite.toDataURL("image/png")
+    const printTitle = title.trim() || `${roomName} Sketch`
+
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "fixed"
+    iframe.style.right = "0"
+    iframe.style.bottom = "0"
+    iframe.style.width = "0"
+    iframe.style.height = "0"
+    iframe.style.border = "0"
+    document.body.appendChild(iframe)
+
+    const doc = iframe.contentWindow?.document
+    if (!doc) return
+
+    const escape = (str: string) =>
+      str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+
+    doc.open()
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${escape(printTitle)}</title>
+          <style>
+            @page {
+              size: portrait;
+              margin: 12mm;
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              color: #0f172a;
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #0891b2;
+              padding-bottom: 10px;
+              margin-bottom: 14px;
+            }
+            .brand {
+              font-size: 13px;
+              font-weight: 700;
+              color: #0891b2;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 800;
+              color: #0f172a;
+              margin: 3px 0 2px 0;
+            }
+            .meta {
+              font-size: 13px;
+              color: #475569;
+            }
+            .date-col {
+              font-size: 12px;
+              color: #64748b;
+              text-align: right;
+            }
+            .canvas-box {
+              width: 100%;
+              text-align: center;
+              margin-bottom: 14px;
+              border: 1px solid #cbd5e1;
+              border-radius: 8px;
+              overflow: hidden;
+              background: #1e293b;
+            }
+            .canvas-box img {
+              display: block;
+              width: 100%;
+              max-height: 56vh;
+              object-fit: contain;
+              margin: 0 auto;
+            }
+            .notes-section {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 12px 16px;
+              margin-top: 10px;
+            }
+            .notes-header {
+              font-size: 11px;
+              font-weight: 700;
+              color: #475569;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              margin-bottom: 4px;
+            }
+            .notes-body {
+              font-size: 13px;
+              color: #0f172a;
+              line-height: 1.5;
+              white-space: pre-wrap;
+            }
+            .footer {
+              margin-top: 14px;
+              font-size: 10px;
+              color: #94a3b8;
+              text-align: center;
+              border-top: 1px solid #f1f5f9;
+              padding-top: 6px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="brand">Scopepipe • Job Sketch & Notes</div>
+              <h1 class="title">${escape(printTitle)}</h1>
+              ${dimensionsText ? `<div class="meta">Dimensions: <strong>${escape(dimensionsText)}</strong></div>` : ""}
+            </div>
+            <div class="date-col">
+              <div>Date: ${new Date().toLocaleDateString()}</div>
+              <div>${includeInProposal ? "Proposal Sheet" : "Internal Job Sheet"}</div>
+            </div>
+          </div>
+
+          <div class="canvas-box">
+            <img src="${dataUrl}" alt="Sketch Drawing" />
+          </div>
+
+          ${
+            notes?.trim()
+              ? `
+          <div class="notes-section">
+            <div class="notes-header">Written Instructions / Specs</div>
+            <div class="notes-body">${escape(notes.trim())}</div>
+          </div>
+          `
+              : ""
+          }
+
+          <div class="footer">
+            Scopepipe Painting Estimator • ${escape(printTitle)}
+          </div>
+        </body>
+      </html>
+    `)
+    doc.close()
+
+    const img = doc.querySelector("img")
+    const trigger = () => {
+      setTimeout(() => {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+        setTimeout(() => iframe.remove(), 2000)
+      }, 150)
+    }
+
+    if (img && !img.complete) {
+      img.onload = trigger
+      img.onerror = trigger
+    } else {
+      trigger()
+    }
   }
 
   function stampBadgeText(textToStamp: string) {
@@ -306,7 +617,9 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   function handleSave() {
     const canvas = canvasRef.current
     if (!canvas) return
-    const imageData = canvas.toDataURL("image/jpeg", 0.78)
+    const composite = renderCompositeCanvas()
+    const imageData = composite.toDataURL("image/jpeg", 0.82)
+    const rawImageData = canvas.toDataURL("image/jpeg", 0.82)
     const now = new Date().toISOString()
 
     const sketch: RoomSketch = {
@@ -315,11 +628,13 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
       createdAt: initialSketch?.createdAt || now,
       updatedAt: now,
       imageData,
+      rawImageData,
       backgroundImage,
       notes: notes.trim() || undefined,
       roomDimensionsText: dimensionsText,
       includeInProposal,
       visibleToCrew,
+      textItems,
     }
 
     onSave(sketch)
@@ -339,6 +654,17 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              data-testid="print-sketch-button"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 font-medium text-xs h-8 px-2.5"
+            >
+              <Printer className="size-3.5 mr-1 text-cyan-400" />
+              <span>Print / PDF</span>
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -382,6 +708,17 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
             >
               <Eraser className="size-3.5" />
               <span>Eraser</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTool("text")}
+              data-testid="text-tool-button"
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium transition-colors ${
+                tool === "text" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              <Type className="size-3.5" />
+              <span>Text</span>
             </button>
 
             {/* Colors */}
@@ -539,15 +876,133 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
 
         {/* Main Canvas Area */}
         <div className="relative flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center bg-slate-950">
-          <canvas
-            ref={canvasRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            className="w-full max-w-2xl aspect-[4/3] rounded-xl border border-slate-700 shadow-lg cursor-crosshair touch-none select-none"
-            style={{ touchAction: "none" }}
-          />
+          <div
+            ref={canvasContainerRef}
+            onPointerMove={handleTextDragMove}
+            onPointerUp={handleTextDragEnd}
+            className="relative w-full max-w-2xl aspect-[4/3] select-none"
+          >
+            <canvas
+              ref={canvasRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              className={`w-full h-full rounded-xl border border-slate-700 shadow-lg touch-none select-none ${
+                tool === "text" ? "cursor-text" : "cursor-crosshair"
+              }`}
+              style={{ touchAction: "none" }}
+            />
+
+            {/* Overlaid Interactive Text Items */}
+            {textItems.map((item) => {
+              const isSelected = activeTextId === item.id
+              const isEditing = isSelected && isEditingText
+
+              return (
+                <div
+                  key={item.id}
+                  data-testid={`sketch-text-item-${item.id}`}
+                  style={{
+                    left: `${item.x}%`,
+                    top: `${item.y}%`,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                  className={`absolute z-20 flex items-center gap-1 ${
+                    isSelected ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950 rounded-lg" : ""
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setActiveTextId(item.id)
+                  }}
+                >
+                  {isEditing ? (
+                    <div className="flex items-center gap-1 rounded-lg bg-slate-900 border-2 border-cyan-400 p-1 shadow-2xl">
+                      <input
+                        autoFocus
+                        value={item.text}
+                        onChange={(e) => handleUpdateText(item.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Escape") {
+                            setIsEditingText(false)
+                          }
+                        }}
+                        className="h-7 min-w-28 max-w-56 rounded bg-slate-950 px-2 text-xs font-semibold text-white outline-none"
+                        placeholder="Type text..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingText(false)}
+                        className="rounded bg-cyan-500 hover:bg-cyan-400 p-1 text-slate-950"
+                        title="Done"
+                      >
+                        <Check className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteText(item.id)}
+                        className="rounded bg-rose-500/20 hover:bg-rose-500/40 p-1 text-rose-300"
+                        title="Delete text"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className="group flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold text-white shadow-md border"
+                      style={{
+                        backgroundColor: "rgba(15, 23, 42, 0.92)",
+                        borderColor: item.color || "#06b6d4",
+                      }}
+                    >
+                      {/* Drag handle */}
+                      <button
+                        type="button"
+                        onPointerDown={(e) => handleTextDragStart(e, item.id)}
+                        className="cursor-move p-0.5 text-slate-400 hover:text-white touch-none"
+                        title="Drag to move"
+                      >
+                        <GripVertical className="size-3.5" />
+                      </button>
+
+                      {/* Text content */}
+                      <span
+                        className="cursor-pointer select-none px-1"
+                        onDoubleClick={() => {
+                          setActiveTextId(item.id)
+                          setIsEditingText(true)
+                        }}
+                      >
+                        {item.text}
+                      </span>
+
+                      {/* Controls on selection */}
+                      {isSelected ? (
+                        <div className="flex items-center gap-0.5 ml-1 border-l border-slate-700 pl-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingText(true)}
+                            className="rounded p-0.5 text-cyan-300 hover:bg-slate-800"
+                            title="Edit text"
+                          >
+                            <Pencil className="size-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteText(item.id)}
+                            className="rounded p-0.5 text-rose-400 hover:bg-slate-800"
+                            title="Delete text"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* Bottom Options & Privacy Settings */}
@@ -609,6 +1064,16 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
             </label>
 
             <div className="flex items-center gap-2 ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 font-medium text-xs h-8 px-2.5"
+              >
+                <Printer className="size-3.5 mr-1 text-cyan-400" />
+                <span>Print / PDF</span>
+              </Button>
               <Button type="button" variant="ghost" size="sm" onClick={onClose} className="text-slate-400 hover:text-white h-8">
                 Cancel
               </Button>
