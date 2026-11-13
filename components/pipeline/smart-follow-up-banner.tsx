@@ -5,6 +5,7 @@ import { BellRing, Check, Copy, Mail, MessageSquare, X } from "lucide-react"
 import { useScope } from "@/lib/data/store"
 import { useClientNow } from "@/lib/browser/client-env"
 import { getSmartFollowUpReminder } from "@/lib/pipeline/smart-follow-up"
+import { planHasFeatureAccess } from "@/lib/billing/entitlement"
 import type { Client, Estimate } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +22,9 @@ export function SmartFollowUpBanner({ estimate, client, className }: SmartFollow
   const [copied, setCopied] = useState(false)
 
   if (dismissed) return null
+
+  const access = planHasFeatureAccess(scope.session?.planTier, "smartFollowUps", scope.session?.subscriptionStatus)
+  if (!access.allowed) return null
 
   const reminder = getSmartFollowUpReminder({
     estimate,

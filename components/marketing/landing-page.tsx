@@ -11,8 +11,12 @@ import {
   MessageSquare,
   Mic,
   Paintbrush,
+  Pencil,
   Play,
   Smartphone,
+  Sparkles,
+  Users,
+  Video,
 } from "lucide-react"
 import { ProposalDemo } from "@/components/marketing/proposal-demo"
 import { SiteFooter } from "@/components/marketing/site-footer"
@@ -34,42 +38,42 @@ const CORE_CAPABILITIES = [
     body: "Enter room dimensions, choose wall/trim/ceiling surfaces, and generate itemized bids directly on your phone while walking the jobsite.",
   },
   {
+    icon: Pencil,
+    title: "Sketch & Notes + Photo Markup",
+    tagline: "Available on all plans.",
+    body: "Draw freehand room layouts, mark repair spots, stamp dimensions, and sketch directly over jobsite photos with finger or stylus.",
+  },
+  {
+    icon: Languages,
+    title: "Bilingual Crew Sheets",
+    tagline: "English & Spanish on all plans.",
+    body: "The crew toggles between English and Spanish on the jobsite work order. Color codes and prep tasks stay clear while your pricing and margins stay private.",
+  },
+  {
     icon: Mic,
     title: "Hands-Free Voice Notes",
-    tagline: "Dictate specs as you walk.",
+    tagline: "Dictate specs as you walk (Business).",
     body: "Tap the microphone beside any estimate note field to transcribe customer requests, prep notes, and surface conditions using native mobile speech recognition.",
   },
   {
     icon: BellRing,
     title: "Smart Follow-Up Reminders",
-    tagline: "Automatic 3-day & 7-day cadence.",
+    tagline: "Automatic 3 & 7-day prompts (Business).",
     body: "Never lose an unaccepted estimate. One-click personalized follow-up messages automatically stop the moment a proposal is accepted or scheduled.",
   },
   {
     icon: MessageSquare,
     title: "Facebook & Instagram Leads",
-    tagline: "Direct into your pipeline.",
+    tagline: "Direct into your pipeline (Business).",
     body: "Connect your Facebook Business Page. Homeowner inquiries from Meta Lead Ads and Messenger land in your pipeline with private threading per contractor.",
-  },
-  {
-    icon: Paintbrush,
-    title: "Paint Counter Buy Lists",
-    tagline: "Gallons mapped by room, price-free.",
-    body: "Instantly convert square footage into rounded paint gallon counts grouped by product and room. Hand it to your crew or text it to your paint rep.",
-  },
-  {
-    icon: Languages,
-    title: "Bilingual Crew Sheets",
-    tagline: "English & Spanish at one tap.",
-    body: "The crew toggles between English and Spanish on the jobsite work order. Color codes and prep tasks stay clear while your pricing and margins stay private.",
   },
 ] as const
 
 const WORKFLOW_STEPS = [
   {
     step: "01",
-    title: "Walk the Job & Dictate",
-    desc: "Measure or eyeball the room. Tap the mic to record prep notes and client requests. Scopepipe calculates square footage, coats, and gallons in seconds.",
+    title: "Walk the Job & Sketch",
+    desc: "Measure or eyeball rooms. Freehand draw sketches, markup photos of repairs, or tap the mic to dictate notes. Scopepipe calculates square footage, coats, and gallons in seconds.",
   },
   {
     step: "02",
@@ -83,6 +87,23 @@ const WORKFLOW_STEPS = [
   },
 ] as const
 
+const COMPARISON_ROWS = [
+  { feature: "Mobile room-by-room estimating", starter: true, pro: true, business: true },
+  { feature: "Professional proposals & e-signatures", starter: true, pro: true, business: true },
+  { feature: "Price-free paint store buy lists", starter: true, pro: true, business: true },
+  { feature: "Sales pipeline & lead tracking", starter: true, pro: true, business: true },
+  { feature: "English & Spanish crew work orders", starter: "✓ All plans", pro: "✓ All plans", business: "✓ All plans" },
+  { feature: "Sketch & Notes with photo markup", starter: "✓ All plans", pro: "✓ All plans", business: "✓ All plans" },
+  { feature: "Line-item video walkthroughs", starter: false, pro: true, business: true },
+  { feature: "Room color & sheen customer sign-offs", starter: false, pro: true, business: true },
+  { feature: "Automated proposal email & tracking", starter: false, pro: true, business: true },
+  { feature: "Hands-free Voice-to-Estimate notes", starter: false, pro: false, business: true },
+  { feature: "Smart 3 & 7-day follow-up reminders", starter: false, pro: false, business: true },
+  { feature: "Facebook Messenger lead integration", starter: false, pro: false, business: true },
+  { feature: "Included user seats", starter: "1 Seat", pro: "3 Seats", business: "5 Seats" },
+  { feature: "Additional paid seats supported", starter: "—", pro: "—", business: "Supported" },
+] as const
+
 export function LandingPage() {
   return (
     <div className="min-h-dvh bg-[#0B0F17] text-white selection:bg-cyan-500 selection:text-slate-950">
@@ -90,7 +111,7 @@ export function LandingPage() {
       <div className="border-b border-white/10 bg-[#02182F] px-4 py-2 text-center text-xs font-medium text-slate-300">
         <span className="inline-flex items-center gap-2">
           <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span>New: Voice-to-Estimate Notes & Smart 3/7-Day Follow-Up Reminders are now live</span>
+          <span>New: Sketch & Notes with Photo Markup is now live across all plans!</span>
         </span>
       </div>
 
@@ -165,7 +186,7 @@ export function LandingPage() {
                   <span className="size-2 rounded-full bg-cyan-400" />
                   <span>Trade-Specific Software for Painting Contractors</span>
                   <span className="text-white/20">•</span>
-                  <span className="text-cyan-300 font-bold">$49/mo Flat</span>
+                  <span className="text-cyan-300 font-bold">From $29/mo</span>
                 </div>
 
                 <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl lg:leading-[1.12]">
@@ -177,14 +198,18 @@ export function LandingPage() {
                 </h1>
 
                 <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-300 sm:text-xl">
-                  The mobile estimator painters actually use on-site. Dictate notes hands-free, generate whole-can paint buy lists, lock room colors, and close jobs with video proposals and automated 3 & 7-day follow-ups.
+                  The mobile estimator painters actually use on-site. Sketch room layouts, markup jobsite photos, generate whole-can paint buy lists, lock colors, and win jobs with video proposals and smart follow-ups.
                 </p>
 
                 {/* Key live benefit badges */}
                 <div className="mt-6 grid max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs font-medium text-slate-200">
                   <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 p-2.5 backdrop-blur-xs">
                     <CheckCircle2 className="size-4 text-cyan-400 shrink-0" />
-                    <span>Voice-to-text estimate notes</span>
+                    <span>Sketch & Notes + photo markup</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 p-2.5 backdrop-blur-xs">
+                    <CheckCircle2 className="size-4 text-cyan-400 shrink-0" />
+                    <span>Bilingual crew work orders</span>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 p-2.5 backdrop-blur-xs">
                     <CheckCircle2 className="size-4 text-cyan-400 shrink-0" />
@@ -193,10 +218,6 @@ export function LandingPage() {
                   <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 p-2.5 backdrop-blur-xs">
                     <CheckCircle2 className="size-4 text-cyan-400 shrink-0" />
                     <span>Facebook Messenger leads</span>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-lg bg-white/5 border border-white/10 p-2.5 backdrop-blur-xs">
-                    <CheckCircle2 className="size-4 text-cyan-400 shrink-0" />
-                    <span>Bilingual crew work orders</span>
                   </div>
                 </div>
 
@@ -226,7 +247,7 @@ export function LandingPage() {
                     <Check className="size-3.5 text-emerald-400" /> No credit card required
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Check className="size-3.5 text-emerald-400" /> 3 Team seats included
+                    <Check className="size-3.5 text-emerald-400" /> Instant setup
                   </span>
                 </div>
               </div>
@@ -236,11 +257,11 @@ export function LandingPage() {
                 {/* Micro-badge 1: Top Floating Pill */}
                 <div className="absolute -top-4 -left-4 sm:-left-8 z-20 flex items-center gap-2.5 rounded-2xl border border-white/15 bg-slate-950/90 px-3.5 py-2 shadow-xl backdrop-blur-md animate-bounce [animation-duration:3s]">
                   <div className="flex size-7 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                    <Mic className="size-4" />
+                    <Pencil className="size-4" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-white leading-none">Voice-to-Text</p>
-                    <p className="text-[10px] text-cyan-300 mt-0.5">Dictated on-site in 3s</p>
+                    <p className="text-[11px] font-bold text-white leading-none">Sketch & Notes</p>
+                    <p className="text-[10px] text-cyan-300 mt-0.5">Photo markup & dimensions</p>
                   </div>
                 </div>
 
@@ -289,17 +310,17 @@ export function LandingPage() {
 
                     {/* Mobile Estimator Body */}
                     <div className="space-y-3 p-3.5 text-xs">
-                      {/* Voice Note Transcription Card */}
+                      {/* Sketch & Notes Preview Card */}
                       <div className="rounded-xl border border-cyan-400/30 bg-cyan-950/40 p-2.5">
                         <div className="flex items-center justify-between text-[11px] font-semibold text-cyan-300">
                           <span className="flex items-center gap-1.5">
-                            <Mic className="size-3.5 text-cyan-400" />
-                            Voice Note Dictated
+                            <Pencil className="size-3.5 text-cyan-400" />
+                            Room Sketch & Photo Markup
                           </span>
-                          <span className="text-[10px] text-cyan-400">Just now</span>
+                          <span className="text-[10px] text-cyan-400">Saved</span>
                         </div>
                         <p className="mt-1.5 text-[11px] leading-relaxed text-slate-200 italic">
-                          &ldquo;Satin Repose Gray SW 7015 on walls. Trim is Extra White semi-gloss. Minor patch by closet door.&rdquo;
+                          &ldquo;Drywall patch marked near closet. SW Repose Gray satin on walls, Extra White on trim.&rdquo;
                         </p>
                       </div>
 
@@ -396,33 +417,37 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* DETAILED HIGHLIGHT: VOICE NOTES & SMART FOLLOW-UPS */}
+        {/* DETAILED HIGHLIGHT: SKETCH & NOTES & SMART FOLLOW-UPS */}
         <section className="border-t border-white/10 bg-[#070D18] px-4 py-20 md:px-6">
           <div className="mx-auto max-w-6xl">
             <div className="grid items-center gap-12 lg:grid-cols-2">
-              {/* Feature 1: Voice-to-Estimate Notes */}
+              {/* Feature 1: Sketch & Notes + Photo Markup */}
               <div className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-xl backdrop-blur-md">
                 <div className="inline-flex size-10 items-center justify-center rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
-                  <Mic className="size-5" />
+                  <Pencil className="size-5" />
                 </div>
                 <h3 className="mt-4 text-2xl font-bold text-white">
-                  Voice-to-Estimate Notes: Stop Typing in the Field
+                  Sketch & Notes: Freehand Draw & Markup Photos
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-300">
-                  When walking a client&apos;s home, tapping on small keyboards is slow and prone to errors. With Scopepipe, simply tap the microphone icon next to any room notes field. Speak naturally—the browser automatically transcribes surface prep, sheetrock repairs, and paint color specs directly into the estimate.
+                  Included on all plans. Draw freehand room layouts with finger or stylus, stamp room dimensions, mark repair spots, or snap a photo of damaged sheetrock and annotate directly over it on your phone.
                 </p>
                 <ul className="mt-6 space-y-2.5 text-xs font-medium text-slate-200">
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-cyan-400 shrink-0" />
-                    <span>Works natively on iOS Safari, Chrome, and Android</span>
+                    <span>Freehand stylus/touch drawing with pen, colors & eraser</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-cyan-400 shrink-0" />
-                    <span>Transcriptions can be edited, appended, or cleared at any time</span>
+                    <span>Photo markup: take jobsite pictures and draw directly over them</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-cyan-400 shrink-0" />
-                    <span>Zero paid transcription APIs or third-party per-word fees</span>
+                    <span>Private internal note by default; optional toggle to include in proposal</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="size-4 text-cyan-400 shrink-0" />
+                    <span>Crew members see approved instructions without private pricing</span>
                   </li>
                 </ul>
               </div>
@@ -436,7 +461,7 @@ export function LandingPage() {
                   Smart Follow-Up Reminders at 3 & 7 Days
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-slate-300">
-                  Contractors lose up to 30% of sent proposals simply because they forget to follow up. When you send an estimate, Scopepipe monitors its acceptance status. If unaccepted, smart reminder cards appear in your pipeline at day 3 and day 7 with one-click personalized messages ready to text or email.
+                  Available on the Business plan. Contractors lose up to 30% of sent proposals simply because they forget to follow up. Scopepipe monitors sent bids and triggers reminders at day 3 and day 7 with 1-click personalized text/email copy.
                 </p>
                 <ul className="mt-6 space-y-2.5 text-xs font-medium text-slate-200">
                   <li className="flex items-center gap-2">
@@ -445,11 +470,11 @@ export function LandingPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-cyan-400 shrink-0" />
-                    <span>Dismiss reminders whenever you&apos;ve already connected</span>
+                    <span>Dismiss reminders whenever you&apos;ve connected</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-cyan-400 shrink-0" />
-                    <span>Automatically stops reminders when proposal is accepted or scheduled</span>
+                    <span>Automatically stops reminders once proposal is accepted</span>
                   </li>
                 </ul>
               </div>
@@ -489,75 +514,243 @@ export function LandingPage() {
           <ProposalDemo />
         </section>
 
-        {/* PRICING SECTION */}
+        {/* RESTORED THREE SUBSCRIPTION TIERS */}
         <section id="pricing" className="scroll-mt-24 border-t border-white/10 bg-[#0B0F17] px-4 py-20 md:px-6">
-          <div className="mx-auto max-w-2xl rounded-3xl border border-white/15 bg-gradient-to-b from-[#0F1E36] to-[#0B1527] p-8 sm:p-12 text-center shadow-2xl shadow-cyan-500/10">
-            <span className="rounded-full bg-cyan-500/15 border border-cyan-400/30 px-3.5 py-1 text-xs font-bold text-cyan-300 uppercase tracking-wide">
-              Simple & Transparent
-            </span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-              One Plan. Everything Included.
-            </h2>
-            <p className="mt-3 text-sm text-slate-300">
-              No tier upgrades, no surprise add-ons, and no per-user penalties.
-            </p>
-
-            <div className="mt-8 flex items-baseline justify-center gap-1">
-              <span className="text-6xl font-extrabold tracking-tight text-white">$49</span>
-              <span className="text-xl font-semibold text-slate-400">/month</span>
+          <div className="mx-auto max-w-6xl">
+            <div className="text-center max-w-2xl mx-auto">
+              <span className="rounded-full bg-cyan-500/15 border border-cyan-400/30 px-3.5 py-1 text-xs font-bold text-cyan-300 uppercase tracking-wide">
+                Transparent Plans
+              </span>
+              <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+                Choose the plan that fits your business
+              </h2>
+              <p className="mt-3 text-sm text-slate-300">
+                Start on any plan with a 14-day free trial. No credit card required to start. Change plans anytime.
+              </p>
             </div>
 
-            <p className="mt-2 text-xs font-bold text-cyan-400 uppercase tracking-wider">
-              Includes 3 Full Team Seats
-            </p>
+            {/* Three Pricing Cards */}
+            <div className="mt-12 grid gap-6 lg:grid-cols-3 items-stretch">
+              {/* Plan 1: Starter */}
+              <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-7 transition-all hover:border-white/20">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Starter</h3>
+                  <p className="mt-1 text-xs text-slate-400">For solo painters estimating & running their own jobs.</p>
+                  <div className="mt-6 flex items-baseline gap-1">
+                    <span className="text-5xl font-extrabold tracking-tight text-white">$29</span>
+                    <span className="text-sm font-semibold text-slate-400">/month</span>
+                  </div>
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 border border-white/10">
+                    <Users className="size-3.5 text-cyan-400" />
+                    <span>1 Included user seat</span>
+                  </div>
+                  <ul className="mt-6 space-y-2.5 text-xs text-slate-300">
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Mobile room-by-room estimating</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Professional proposals & e-signatures</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Price-free paint store buy lists</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Sales pipeline & lead tracking</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>English & Spanish crew work orders</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Sketch & Notes with photo markup</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-8">
+                  <Link
+                    href="/signup"
+                    className="block w-full rounded-full border border-white/20 bg-white/10 py-3 text-center text-sm font-semibold text-white hover:bg-white/15 transition-colors"
+                  >
+                    Start 14-Day Free Trial
+                  </Link>
+                </div>
+              </div>
 
-            <div className="mt-8 grid gap-3 text-left sm:grid-cols-2 text-xs font-medium text-slate-200">
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Fast mobile room estimating</span>
+              {/* Plan 2: Pro (MOST POPULAR) */}
+              <div className="relative flex flex-col justify-between rounded-3xl border-2 border-cyan-400 bg-gradient-to-b from-[#0F223D] to-[#0A1629] p-7 shadow-2xl shadow-cyan-500/20 lg:-translate-y-2">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-cyan-400 px-3.5 py-0.5 text-[11px] font-extrabold text-slate-950 uppercase tracking-wider shadow-md">
+                  Most Popular
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center justify-between">
+                    <span>Pro</span>
+                    <Sparkles className="size-5 text-cyan-300" />
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-300">For growing paint businesses selling bids & scheduling crews.</p>
+                  <div className="mt-6 flex items-baseline gap-1">
+                    <span className="text-5xl font-extrabold tracking-tight text-white">$49</span>
+                    <span className="text-sm font-semibold text-slate-400">/month</span>
+                  </div>
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-bold text-cyan-300 border border-cyan-400/40">
+                    <Users className="size-3.5 text-cyan-300" />
+                    <span>3 Included user seats</span>
+                  </div>
+                  <ul className="mt-6 space-y-2.5 text-xs text-slate-200">
+                    <li className="flex items-center gap-2 font-semibold text-white">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Everything in Starter</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>3 Included team seats</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Line-item video walkthrough proposals</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Room-by-room color & sheen sign-offs</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Automated proposal email & view tracking</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Sketch & Notes + Spanish on work orders</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-8">
+                  <Link
+                    href="/signup"
+                    className="block w-full rounded-full bg-cyan-400 py-3.5 text-center text-sm font-bold text-slate-950 shadow-[0_0_30px_rgba(34,211,238,0.45)] hover:bg-cyan-300 transition-all"
+                  >
+                    Start 14-Day Free Trial
+                  </Link>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Voice-to-text estimate notes</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Smart 3 & 7-day follow-up reminders</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Facebook & Messenger lead capture</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Room-mapped paint store buy lists</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Bilingual English/Spanish crew sheets</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Line-item video proposals</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="size-4 text-cyan-400 shrink-0" />
-                <span>Room-by-room color sign-offs</span>
+
+              {/* Plan 3: Business */}
+              <div className="flex flex-col justify-between rounded-3xl border border-white/10 bg-white/5 p-7 transition-all hover:border-white/20">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Business</h3>
+                  <p className="mt-1 text-xs text-slate-400">For established contractors scaling volume & crew ops.</p>
+                  <div className="mt-6 flex items-baseline gap-1">
+                    <span className="text-5xl font-extrabold tracking-tight text-white">$79</span>
+                    <span className="text-sm font-semibold text-slate-400">/month</span>
+                  </div>
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 border border-white/10">
+                    <Users className="size-3.5 text-cyan-400" />
+                    <span>5 Included seats (+ additional seats supported)</span>
+                  </div>
+                  <ul className="mt-6 space-y-2.5 text-xs text-slate-300">
+                    <li className="flex items-center gap-2 font-semibold text-white">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Everything in Pro</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>5 Included seats + purchase extra seats</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Hands-free Voice-to-Estimate notes</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Smart 3 & 7-day follow-up reminders</span>
+                    </li>
+                    <li className="flex items-center gap-2 font-medium text-cyan-200">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Facebook & Instagram Messenger leads</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check className="size-4 text-cyan-400 shrink-0" />
+                      <span>Priority contractor support</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-8">
+                  <Link
+                    href="/signup"
+                    className="block w-full rounded-full border border-white/20 bg-white/10 py-3 text-center text-sm font-semibold text-white hover:bg-white/15 transition-colors"
+                  >
+                    Start 14-Day Free Trial
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <div className="mt-10">
-              <Link
-                href="/signup"
-                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-cyan-400 px-8 py-4 text-base font-bold text-slate-950 shadow-[0_0_35px_rgba(34,211,238,0.45)] transition-all hover:bg-cyan-300"
-              >
-                Start 14-Day Free Trial
-                <ArrowRight className="size-4" />
-              </Link>
+            {/* FEATURE COMPARISON TABLE */}
+            <div className="mt-16 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+              <div className="px-6 py-4 bg-white/[0.03] border-b border-white/10">
+                <h4 className="text-lg font-bold text-white">Detailed Feature Comparison</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Compare features across Starter, Pro, and Business plans.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 text-slate-400">
+                      <th className="py-3 px-4 font-semibold">Capability</th>
+                      <th className="py-3 px-4 font-semibold text-center">Starter ($29)</th>
+                      <th className="py-3 px-4 font-semibold text-center text-cyan-300">Pro ($49)</th>
+                      <th className="py-3 px-4 font-semibold text-center">Business ($79)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-slate-300">
+                    {COMPARISON_ROWS.map((row) => (
+                      <tr key={row.feature} className="hover:bg-white/[0.02]">
+                        <td className="py-3 px-4 font-medium text-white">{row.feature}</td>
+                        <td className="py-3 px-4 text-center">
+                          {typeof row.starter === "boolean" ? (
+                            row.starter ? (
+                              <Check className="size-4 text-cyan-400 mx-auto" />
+                            ) : (
+                              <span className="text-slate-600">—</span>
+                            )
+                          ) : (
+                            <span className="font-semibold text-cyan-300">{row.starter}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center bg-cyan-950/20">
+                          {typeof row.pro === "boolean" ? (
+                            row.pro ? (
+                              <Check className="size-4 text-cyan-400 mx-auto" />
+                            ) : (
+                              <span className="text-slate-600">—</span>
+                            )
+                          ) : (
+                            <span className="font-semibold text-cyan-300">{row.pro}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {typeof row.business === "boolean" ? (
+                            row.business ? (
+                              <Check className="size-4 text-cyan-400 mx-auto" />
+                            ) : (
+                              <span className="text-slate-600">—</span>
+                            )
+                          ) : (
+                            <span className="font-semibold text-cyan-300">{row.business}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <p className="mt-3 text-xs text-slate-400">
-              14-day free trial • No credit card required • Cancel anytime
-            </p>
+
+            <div className="mt-8 text-center text-xs text-slate-400">
+              <p>14-day free trial on all plans • No credit card required to start • Cancel anytime with one click</p>
+            </div>
           </div>
         </section>
       </main>

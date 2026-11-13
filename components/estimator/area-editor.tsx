@@ -28,7 +28,8 @@ import {
   surfaceHeads,
 } from "@/lib/estimate/substrate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
-import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type EstimateSettings, type LineItemInput, type ProductionRate, type Substrate, type SurfaceInput } from "@/lib/types"
+import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type EstimateSettings, type LineItemInput, type ProductionRate, type RoomSketch, type Substrate, type SurfaceInput } from "@/lib/types"
+import { RoomSketchpad } from "@/components/estimator/room-sketchpad"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 function withBlankDimensions(room: AreaInput): AreaInput {
@@ -600,6 +601,7 @@ area.areaType === areaType
         </div>
       </div>
       </details>
+      <RoomSketchesSection area={area} onChange={onChange} />
       <details className="mt-3 rounded-xl border border-border p-3">
         <summary className="cursor-pointer text-sm font-medium">Prep, repairs & access (advanced)</summary>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1099,5 +1101,100 @@ const typed = useTypedNumber(value, onChange)
         onValueChange={typed.onValueChange}
       />
     </div>
+  )
+}
+
+function RoomSketchesSection({
+  area,
+  onChange,
+}: {
+  area: AreaInput
+  onChange: (area: AreaInput) => void
+}) {
+  const [activeSketch, setActiveSketch] = useState<RoomSketch | null | "new">(null)
+  const sketches = area.sketches ?? []
+
+  function saveSketch(saved: RoomSketch) {
+    const existingIndex = sketches.findIndex((s) => s.id === saved.id)
+    const nextSketches =
+      existingIndex >= 0
+        ? sketches.map((s, i) => (i === existingIndex ? saved : s))
+        : [...sketches, saved]
+    onChange({ ...area, sketches: nextSketches })
+  }
+
+  function deleteSketch(id: string) {
+    onChange({ ...area, sketches: sketches.filter((s) => s.id !== id) })
+  }
+
+  return (
+    <details className="mt-3 rounded-xl border border-border p-3" open={sketches.length > 0 ? true : undefined}>
+      <summary className="cursor-pointer text-sm font-medium flex items-center justify-between">
+        <span>Sketch & Notes ({sketches.length})</span>
+        <span className="text-xs text-primary font-semibold">+ Add Sketch / Photo Markup</span>
+      </summary>
+
+      <div className="mt-3 space-y-3">
+        {sketches.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Draw freehand room layouts, mark repair spots, add dimensions, or markup photos directly on your phone.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {sketches.map((sketch) => (
+              <div
+                key={sketch.id}
+                className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-900 shadow-xs cursor-pointer hover:border-cyan-400"
+                onClick={() => setActiveSketch(sketch)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={sketch.imageData}
+                  alt={sketch.title || "Room sketch"}
+                  className="aspect-[4/3] w-full object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 to-transparent p-2 text-white">
+                  <p className="text-xs font-bold truncate">{sketch.title || "Sketch"}</p>
+                  <div className="mt-1 flex items-center justify-between text-[10px]">
+                    {sketch.includeInProposal ? (
+                      <span className="text-cyan-400 font-semibold">In Proposal</span>
+                    ) : (
+                      <span className="text-slate-400">Private</span>
+                    )}
+                    <button
+                      type="button"
+                      className="text-rose-400 hover:text-rose-300"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteSketch(sketch.id)
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setActiveSketch("new")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20"
+        >
+          + Add Sketch or Photo Markup
+        </button>
+      </div>
+
+      {activeSketch ? (
+        <RoomSketchpad
+          room={area}
+          initialSketch={activeSketch === "new" ? null : activeSketch}
+          onSave={saveSketch}
+          onClose={() => setActiveSketch(null)}
+        />
+      ) : null}
+    </details>
   )
 }

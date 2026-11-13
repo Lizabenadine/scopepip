@@ -285,6 +285,25 @@ export interface AreaGroup {
   name: string
 }
 
+export interface RoomSketch {
+  id: string
+  title?: string
+  createdAt: string
+  updatedAt: string
+  /** Data URL or image URL of the final canvas sketch/annotated photo */
+  imageData: string
+  /** Optional background photo before annotations */
+  backgroundImage?: string
+  /** Optional notes or written instructions */
+  notes?: string
+  /** Room dimensions stamp text */
+  roomDimensionsText?: string
+  /** Private internal note by default; if true, shown on public proposal */
+  includeInProposal: boolean
+  /** Whether crew can view on crew sheet / work order (defaults to true) */
+  visibleToCrew: boolean
+}
+
 export interface AreaInput {
   id: string
   name: string
@@ -309,6 +328,8 @@ export interface AreaInput {
   repairHours?: number | null
   /** Doors and windows in this room. Excluded ones come out of the wall area. */
   openings?: AreaOpening[]
+  /** Room sketches and annotated photos with freehand markup */
+  sketches?: RoomSketch[]
 }
 
 export interface AreaOpening {

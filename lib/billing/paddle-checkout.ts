@@ -1,3 +1,5 @@
+import type { PlanTier } from "./entitlement.ts"
+
 export interface PaddleCheckout {
   token: string
   priceId: string
@@ -26,14 +28,51 @@ export function paddleCheckout(input: {
 }
 
 export function paddleCheckoutFromEnv(
-  input: { email: string; userId: string; authUserId?: string },
+  input: {
+    email: string
+    userId: string
+    authUserId?: string
+    planTier?: PlanTier
+    interval?: "month" | "year"
+  },
   env: Record<string, string | undefined> = process.env,
 ): PaddleCheckout | null {
+  const tier = input.planTier || "pro"
+  const interval = input.interval || "month"
+  let priceId = ""
+
+  if (tier === "starter") {
+    priceId = (interval === "year" ? env.PADDLE_PRICE_STARTER_YEAR : env.PADDLE_PRICE_STARTER_MONTH) || ""
+  } else if (tier === "business") {
+    priceId = (interval === "year" ? env.PADDLE_PRICE_BUSINESS_YEAR : env.PADDLE_PRICE_BUSINESS_MONTH) || ""
+  } else {
+    priceId =
+      (interval === "year" ? env.PADDLE_PRICE_PRO_YEAR : env.PADDLE_PRICE_PRO_MONTH) ||
+      env.PADDLE_PRICE_ID ||
+      ""
+  }
+
   return paddleCheckout({
     token: env.PADDLE_CLIENT_TOKEN || env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "",
-    priceId: env.PADDLE_PRICE_ID || "",
+    priceId,
     email: input.email,
     userId: input.userId,
     authUserId: input.authUserId,
   })
+}
+
+export function extraSeatCheckoutFromEnv(
+  input: { email: string; userId: string; authUserId?: string; quantity?: number },
+  env: Record<string, string | undefined> = process.env,
+): (PaddleCheckout & { quantity: number }) | null {
+  const priceId = (env.PADDLE_PRICE_EXTRA_SEAT_MONTH || "").trim()
+  const base = paddleCheckout({
+    token: env.PADDLE_CLIENT_TOKEN || env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "",
+    priceId,
+    email: input.email,
+    userId: input.userId,
+    authUserId: input.authUserId,
+  })
+  if (!base) return null
+  return { ...base, quantity: Math.max(1, input.quantity || 1) }
 }

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { Mic, MicOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useScope } from "@/lib/data/store"
+import { planHasFeatureAccess } from "@/lib/billing/entitlement"
 
 interface SpeechRecognitionAlternative {
   transcript: string
@@ -107,7 +109,15 @@ export function VoiceNoteButton({ onTranscript, className, targetField = "notes"
     setIsListening(false)
   }
 
+  const { session } = useScope()
+  const access = planHasFeatureAccess(session?.planTier, "voiceNotes", session?.subscriptionStatus)
+
   function startListening() {
+    if (!access.allowed) {
+      showStatus(access.reason || "Voice-to-Estimate Notes is available on the Business plan.", 4000)
+      return
+    }
+
     const RecognitionCtor = getSpeechRecognitionConstructor()
     if (!RecognitionCtor) {
       showStatus("Voice input is not supported in this browser.")

@@ -69,19 +69,59 @@ export function TeamPanel() {
     }
   }
 
+  const planTier = session?.planTier || "pro"
+  const extraSeats = session?.extraSeats || 0
+  const maxSeats = planTier === "starter" ? 1 : planTier === "business" ? 5 + extraSeats : 3
+  const planLabel =
+    planTier === "starter"
+      ? "Starter plan (1 seat)"
+      : planTier === "business"
+        ? `Business plan (${5 + extraSeats} seats)`
+        : "Pro plan (3 seats)"
+
   return (
     <section className="rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm" data-testid="team-panel">
-      <h2 className="text-lg font-semibold">People</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">People</h2>
+        <span className="rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-800 border border-cyan-200">
+          {people.length} of {maxSeats} seats used · {planLabel}
+        </span>
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        The $49 plan includes 3 seats. You pick who uses them. Each person signs in with their own password. A project manager opens jobs and invoices. An estimator writes bids and does not open the rate card, dispatch, or invoices. The role is not a switch on this browser.
+        Each team member signs in with their own password. A project manager opens jobs and invoices. An estimator writes bids and does not open the rate card, dispatch, or invoices.
       </p>
       <ul className="mt-3 flex flex-col gap-1 text-sm">
         {people.map((person) => (
-          <li key={person.id}>
-            {person.name} · {person.email} · {person.role === "owner" ? "Owner" : person.role === "estimator" ? "Estimator" : "Project manager"}
+          <li key={person.id} className="flex items-center justify-between border-b border-slate-100 py-1.5 last:border-0">
+            <span>
+              <span className="font-semibold text-foreground">{person.name}</span> · <span className="text-muted-foreground">{person.email}</span>
+            </span>
+            <span className="text-xs font-medium text-muted-foreground capitalize">
+              {person.role === "owner" ? "Owner" : person.role === "estimator" ? "Estimator" : "Project manager"}
+            </span>
           </li>
         ))}
       </ul>
+      {people.length >= maxSeats ? (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <p className="font-semibold">Seat limit reached ({people.length}/{maxSeats})</p>
+          <p className="mt-0.5">
+            {planTier === "starter"
+              ? "Your Starter plan includes 1 seat. Upgrade to Pro for 3 seats or Business for 5 seats to invite team members."
+              : planTier === "pro"
+                ? "Your Pro plan includes 3 seats. Upgrade to Business for 5 included seats and support for add-on seats."
+                : "Your Business plan includes 5 seats. Additional seats are $10/month per seat."}
+          </p>
+        </div>
+      ) : null}
+      {planTier === "business" ? (
+        <div className="mt-3 rounded-xl border border-cyan-200 bg-cyan-50/60 p-3 text-xs text-cyan-950">
+          <p className="font-semibold">Business Plan Seat Allowance</p>
+          <p className="mt-0.5 text-cyan-800">
+            5 seats included with base plan · {extraSeats} additional {extraSeats === 1 ? "seat" : "seats"} active ($10/seat/mo).
+          </p>
+        </div>
+      ) : null}
       <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="grid gap-1">
           <Label htmlFor="staff-name">Name</Label>

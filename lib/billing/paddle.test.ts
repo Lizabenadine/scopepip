@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { createHmac } from "node:crypto"
 import { describe, it } from "node:test"
-import { paddleCheckout, paddleCheckoutFromEnv } from "./paddle-checkout.ts"
+import { extraSeatCheckoutFromEnv, paddleCheckout, paddleCheckoutFromEnv } from "./paddle-checkout.ts"
 import { paddleSignatureMatches, readPaddleEvent } from "./paddle.ts"
 
 const NOW = Date.parse("2026-10-29T22:00:00.000Z")
@@ -100,6 +100,48 @@ describe("Paddle checkout", () => {
       { NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: "live_a1b2c3d4e5", PADDLE_PRICE_ID: "pri_01hfounding49" },
     )
     assert.equal(fromPublicName?.token, "live_a1b2c3d4e5")
+  })
+
+  it("selects correct plan tier prices and avoids $49 fallback for Starter or Business", () => {
+    const fullEnv = {
+      PADDLE_CLIENT_TOKEN: "live_testtoken123",
+      PADDLE_PRICE_ID: "pri_prodefault49",
+      PADDLE_PRICE_STARTER_MONTH: "pri_startermonth29",
+      PADDLE_PRICE_STARTER_YEAR: "pri_starteryear290",
+      PADDLE_PRICE_PRO_MONTH: "pri_promonth49",
+      PADDLE_PRICE_PRO_YEAR: "pri_proyear490",
+      PADDLE_PRICE_BUSINESS_MONTH: "pri_bizmonth79",
+      PADDLE_PRICE_BUSINESS_YEAR: "pri_bizyear790",
+      PADDLE_PRICE_EXTRA_SEAT_MONTH: "pri_extraseat10",
+    }
+
+    const starterMo = paddleCheckoutFromEnv({ email: "user@test.com", userId: "u1", planTier: "starter" }, fullEnv)
+    assert.equal(starterMo?.priceId, "pri_startermonth29")
+
+    const starterYr = paddleCheckoutFromEnv({ email: "user@test.com", userId: "u1", planTier: "starter", interval: "year" }, fullEnv)
+    assert.equal(starterYr?.priceId, "pri_starteryear290")
+
+    const bizMo = paddleCheckoutFromEnv({ email: "user@test.com", userId: "u1", planTier: "business" }, fullEnv)
+    assert.equal(bizMo?.priceId, "pri_bizmonth79")
+
+    const bizYr = paddleCheckoutFromEnv({ email: "user@test.com", userId: "u1", planTier: "business", interval: "year" }, fullEnv)
+    assert.equal(bizYr?.priceId, "pri_bizyear790")
+
+    const proMo = paddleCheckoutFromEnv({ email: "user@test.com", userId: "u1", planTier: "pro" }, fullEnv)
+    assert.equal(proMo?.priceId, "pri_promonth49")
+
+    // Missing Starter price must NOT fall back to $49 Pro default
+    const missingStarterEnv = {
+      PADDLE_CLIENT_TOKEN: "live_testtoken123",
+      PADDLE_PRICE_ID: "pri_prodefault49",
+    }
+    const failedStarter = paddleCheckoutFromEnv({ email: "user@test.com", userId: "u1", planTier: "starter" }, missingStarterEnv)
+    assert.equal(failedStarter, null)
+
+    // Extra seat checkout helper
+    const extraSeat = extraSeatCheckoutFromEnv({ email: "user@test.com", userId: "u1", quantity: 2 }, fullEnv)
+    assert.equal(extraSeat?.priceId, "pri_extraseat10")
+    assert.equal(extraSeat?.quantity, 2)
   })
 })
 

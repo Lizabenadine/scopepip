@@ -1,5 +1,6 @@
 import { saveBillingStatus } from "../auth/directory.ts"
-import { officeStatusFromPaddle } from "./entitlement.ts"
+import { officeStatusFromPaddle, type PlanTier } from "./entitlement.ts"
+import { isExtraSeatPriceId, planTierFromPriceId } from "./pricing.ts"
 import { upsertCustomer, upsertSubscription, type CustomerMirror, type SubscriptionMirror } from "./paddle-mirror.ts"
 import { processPaddleRefund, recordCommissionFromPaddle } from "../affiliates/affiliate-store.ts"
 
@@ -23,7 +24,7 @@ interface SubscriptionNotice {
   createdAt?: string
   updatedAt?: string
   scheduledChange?: { action?: string; effectiveAt?: string } | null
-  items?: { price?: { id?: string; productId?: string } | null; product?: { id?: string } | null }[]
+  items?: { price?: { id?: string; productId?: string } | null; product?: { id?: string } | null; quantity?: number }[]
   customData?: unknown
 }
 
@@ -91,11 +92,33 @@ export async function handleVerifiedPaddleEvent(event: { eventType: string; data
     await upsertSubscription(subscription)
     const officeStatus = officeStatusFromPaddle(subscription.status)
     if (officeStatus) {
+      const rawPlanTier = customText(data.customData, "plan_tier").toLowerCase()
+      let planTier: PlanTier | undefined =
+        rawPlanTier === "starter" || rawPlanTier === "pro" || rawPlanTier === "business"
+          ? (rawPlanTier as PlanTier)
+          : undefined
+
+      if (!planTier && subscription.priceId) {
+        planTier = planTierFromPriceId(subscription.priceId)
+      }
+
+      let extraSeats: number | undefined
+      if (Array.isArray(data.items)) {
+        for (const item of data.items) {
+          const itemPriceId = text(item?.price?.id)
+          if (itemPriceId && isExtraSeatPriceId(itemPriceId)) {
+            extraSeats = typeof item.quantity === "number" ? item.quantity : 1
+          }
+        }
+      }
+
       await saveBillingStatus({
         userId: customText(data.customData, "user_id"),
         officeUserId: customText(data.customData, "office_user_id"),
         email,
         status: officeStatus,
+        planTier,
+        extraSeats,
       })
     }
     return { type: event.eventType }
@@ -120,14 +143,16 @@ export async function handleVerifiedPaddleEvent(event: { eventType: string; data
     const transactionId = text((data as Record<string, unknown>).id)
     const rawDetails = (data as Record<string, unknown>).details as Record<string, unknown> | undefined
     const totals = rawDetails?.totals as Record<string, unknown> | undefined
-    const rawAmount = typeof totals?.total === "string" ? parseFloat(totals.total) : typeof totals?.total === "number" ? totals.total : 49.0
+    const planTierName = customText(data.customData, "plan_tier").toLowerCase()
+    const defaultPlanAmount = planTierName === "starter" ? 29.0 : planTierName === "business" ? 79.0 : 49.0
+    const rawAmount = typeof totals?.total === "string" ? parseFloat(totals.total) : typeof totals?.total === "number" ? totals.total : defaultPlanAmount
     const companyId = customText(data.customData, "company_id")
     const subscriptionId = text((data as Record<string, unknown>).subscription_id) || text((data as Record<string, unknown>).subscriptionId)
 
     if (transactionId) {
       await recordCommissionFromPaddle({
         transactionId,
-        amount: rawAmount > 0 ? rawAmount : 49.0,
+        amount: rawAmount > 0 ? rawAmount : defaultPlanAmount,
         customerEmail: email,
         companyId,
         subscriptionId,

@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Label } from "@/components/ui/label"
 import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { LINE_VIDEO_BYTE_LIMIT, lineVideo, lineVideoTooLarge } from "@/lib/estimate/line-video"
+import { useScope } from "@/lib/data/store"
+import { planHasFeatureAccess } from "@/lib/billing/entitlement"
 
 export function LineVideoField({
   estimateId,
@@ -16,13 +18,22 @@ export function LineVideoField({
   video: string | undefined
   onVideo: (video: string | undefined) => void
 }) {
+  const { session } = useScope()
+  const access = planHasFeatureAccess(session?.planTier, "videoProposals", session?.subscriptionStatus)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const shown = lineVideo(video)
 
   return (
     <div className="mt-3 grid gap-2">
-      <Label htmlFor={estimateId && !shown ? `line-video-${lineId}` : undefined}>Video on the proposal</Label>
+      <div className="flex items-center justify-between">
+        <Label htmlFor={estimateId && !shown ? `line-video-${lineId}` : undefined}>Video on the proposal</Label>
+        {!access.allowed ? (
+          <span className="text-xs font-semibold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
+            Pro & Business
+          </span>
+        ) : null}
+      </div>
       {!estimateId ? (
         <p className="text-sm text-muted-foreground">Save this estimate before adding a video.</p>
       ) : shown ? (
@@ -51,6 +62,10 @@ export function LineVideoField({
             const file = event.target.files?.[0]
             event.target.value = ""
             if (!file) return
+            if (!access.allowed) {
+              setError(access.reason || "Video proposals are available on Pro and Business plans.")
+              return
+            }
             void uploadVideo(estimateId, lineId, file, setUploading, setError, onVideo)
           }}
         />

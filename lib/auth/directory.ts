@@ -20,6 +20,7 @@ import { answerSubcontractorOffer } from "../work-orders/offers.ts"
 import { toSubcontractorOrder, type WorkOrderData } from "../work-orders/subcontractor.ts"
 import type { DepositReceipt, Estimate, EstimateSettings, PaymentMethod, SubcontractorOffer, WorkOrder } from "../types.ts"
 import { isSubscriptionStatus, trialEndsAt, type SubscriptionStatus } from "../billing/access.ts"
+import { maxSeatsForPlan, type PlanTier } from "../billing/entitlement.ts"
 import { matchCompanySlug, slugifyCompanyName } from "./company-slug.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import type { OfficeSession } from "./session.ts"
@@ -40,6 +41,8 @@ interface StoredUser {
   language?: "en" | "es"
   subscriptionStatus?: SubscriptionStatus
   trialEndsAt?: string
+  planTier?: PlanTier
+  extraSeats?: number
   authUserId?: string
 }
 
@@ -48,6 +51,8 @@ interface StoredCompany {
   name: string
   slug: string
   createdAt: string
+  planTier?: PlanTier
+  extraSeats?: number
 }
 
 interface AccountFile {
@@ -165,6 +170,8 @@ async function eachBook(): Promise<{ companyId: string; book: BookFile }[]> {
 }
 
 function toSession(user: StoredUser, company: StoredCompany): OfficeSession {
+  const planTier = company.planTier || user.planTier || "pro"
+  const extraSeats = company.extraSeats || user.extraSeats || 0
   return {
     id: user.id,
     name: user.name,
@@ -173,6 +180,8 @@ function toSession(user: StoredUser, company: StoredCompany): OfficeSession {
     companyId: company.id,
     companyName: company.name,
     companySlug: company.slug,
+    planTier,
+    extraSeats,
     ...(user.language === "es" || user.language === "en" ? { language: user.language } : {}),
     ...(user.subscriptionStatus ? { subscriptionStatus: user.subscriptionStatus } : {}),
     ...(user.trialEndsAt ? { trialEndsAt: user.trialEndsAt } : {}),
@@ -216,10 +225,13 @@ export async function saveBillingStatus(input: {
   email?: string
   status: SubscriptionStatus
   trialEndsAt?: string | null
+  planTier?: PlanTier
+  extraSeats?: number
 }): Promise<{ account: boolean; profile: boolean }> {
   const accounts = await readAccounts()
   const email = input.email?.trim().toLowerCase() ?? ""
   let account = false
+  let matchedCompanyId = ""
   const users = accounts.users.map((user) => {
     const match =
       (input.officeUserId && user.id === input.officeUserId) ||
@@ -227,13 +239,26 @@ export async function saveBillingStatus(input: {
       (email.includes("@") && user.email === email)
     if (!match) return user
     account = true
+    matchedCompanyId = user.companyId
     return {
       ...user,
       subscriptionStatus: input.status,
       trialEndsAt: input.trialEndsAt || user.trialEndsAt || trialEndsAt(new Date()),
+      ...(input.planTier ? { planTier: input.planTier } : {}),
+      ...(typeof input.extraSeats === "number" ? { extraSeats: input.extraSeats } : {}),
     }
   })
-  if (account) await writeAccounts({ ...accounts, users })
+  const companies = accounts.companies.map((c) => {
+    if (matchedCompanyId && c.id === matchedCompanyId) {
+      return {
+        ...c,
+        ...(input.planTier ? { planTier: input.planTier } : {}),
+        ...(typeof input.extraSeats === "number" ? { extraSeats: input.extraSeats } : {}),
+      }
+    }
+    return c
+  })
+  if (account) await writeAccounts({ ...accounts, users, companies })
   const profile = await saveProfileSubscription(input)
   return { account, profile }
 }
@@ -429,8 +454,17 @@ export async function addStaff(
   const company = accounts.companies.find((item) => item.id === owner.companyId)
   if (!company) return { ok: false, reason: "Only the owner can add a person." }
   const seats = accounts.users.filter((item) => item.companyId === company.id).length
-  if (seats >= FOUNDING_PLAN_SEATS) {
-    return { ok: false, reason: FOUNDING_PLAN_SEAT_LIMIT }
+  const planTier = company.planTier || owner.planTier || "pro"
+  const extraSeats = company.extraSeats || 0
+  const maxSeats = maxSeatsForPlan(planTier, extraSeats)
+  if (seats >= maxSeats) {
+    if (planTier === "starter") {
+      return { ok: false, reason: "Your Starter plan includes 1 seat. Upgrade to Pro for 3 seats or Business for 5 seats." }
+    }
+    if (planTier === "pro") {
+      return { ok: false, reason: FOUNDING_PLAN_SEAT_LIMIT }
+    }
+    return { ok: false, reason: `You have reached the ${maxSeats} seats included with your Business plan. Add additional seats in Billing.` }
   }
   const name = input.name.trim()
   const email = normalizeEmail(input.email)
@@ -522,6 +556,7 @@ function forCustomer(estimate: Estimate): Estimate {
       ...area,
       crewNote: "",
       surfaces: area.surfaces.map((surface) => ({ ...surface, crewNote: "" })),
+      sketches: area.sketches?.filter((s) => s.includeInProposal),
     })),
     lineItems: estimate.lineItems.map((item) => ({
       ...item,

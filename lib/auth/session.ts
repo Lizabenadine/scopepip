@@ -14,6 +14,10 @@ export interface OfficeSession {
   language?: FieldLanguage
   subscriptionStatus?: SubscriptionStatus
   trialEndsAt?: string
+  /** Active subscription plan tier. Defaults to pro for trial/legacy. */
+  planTier?: "starter" | "pro" | "business"
+  /** Paid extra seats purchased on top of tier allowance. */
+  extraSeats?: number
   /** Supabase auth user, when this account was created with email sign-up. */
   authUserId?: string
 }

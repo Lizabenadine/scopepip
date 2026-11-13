@@ -1,6 +1,7 @@
 import { authSecret } from "../../../../../lib/auth/directory.ts"
 import { sessionFromRequest } from "../../../../../lib/auth/request.ts"
 import { buildFacebookOAuthUrl, facebookOAuthConfig } from "../../../../../lib/facebook/credentials.ts"
+import { planHasFeatureAccess } from "../../../../../lib/billing/entitlement.ts"
 import crypto from "node:crypto"
 
 export const runtime = "nodejs"
@@ -17,6 +18,13 @@ export async function GET(request: Request) {
 
   if (!session) {
     return Response.redirect(new URL("/login", url.origin).toString())
+  }
+
+  const access = planHasFeatureAccess(session.planTier, "facebookMessenger", session.subscriptionStatus)
+  if (!access.allowed) {
+    return Response.redirect(
+      new URL("/settings?tab=integrations&facebook_error=business_plan_required", url.origin).toString(),
+    )
   }
 
   const { configured } = facebookOAuthConfig()

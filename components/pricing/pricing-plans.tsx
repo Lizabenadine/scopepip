@@ -88,11 +88,14 @@ export function PricingPlans({
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
         ...(email ? { customer: { email } } : {}),
-        ...(userId && officeUserId ? { customData: { user_id: userId, office_user_id: officeUserId } } : {}),
+        customData: {
+          ...(userId && officeUserId ? { user_id: userId, office_user_id: officeUserId } : {}),
+          plan_tier: tier.name.toLowerCase(),
+        },
         settings: {
           displayMode: "overlay",
           variant: "one-page",
-          successUrl: `${window.location.origin}/welcome`,
+          successUrl: `${window.location.origin}/welcome?plan=${tier.name.toLowerCase()}`,
         },
       })
     } catch {
