@@ -82,13 +82,21 @@ test("Help Center provides searchable, categorized step-by-step guides with in-a
   await expect(page).toHaveURL(/\/help#sketch-notes$/)
   await expect(page.getByTestId("guide-section-sketch-notes")).toBeVisible()
 
-  // 7. Mobile responsiveness verification
+  // 7. Test in-app link from Settings screen
+  await page.goto("/settings")
+  const settingsHelpLink = page.getByTestId("settings-help")
+  await expect(settingsHelpLink).toBeVisible()
+  await settingsHelpLink.click()
+  await expect(page).toHaveURL(/\/help$/)
+  await expect(page.getByRole("heading", { name: "Help Center" })).toBeVisible()
+
+  // 8. Mobile responsiveness verification
   const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
   const cookies = await context.cookies()
   await mobileContext.addCookies(cookies)
   const mobilePage = await mobileContext.newPage()
 
-  await mobilePage.goto("/help")
+  await mobilePage.goto("/help", { waitUntil: "networkidle" })
   await expect(mobilePage.getByRole("heading", { name: "Help Center" })).toBeVisible()
   await expect(mobilePage.getByTestId("help-search-input")).toBeVisible()
 
@@ -97,5 +105,34 @@ test("Help Center provides searchable, categorized step-by-step guides with in-a
   await expect(mobilePage.getByTestId("guide-section-billing-plans")).toBeVisible()
 
   await mobileContext.close()
+  await context.close()
+})
+
+test("Public unauthenticated visitors can access Help Guides with brand header and footer", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+
+  // Visit /help directly without logging in
+  await page.goto("/help", { waitUntil: "networkidle" })
+  await expect(page.getByRole("heading", { name: "Help Center" })).toBeVisible()
+  await expect(page.getByTestId("guide-section-quick-start")).toBeVisible()
+
+  // Check public header links
+  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Start Free Trial" })).toBeVisible()
+
+  // Check footer has Help Guides link
+  await expect(page.getByRole("link", { name: "Help Guides" })).toBeVisible()
+
+  // Test homepage nav link
+  await page.goto("/")
+  const homeHelpLink = page.getByRole("navigation", { name: "Page navigation" }).getByRole("link", { name: "Help" })
+  await expect(homeHelpLink).toBeVisible()
+  await homeHelpLink.click()
+  await expect(page).toHaveURL(/\/help$/)
+  await expect(page.getByRole("heading", { name: "Help Center" })).toBeVisible()
+
   await context.close()
 })

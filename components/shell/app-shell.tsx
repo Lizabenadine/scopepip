@@ -8,6 +8,7 @@ import { AuthForm } from "@/components/auth/auth-form"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
 import { BrandLogo, LogoHeader } from "@/components/brand/brand-logo"
+import { SiteFooter } from "@/components/marketing/site-footer"
 import { buttonVariants } from "@/components/ui/button"
 import type { UserRole } from "@/lib/auth/role"
 import { useScope } from "@/lib/data/store"
@@ -75,7 +76,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/crew-sheets" ||
     pathname === "/pricing" ||
     pathname === "/welcome" ||
-    pathname === "/sample-proposal"
+    pathname === "/sample-proposal" ||
+    pathname === "/help" ||
+    pathname === "/guide"
   const publicProposal =
     marketingPage ||
     pathname.startsWith("/p/") ||

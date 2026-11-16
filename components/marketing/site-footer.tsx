@@ -33,6 +33,9 @@ export function SiteFooter() {
           <a href="/pricing" className="transition-colors hover:text-white">
             Pricing
           </a>
+          <a href="/help" className="transition-colors hover:text-white">
+            Help Guides
+          </a>
           <a href="/affiliates" className="transition-colors hover:text-white">
             Affiliates
           </a>
