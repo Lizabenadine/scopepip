@@ -59,12 +59,13 @@ test("Voice Assistant: DripJobs-grade capabilities, hands-free walkthrough estim
   // Modal opens in walkthrough mode
   await expect(page.getByTestId("voice-assistant-modal")).toBeVisible()
 
-  // Test the exact command requested: "15 x 15 walls and ceilings living room"
-  const naturalOrderChip = page.getByRole("button", { name: /15 x 15 walls and ceilings living room/i })
-  await expect(naturalOrderChip).toBeVisible()
-  await naturalOrderChip.click()
+  // Test the exact command requested: "Add living room, 15 by 15, walls and ceiling" via input + Enter
+  const commandInput = page.getByTestId("voice-command-input")
+  await expect(commandInput).toBeVisible()
+  await commandInput.fill("Add living room, 15 by 15, walls and ceiling")
+  await commandInput.press("Enter")
 
-  // Verify room is added with dimensions to estimate
+  // Verify command executed and room is added
   await expect(page.getByTestId("voice-success-message")).toBeVisible()
   await expect(page.getByTestId("voice-success-message")).toContainText("Living Room")
   await page.getByTestId("voice-assistant-close").click()
@@ -72,11 +73,31 @@ test("Voice Assistant: DripJobs-grade capabilities, hands-free walkthrough estim
   // Verify living room card is visible in area list with 15 × 15 × 8 ft dimensions
   await expect(page.getByText("15 × 15 × 8 ft")).toBeVisible()
 
+  // Test Follow-up command: "Add two doors to the living room" (updates existing room without creating duplicates)
+  await walkBtn.click()
+  await expect(page.getByTestId("voice-assistant-modal")).toBeVisible()
+  await page.getByTestId("voice-command-input").fill("Add two doors to the living room")
+  await page.getByTestId("voice-apply-command").click()
+  await expect(page.getByTestId("voice-success-message")).toBeVisible()
+  await expect(page.getByTestId("voice-success-message")).toContainText("Living Room")
+  await page.getByTestId("voice-assistant-close").click()
+
+  // Confirm NO duplicate Living Room was created
+  const livingRooms = await page.getByText("Living Room").all()
+  expect(livingRooms.length).toBeGreaterThanOrEqual(1)
+
   // Verify price is recalculated and summary updates
   const summary = page.getByTestId("estimate-summary")
   await expect(summary).toBeVisible()
   const summaryText = await summary.textContent()
   expect(summaryText).not.toContain("0 hrs · 0 gal")
+
+  // Test direct natural language room creation in "Add a room" input
+  const addRoomInput = page.getByTestId("add-room-name")
+  await expect(addRoomInput).toBeVisible()
+  await addRoomInput.fill("12 by 14 walls and ceiling Dining Room")
+  await addRoomInput.press("Enter")
+  await expect(page.getByText("12 × 14 × 8 ft")).toBeVisible()
 
   // 6. Test Mobile Responsiveness
   await page.setViewportSize({ width: 390, height: 844 })

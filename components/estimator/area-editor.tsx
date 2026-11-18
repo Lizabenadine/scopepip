@@ -31,6 +31,8 @@ import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type EstimateSettings, type LineItemInput, type ProductionRate, type RoomSketch, type Substrate, type SurfaceInput } from "@/lib/types"
 import { RoomSketchpad } from "@/components/estimator/room-sketchpad"
 import { VoiceAssistantButton } from "@/components/voice/voice-assistant-modal"
+import { parseVoiceCommand } from "@/lib/voice/voice-parser"
+import { buildAreaFromVoiceAction, applyRoomUpdateToAreas } from "@/lib/voice/voice-executor"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 function withBlankDimensions(room: AreaInput): AreaInput {
@@ -83,13 +85,34 @@ const [namesOpen, setNamesOpen] = useState(false)
 const [roomDraft, setRoomDraft] = useState("")
 const [focusAreaId, setFocusAreaId] = useState<string | null>(null)
 const addRoom = (name: string) => {
-const room = quickRoom(name, kind)
-    if (!room) return
-    const blank = withBlankDimensions(room)
-    onChange([...areas, blank])
+  const trimmed = name.trim()
+  if (!trimmed) return
+
+  // 1. Check if user typed or dictated a natural language voice command:
+  const parsed = parseVoiceCommand(trimmed)
+  if (parsed.action.type === "ADD_ROOM") {
+    const room = buildAreaFromVoiceAction(parsed.action)
+    onChange([...areas, room])
     setRoomDraft("")
-    setFocusAreaId(blank.id)
+    setFocusAreaId(room.id)
+    return
   }
+
+  if (parsed.action.type === "UPDATE_ROOM") {
+    const res = applyRoomUpdateToAreas(areas, parsed.action)
+    onChange(res.areas)
+    setRoomDraft("")
+    return
+  }
+
+  // 2. Fall back to standard quickRoom by name
+  const room = quickRoom(trimmed, kind)
+  if (!room) return
+  const blank = withBlankDimensions(room)
+  onChange([...areas, blank])
+  setRoomDraft("")
+  setFocusAreaId(blank.id)
+}
 const [groupDraft, setGroupDraft] = useState("")
 const [groupError, setGroupError] = useState<string | null>(null)
 const sections = sectionByGroup(areas, areaGroups, (area) => area.groupId, { includeEmpty: true })
@@ -140,6 +163,16 @@ const group = createAreaGroup(groupDraft)
             onAddRoom={(room) => {
               onChange([...areas, room])
             }}
+            onUpdateRoom={(update) => {
+              const res = applyRoomUpdateToAreas(areas, update)
+              onChange(res.areas)
+              return {
+                updated: true,
+                message: res.isNewRoom
+                  ? `Added ${res.matchedRoomName} to current estimate.`
+                  : `Updated ${res.matchedRoomName}: added ${update.summary}`,
+              }
+            }}
             testId="estimator-voice-assistant"
             className="h-7 text-xs font-semibold rounded-md bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
           />
@@ -176,6 +209,16 @@ const group = createAreaGroup(groupDraft)
             initialMode="estimator"
             onAddRoom={(room) => {
               onChange([...areas, room])
+            }}
+            onUpdateRoom={(update) => {
+              const res = applyRoomUpdateToAreas(areas, update)
+              onChange(res.areas)
+              return {
+                updated: true,
+                message: res.isNewRoom
+                  ? `Added ${res.matchedRoomName} to current estimate.`
+                  : `Updated ${res.matchedRoomName}: added ${update.summary}`,
+              }
             }}
             testId="estimator-walkthrough-mic"
             className="h-11 rounded-lg border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-3 text-sm shrink-0"

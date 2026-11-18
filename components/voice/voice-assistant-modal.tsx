@@ -36,6 +36,8 @@ import {
   type ParsedVoiceResult,
   type VoiceAction,
   type AddRoomAction,
+  type UpdateRoomAction,
+  type AddJobNoteAction,
   type ClarifyAction,
 } from "@/lib/voice/voice-parser"
 import { executeVoiceAction, type VoiceExecutionContext } from "@/lib/voice/voice-executor"
@@ -96,6 +98,8 @@ export interface VoiceAssistantModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAddRoom?: (room: AreaInput) => void
+  onUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+  onAddJobNote?: (note: AddJobNoteAction) => { ok: boolean; message?: string }
   initialMode?: "general" | "estimator"
 }
 
@@ -103,6 +107,8 @@ export function VoiceAssistantModal({
   open,
   onOpenChange,
   onAddRoom,
+  onUpdateRoom,
+  onAddJobNote,
   initialMode = "general",
 }: VoiceAssistantModalProps) {
   const router = useRouter()
@@ -112,6 +118,7 @@ export function VoiceAssistantModal({
   const [isSupported, setIsSupported] = useState(true)
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState("")
+  const [commandInput, setCommandInput] = useState("")
   const [parsedResult, setParsedResult] = useState<ParsedVoiceResult | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -134,6 +141,7 @@ export function VoiceAssistantModal({
   useEffect(() => {
     if (open) {
       setTranscript("")
+      setCommandInput("")
       latestTranscriptRef.current = ""
       isProcessedRef.current = false
       setParsedResult(null)
@@ -152,6 +160,26 @@ export function VoiceAssistantModal({
     }
   }, [open])
 
+  function handleManualSubmit() {
+    const textToRun = commandInput.trim() || latestTranscriptRef.current.trim()
+    if (!textToRun) return
+
+    if (isListening) {
+      isStoppingRef.current = true
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop()
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false)
+    }
+
+    isProcessedRef.current = true
+    handleVoiceProcessed(textToRun)
+  }
+
   function stopListening() {
     isStoppingRef.current = true
     if (recognitionRef.current) {
@@ -164,7 +192,7 @@ export function VoiceAssistantModal({
     setIsListening(false)
 
     // Ensure recognized speech triggers action execution even when stopped manually
-    const spoken = latestTranscriptRef.current.trim()
+    const spoken = (commandInput || latestTranscriptRef.current).trim()
     if (spoken && !isProcessedRef.current) {
       isProcessedRef.current = true
       handleVoiceProcessed(spoken)
@@ -223,6 +251,7 @@ export function VoiceAssistantModal({
         if (currentSpoken) {
           latestTranscriptRef.current = currentSpoken
           setTranscript(currentSpoken)
+          setCommandInput(currentSpoken)
           const parsed = parseVoiceCommand(currentSpoken)
           setParsedResult(parsed)
         }
@@ -243,7 +272,7 @@ export function VoiceAssistantModal({
 
       recognition.onend = () => {
         setIsListening(false)
-        const spoken = latestTranscriptRef.current.trim()
+        const spoken = (latestTranscriptRef.current || commandInput).trim()
         if (!isStoppingRef.current && spoken && !isProcessedRef.current) {
           isProcessedRef.current = true
           handleVoiceProcessed(spoken)
@@ -363,6 +392,7 @@ export function VoiceAssistantModal({
 
   function handleClarificationAnswer(answer: string) {
     setTranscript(answer)
+    setCommandInput(answer)
     latestTranscriptRef.current = answer
     isProcessedRef.current = true
     handleVoiceProcessed(answer)
@@ -385,6 +415,8 @@ export function VoiceAssistantModal({
         })
       },
       onAddRoom,
+      onUpdateRoom,
+      onAddJobNote,
     }
 
     const result = executeVoiceAction(action, ctx)
@@ -412,6 +444,7 @@ export function VoiceAssistantModal({
 
   function handleExampleClick(sampleText: string) {
     setTranscript(sampleText)
+    setCommandInput(sampleText)
     latestTranscriptRef.current = sampleText
     isProcessedRef.current = true
     setErrorMessage(null)
@@ -496,23 +529,59 @@ export function VoiceAssistantModal({
             )}
           </p>
 
-          {/* Real-time Transcription Feedback Box */}
+          {/* Interactive Voice / Command Box with Enter Submission */}
           <div
-            className="w-full min-h-[64px] rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 text-left text-sm transition-all"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-left transition-all"
             data-testid="voice-assistant-transcript-box"
           >
-            {transcript ? (
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                  Heard:
-                </p>
-                <p className="font-medium text-slate-800 leading-snug break-words" data-testid="voice-transcript-text">
-                  "{transcript}"
-                </p>
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+              <span>Command</span>
+              {isListening && (
+                <span className="text-rose-600 font-bold lowercase flex items-center gap-1 animate-pulse">
+                  <span className="size-1.5 rounded-full bg-rose-600" />
+                  listening
+                </span>
+              )}
+            </div>
+            <div className="relative flex items-center">
+              <input
+                id="voice-command-input"
+                data-testid="voice-command-input"
+                type="text"
+                value={commandInput}
+                onChange={(e) => {
+                  setCommandInput(e.target.value)
+                  latestTranscriptRef.current = e.target.value
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleManualSubmit()
+                  }
+                }}
+                placeholder='e.g. "Add living room, 15 by 15, walls and ceiling"'
+                className="w-full h-10 px-3 pr-20 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-inner"
+              />
+              <div className="absolute right-1 flex items-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleManualSubmit}
+                  disabled={!commandInput.trim()}
+                  className="h-8 px-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-all"
+                  data-testid="voice-apply-command"
+                >
+                  Apply
+                </Button>
               </div>
+            </div>
+            {commandInput ? (
+              <p className="mt-1.5 text-xs font-medium text-slate-700 leading-snug break-words" data-testid="voice-transcript-text">
+                Heard: "{commandInput}"
+              </p>
             ) : (
-              <p className="text-slate-400 italic text-xs leading-relaxed text-center py-2">
-                e.g. "Add living room, 15 by 20, walls and ceiling" or "Create lead John Smith, 503-555-1234"
+              <p className="mt-1.5 text-slate-400 italic text-[11px] leading-relaxed">
+                Speak naturally or type a command and press Enter
               </p>
             )}
           </div>
@@ -654,7 +723,7 @@ export function VoiceAssistantModal({
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Error Message with Retry */}
           {errorMessage && (
             <div
               className="w-full rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-left text-xs text-rose-900 flex items-start gap-2"
@@ -664,6 +733,21 @@ export function VoiceAssistantModal({
               <div className="flex-1">
                 <p className="font-semibold">Voice Notice</p>
                 <p className="mt-0.5 text-rose-800">{errorMessage}</p>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setErrorMessage(null)
+                      handleManualSubmit()
+                    }}
+                    className="h-7 text-xs font-semibold bg-white border-rose-200 text-rose-700 hover:bg-rose-100"
+                    data-testid="voice-retry-button"
+                  >
+                    Retry
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -712,6 +796,8 @@ export function VoiceAssistantButton({
   label = "Voice",
   initialMode = "general",
   onAddRoom,
+  onUpdateRoom,
+  onAddJobNote,
   testId = "voice-assistant-button",
 }: {
   className?: string
@@ -720,6 +806,8 @@ export function VoiceAssistantButton({
   label?: string
   initialMode?: "general" | "estimator"
   onAddRoom?: (room: AreaInput) => void
+  onUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+  onAddJobNote?: (note: AddJobNoteAction) => { ok: boolean; message?: string }
   testId?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -747,6 +835,8 @@ export function VoiceAssistantButton({
         open={open}
         onOpenChange={setOpen}
         onAddRoom={onAddRoom}
+        onUpdateRoom={onUpdateRoom}
+        onAddJobNote={onAddJobNote}
         initialMode={initialMode}
       />
     </>

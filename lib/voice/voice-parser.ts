@@ -7,6 +7,8 @@
 
 export type VoiceIntentType =
   | "ADD_ROOM"
+  | "UPDATE_ROOM"
+  | "ADD_JOB_NOTE"
   | "CLARIFY"
   | "CREATE_LEAD"
   | "ADD_CUSTOMER_NOTE"
@@ -36,6 +38,26 @@ export interface AddRoomAction {
   heightFt: number
   surfaces: VoiceSurfaceSpec[]
   openings: VoiceOpeningSpec[]
+  requiresConfirmation: boolean
+  summary: string
+}
+
+export interface UpdateRoomAction {
+  type: "UPDATE_ROOM"
+  roomName: string
+  openingsToAdd?: VoiceOpeningSpec[]
+  surfacesToAdd?: VoiceSurfaceSpec[]
+  lengthFt?: number
+  widthFt?: number
+  heightFt?: number
+  requiresConfirmation: boolean
+  summary: string
+}
+
+export interface AddJobNoteAction {
+  type: "ADD_JOB_NOTE"
+  noteType: "job" | "crew"
+  text: string
   requiresConfirmation: boolean
   summary: string
 }
@@ -119,6 +141,8 @@ export interface DictateTextAction {
 
 export type VoiceAction =
   | AddRoomAction
+  | UpdateRoomAction
+  | AddJobNoteAction
   | ClarifyAction
   | CreateLeadAction
   | AddCustomerNoteAction
@@ -519,6 +543,191 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | Clarify
 }
 
 /**
+ * Resolves a spoken room phrase into a clean room title.
+ */
+export function resolveRoomName(raw: string): string | null {
+  const cleaned = raw.replace(/[.,!?;:]+$/, "").trim().toLowerCase()
+  for (const known of KNOWN_ROOM_NAMES) {
+    if (cleaned === known || cleaned.includes(known) || known.includes(cleaned)) {
+      return titleCase(known)
+    }
+  }
+  if (cleaned.length >= 3 && !/^(?:room|area|estimate|job|wall|walls|ceiling|ceilings|door|doors|window|windows)$/i.test(cleaned)) {
+    return titleCase(cleaned)
+  }
+  return null
+}
+
+/**
+ * Parses follow-up commands to add doors, windows, surfaces, or adjust measurements on an existing room:
+ * e.g. "Add two doors to the living room", "Add 3 windows to kitchen", "Add baseboards to living room",
+ * "Set living room ceiling height to 10 feet", "Set living room to 16 by 20"
+ */
+export function parseUpdateRoomCommand(transcript: string): UpdateRoomAction | null {
+  const norm = normalizeSpokenNumbers(transcript).trim()
+
+  // 1. Check dimension/ceiling height adjustments:
+  // e.g. "Set living room ceiling height to 10 feet" or "Change living room height to 10 feet"
+  const heightRegex = /\b(?:set|change|make|update)\s+(?:the\s+)?([a-z0-9\s'-]+?)\s+(?:ceiling\s+height|height)\s+(?:to\s+)?(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\b/i
+  const heightMatch = norm.match(heightRegex)
+  if (heightMatch) {
+    const rawRoom = heightMatch[1].trim()
+    const heightFt = parseFloat(heightMatch[2])
+    const roomName = resolveRoomName(rawRoom)
+    if (roomName && heightFt > 0) {
+      return {
+        type: "UPDATE_ROOM",
+        roomName,
+        heightFt,
+        requiresConfirmation: false,
+        summary: `Set ${roomName} ceiling height to ${heightFt}'.`,
+      }
+    }
+  }
+
+  // e.g. "Set living room dimensions to 16 by 20" or "Change living room to 16 by 20"
+  const dimUpdateRegex = /\b(?:set|change|update)\s+(?:the\s+)?([a-z0-9\s'-]+?)(?:\s+(?:dimensions?|size))?\s+(?:to\s+)?(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\b/i
+  const dimMatch = norm.match(dimUpdateRegex)
+  if (dimMatch) {
+    const rawRoom = dimMatch[1].trim()
+    const lengthFt = parseFloat(dimMatch[2])
+    const widthFt = parseFloat(dimMatch[3])
+    const roomName = resolveRoomName(rawRoom)
+    if (roomName && lengthFt > 0 && widthFt > 0) {
+      return {
+        type: "UPDATE_ROOM",
+        roomName,
+        lengthFt,
+        widthFt,
+        requiresConfirmation: false,
+        summary: `Set ${roomName} dimensions to ${lengthFt}' × ${widthFt}'.`,
+      }
+    }
+  }
+
+  // 2. Check "Add [items] to/in/for [room]"
+  // e.g. "Add two doors to the living room", "Add 3 windows in kitchen", "Add baseboards to living room"
+  const addToRoomRegex = /\b(?:add|include|put|install)\s+(.+?)\s+(?:to|in|into|for)\s+(?:the\s+)?([a-z0-9\s'-]+)$/i
+  const addMatch = norm.match(addToRoomRegex)
+  if (!addMatch) return null
+
+  const itemsPart = addMatch[1].trim()
+  const rawRoom = addMatch[2].trim()
+
+  // Make sure itemsPart is not another full room definition with dimensions (which belongs to ADD_ROOM)
+  if (/\b\d+\s*(?:x|by|\*)\s*\d+\b/i.test(itemsPart)) {
+    return null
+  }
+
+  const roomName = resolveRoomName(rawRoom)
+  if (!roomName) return null
+
+  // Extract openings from itemsPart
+  const openings: VoiceOpeningSpec[] = []
+  // Doors
+  const doorsRegex = /(\d+)\s*(?:door|doors)\b/i
+  const doorsMatch = itemsPart.match(doorsRegex)
+  if (doorsMatch) {
+    openings.push({ kind: "door", count: parseInt(doorsMatch[1], 10) })
+  } else if (/\ba\s+door\b/i.test(itemsPart)) {
+    openings.push({ kind: "door", count: 1 })
+  }
+
+  // Windows
+  const windowsRegex = /(\d+)\s*(?:window|windows)\b/i
+  const windowsMatch = itemsPart.match(windowsRegex)
+  if (windowsMatch) {
+    openings.push({ kind: "window", count: parseInt(windowsMatch[1], 10) })
+  } else if (/\ba\s+window\b/i.test(itemsPart)) {
+    openings.push({ kind: "window", count: 1 })
+  }
+
+  // Extract surfaces from itemsPart
+  const surfaces: VoiceSurfaceSpec[] = []
+  let coatCount = 2
+  const coatMatch = itemsPart.match(/(\d+)\s*(?:coat|coats)\b/i)
+  if (coatMatch) coatCount = parseInt(coatMatch[1], 10)
+
+  if (/\b(walls?|wall)\b/i.test(itemsPart)) surfaces.push({ rateId: "walls", label: "Walls", coatCount })
+  if (/\b(ceilings?|ceiling)\b/i.test(itemsPart)) surfaces.push({ rateId: "ceiling", label: "Ceiling", coatCount })
+  if (/\b(baseboards?|baseboard)\b/i.test(itemsPart)) surfaces.push({ rateId: "baseboards", label: "Baseboards", coatCount })
+  if (/\b(trim|casings?)\b/i.test(itemsPart) && !/\bbaseboards?\b/i.test(itemsPart)) surfaces.push({ rateId: "baseboards", label: "Trim", coatCount })
+  if (/\b(crown|crown molding)\b/i.test(itemsPart)) surfaces.push({ rateId: "crown", label: "Crown Molding", coatCount })
+  if (/\b(siding)\b/i.test(itemsPart)) surfaces.push({ rateId: "siding", label: "Siding", coatCount })
+  if (/\b(cabinets?|cabinet doors?)\b/i.test(itemsPart)) surfaces.push({ rateId: "cabinet-doors", label: "Cabinets", coatCount })
+
+  if (openings.length === 0 && surfaces.length === 0) {
+    return null
+  }
+
+  const itemsList: string[] = []
+  if (openings.length > 0) {
+    itemsList.push(...openings.map((o) => `${o.count} ${o.kind}${o.count > 1 ? "s" : ""}`))
+  }
+  if (surfaces.length > 0) {
+    itemsList.push(...surfaces.map((s) => s.label))
+  }
+
+  return {
+    type: "UPDATE_ROOM",
+    roomName,
+    openingsToAdd: openings.length > 0 ? openings : undefined,
+    surfacesToAdd: surfaces.length > 0 ? surfaces : undefined,
+    requiresConfirmation: false,
+    summary: `Add ${itemsList.join(" and ")} to ${roomName}.`,
+  }
+}
+
+/**
+ * Parses job and crew note commands:
+ * e.g. "Add job note: Customer wants matte finish", "Add crew note: Gate code 4421"
+ */
+export function parseJobNoteCommand(transcript: string): AddJobNoteAction | null {
+  const norm = transcript.trim()
+
+  // Crew note: e.g. "Add crew note: watch for dogs" or "Crew note: gate code 1234"
+  const crewMatch = norm.match(/\b(?:add\s+)?crew\s+note\s*[:=-]?\s*(.+)/i)
+  if (crewMatch && crewMatch[1].trim()) {
+    const text = crewMatch[1].trim()
+    return {
+      type: "ADD_JOB_NOTE",
+      noteType: "crew",
+      text,
+      requiresConfirmation: false,
+      summary: `Add crew note: "${text}".`,
+    }
+  }
+
+  // Job note / estimate note: e.g. "Add job note: customer wants matte finish" or "Job note: ..."
+  const jobMatch = norm.match(/\b(?:add\s+)?(?:job|estimate)\s+note\s*[:=-]?\s*(.+)/i)
+  if (jobMatch && jobMatch[1].trim()) {
+    const text = jobMatch[1].trim()
+    return {
+      type: "ADD_JOB_NOTE",
+      noteType: "job",
+      text,
+      requiresConfirmation: false,
+      summary: `Add job note: "${text}".`,
+    }
+  }
+
+  // "Add note to estimate: ..."
+  const toEstMatch = norm.match(/\badd\s+note\s+to\s+(?:the\s+)?estimate\s*[:=-]?\s*(.+)/i)
+  if (toEstMatch && toEstMatch[1].trim()) {
+    const text = toEstMatch[1].trim()
+    return {
+      type: "ADD_JOB_NOTE",
+      noteType: "job",
+      text,
+      requiresConfirmation: false,
+      summary: `Add job note: "${text}".`,
+    }
+  }
+
+  return null
+}
+
+/**
  * Parses lead creation command:
  * e.g. "Create lead John Smith, 503-555-1234, john@example.com, 123 Oak St, interior repaint"
  */
@@ -807,7 +1016,19 @@ export function parseVoiceCommand(rawTranscript: string): ParsedVoiceResult {
     }
   }
 
-  // 1. Walkthrough Estimating (Add Room)
+  // 1. Job / Crew Notes
+  const jobNote = parseJobNoteCommand(cleaned)
+  if (jobNote) {
+    return { action: jobNote, rawTranscript: cleaned, confidence: 0.95 }
+  }
+
+  // 2. Follow-up Room Updates (doors, windows, surfaces, ceiling height)
+  const updateRoom = parseUpdateRoomCommand(cleaned)
+  if (updateRoom) {
+    return { action: updateRoom, rawTranscript: cleaned, confidence: 0.95 }
+  }
+
+  // 3. Walkthrough Estimating (Add Room)
   const addRoom = parseAddRoomCommand(cleaned)
   if (addRoom) {
     return { action: addRoom, rawTranscript: cleaned, confidence: 0.95 }

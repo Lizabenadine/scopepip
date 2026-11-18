@@ -4,6 +4,8 @@ import {
   normalizeSpokenNumbers,
   parseVoiceCommand,
   type AddRoomAction,
+  type UpdateRoomAction,
+  type AddJobNoteAction,
   type ClarifyAction,
   type CreateLeadAction,
   type AddCustomerNoteAction,
@@ -119,6 +121,82 @@ describe("Voice Command Parser for Painting Contractors", () => {
       assert.equal(action.missingField, "dimensions")
       assert.equal(action.partialRoom?.roomName, "Living Room")
       assert.ok(action.prompt.includes("dimensions"))
+    })
+  })
+
+  describe("Follow-up Room Commands (doors, windows, surfaces, dimensions)", () => {
+    it("parses: Add two doors to the living room", () => {
+      const result = parseVoiceCommand("Add two doors to the living room")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.ok(action.openingsToAdd)
+      assert.equal(action.openingsToAdd.length, 1)
+      assert.equal(action.openingsToAdd[0].kind, "door")
+      assert.equal(action.openingsToAdd[0].count, 2)
+      assert.equal(action.requiresConfirmation, false)
+    })
+
+    it("parses: Add 3 windows to kitchen", () => {
+      const result = parseVoiceCommand("Add 3 windows to kitchen")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Kitchen")
+      assert.ok(action.openingsToAdd)
+      assert.equal(action.openingsToAdd[0].kind, "window")
+      assert.equal(action.openingsToAdd[0].count, 3)
+    })
+
+    it("parses: Add baseboards to living room", () => {
+      const result = parseVoiceCommand("Add baseboards to living room")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.ok(action.surfacesToAdd)
+      assert.equal(action.surfacesToAdd[0].rateId, "baseboards")
+    })
+
+    it("parses: Set living room ceiling height to 10 feet", () => {
+      const result = parseVoiceCommand("Set living room ceiling height to 10 feet")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.equal(action.heightFt, 10)
+    })
+
+    it("parses: Set living room to 16 by 20", () => {
+      const result = parseVoiceCommand("Set living room to 16 by 20")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.equal(action.lengthFt, 16)
+      assert.equal(action.widthFt, 20)
+    })
+  })
+
+  describe("Job and Crew Notes", () => {
+    it("parses: Add job note: Customer wants matte finish", () => {
+      const result = parseVoiceCommand("Add job note: Customer wants matte finish")
+      assert.equal(result.action.type, "ADD_JOB_NOTE")
+      const action = result.action as AddJobNoteAction
+      assert.equal(action.noteType, "job")
+      assert.equal(action.text, "Customer wants matte finish")
+    })
+
+    it("parses: Add crew note: Gate code 4421", () => {
+      const result = parseVoiceCommand("Add crew note: Gate code 4421")
+      assert.equal(result.action.type, "ADD_JOB_NOTE")
+      const action = result.action as AddJobNoteAction
+      assert.equal(action.noteType, "crew")
+      assert.equal(action.text, "Gate code 4421")
+    })
+
+    it("parses: Crew note: Watch for dogs", () => {
+      const result = parseVoiceCommand("Crew note: Watch for dogs")
+      assert.equal(result.action.type, "ADD_JOB_NOTE")
+      const action = result.action as AddJobNoteAction
+      assert.equal(action.noteType, "crew")
+      assert.equal(action.text, "Watch for dogs")
     })
   })
 

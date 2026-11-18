@@ -57,6 +57,8 @@ import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
+import { applyRoomUpdateToAreas } from "@/lib/voice/voice-executor"
+import type { UpdateRoomAction, AddJobNoteAction } from "@/lib/voice/voice-parser"
 import type { AreaInput, LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
 
 export function Estimator({
@@ -94,7 +96,7 @@ export function Estimator({
   const ratesRef = useRef(estimator.productionRates)
   ratesRef.current = estimator.productionRates
 
-  // Listen for voice-added rooms from any voice assistant trigger (navbar, walkthrough mic, dashboard)
+  // Listen for voice-added rooms, follow-up updates, and notes from any voice assistant trigger
   useEffect(() => {
     const handleVoiceRoom = (room: AreaInput) => {
       const currentDraft = draftRef.current
@@ -107,8 +109,45 @@ export function Estimator({
       })
     }
 
+    const handleVoiceUpdateRoom = (update: UpdateRoomAction) => {
+      const currentDraft = draftRef.current
+      if (!currentDraft) return { updated: false, message: "No active estimate." }
+      const res = applyRoomUpdateToAreas(currentDraft.areas, update)
+      if (res.updated) {
+        patchRef.current({ areas: res.areas })
+        return {
+          updated: true,
+          message: res.isNewRoom
+            ? `Added ${res.matchedRoomName} to current estimate.`
+            : `Updated ${res.matchedRoomName}: added ${update.summary}`,
+        }
+      }
+      return { updated: false, message: `Could not find room "${update.roomName}".` }
+    }
+
+    const handleVoiceAddJobNote = (noteAction: AddJobNoteAction) => {
+      const currentDraft = draftRef.current
+      if (!currentDraft) return { ok: false, message: "No active estimate." }
+      if (noteAction.noteType === "crew") {
+        const updated = currentDraft.crewNote ? `${currentDraft.crewNote}\n${noteAction.text}` : noteAction.text
+        patchRef.current({ crewNote: updated })
+        return { ok: true, message: `Added crew note: "${noteAction.text}"` }
+      } else {
+        const updated = currentDraft.notes ? `${currentDraft.notes}\n${noteAction.text}` : noteAction.text
+        patchRef.current({ notes: updated })
+        return { ok: true, message: `Added job note: "${noteAction.text}"` }
+      }
+    }
+
     if (typeof window !== "undefined") {
-      ;(window as unknown as { __scopepipeAddRoom?: (room: AreaInput) => void }).__scopepipeAddRoom = handleVoiceRoom
+      const win = window as unknown as {
+        __scopepipeAddRoom?: (room: AreaInput) => void
+        __scopepipeUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+        __scopepipeAddJobNote?: (action: AddJobNoteAction) => { ok: boolean; message?: string }
+      }
+      win.__scopepipeAddRoom = handleVoiceRoom
+      win.__scopepipeUpdateRoom = handleVoiceUpdateRoom
+      win.__scopepipeAddJobNote = handleVoiceAddJobNote
 
       // Process pending voice room from previous navigation (e.g. from dashboard)
       try {
@@ -120,22 +159,62 @@ export function Estimator({
             handleVoiceRoom(pendingRoom)
           }
         }
+        const pendingUpdateRaw = sessionStorage.getItem("scopepipe:pending-voice-update-room")
+        if (pendingUpdateRaw) {
+          sessionStorage.removeItem("scopepipe:pending-voice-update-room")
+          const pendingUpdate = JSON.parse(pendingUpdateRaw) as UpdateRoomAction
+          if (pendingUpdate && pendingUpdate.roomName) {
+            handleVoiceUpdateRoom(pendingUpdate)
+          }
+        }
+        const pendingJobNoteRaw = sessionStorage.getItem("scopepipe:pending-voice-job-note")
+        if (pendingJobNoteRaw) {
+          sessionStorage.removeItem("scopepipe:pending-voice-job-note")
+          const pendingNote = JSON.parse(pendingJobNoteRaw) as AddJobNoteAction
+          if (pendingNote && pendingNote.text) {
+            handleVoiceAddJobNote(pendingNote)
+          }
+        }
       } catch {
         // ignore
       }
     }
 
-    const onCustomEvent = (e: CustomEvent<AreaInput>) => {
+    const onRoomEvent = (e: CustomEvent<AreaInput>) => {
       if (e.detail) {
         handleVoiceRoom(e.detail)
       }
     }
 
-    window.addEventListener("scopepipe:add-room", onCustomEvent as EventListener)
+    const onUpdateEvent = (e: CustomEvent<UpdateRoomAction>) => {
+      if (e.detail) {
+        handleVoiceUpdateRoom(e.detail)
+      }
+    }
+
+    const onJobNoteEvent = (e: CustomEvent<AddJobNoteAction>) => {
+      if (e.detail) {
+        handleVoiceAddJobNote(e.detail)
+      }
+    }
+
+    window.addEventListener("scopepipe:add-room", onRoomEvent as EventListener)
+    window.addEventListener("scopepipe:update-room", onUpdateEvent as EventListener)
+    window.addEventListener("scopepipe:add-job-note", onJobNoteEvent as EventListener)
+
     return () => {
-      window.removeEventListener("scopepipe:add-room", onCustomEvent as EventListener)
+      window.removeEventListener("scopepipe:add-room", onRoomEvent as EventListener)
+      window.removeEventListener("scopepipe:update-room", onUpdateEvent as EventListener)
+      window.removeEventListener("scopepipe:add-job-note", onJobNoteEvent as EventListener)
       if (typeof window !== "undefined") {
-        delete (window as unknown as { __scopepipeAddRoom?: unknown }).__scopepipeAddRoom
+        const win = window as unknown as {
+          __scopepipeAddRoom?: unknown
+          __scopepipeUpdateRoom?: unknown
+          __scopepipeAddJobNote?: unknown
+        }
+        delete win.__scopepipeAddRoom
+        delete win.__scopepipeUpdateRoom
+        delete win.__scopepipeAddJobNote
       }
     }
   }, [])

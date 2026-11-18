@@ -1,8 +1,21 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { executeVoiceAction, buildAreaFromVoiceAction, type VoiceExecutionContext } from "./voice-executor.ts"
-import type { AddRoomAction, CreateLeadAction, AddCustomerNoteAction, ScheduleAppointmentAction, NavigateAction } from "./voice-parser.ts"
-import type { Client, Estimate } from "../types.ts"
+import {
+  executeVoiceAction,
+  buildAreaFromVoiceAction,
+  applyRoomUpdateToAreas,
+  type VoiceExecutionContext,
+} from "./voice-executor.ts"
+import type {
+  AddRoomAction,
+  UpdateRoomAction,
+  AddJobNoteAction,
+  CreateLeadAction,
+  AddCustomerNoteAction,
+  ScheduleAppointmentAction,
+  NavigateAction,
+} from "./voice-parser.ts"
+import type { AreaInput, Client, Estimate } from "../types.ts"
 
 describe("Voice Action Executor", () => {
   const mockClients: Client[] = [
@@ -203,5 +216,89 @@ describe("Voice Action Executor", () => {
     assert.equal(result.ok, false)
     assert.match(result.message, /Estimator login is restricted/i)
     assert.equal(navigatedTo, "") // should not navigate
+  })
+
+  it("updates existing room without creating duplicates using applyRoomUpdateToAreas", () => {
+    const initialAreas: AreaInput[] = [
+      {
+        id: "area-1",
+        name: "Living Room",
+        areaType: "room",
+        lengthFt: 15,
+        widthFt: 15,
+        heightFt: 8,
+        crewNote: "",
+        surfaces: [{ id: "surf-1", rateId: "walls", coatCount: 2, itemCount: 0, quantityOverride: null, crewNote: "" }],
+        openings: [],
+      },
+    ]
+
+    const updateAction: UpdateRoomAction = {
+      type: "UPDATE_ROOM",
+      roomName: "Living Room",
+      openingsToAdd: [{ kind: "door", count: 2 }],
+      surfacesToAdd: [{ rateId: "ceiling", label: "Ceiling", coatCount: 2 }],
+      requiresConfirmation: false,
+      summary: "Add 2 doors and Ceiling to Living Room",
+    }
+
+    const res = applyRoomUpdateToAreas(initialAreas, updateAction)
+    assert.equal(res.updated, true)
+    assert.equal(res.isNewRoom, false)
+    assert.equal(res.areas.length, 1) // NO duplicates!
+    assert.equal(res.areas[0].openings?.find((o) => o.kind === "door")?.count, 2)
+    assert.equal(res.areas[0].surfaces.some((s) => s.rateId === "ceiling"), true)
+  })
+
+  it("executes UPDATE_ROOM via ctx.onUpdateRoom", () => {
+    let updatedAction: UpdateRoomAction | null = null
+    const ctx: VoiceExecutionContext = {
+      clients: mockClients,
+      estimates: mockEstimates,
+      createLead: () => ({ ok: true }),
+      navigate: () => {},
+      onUpdateRoom: (update) => {
+        updatedAction = update
+        return { updated: true, message: "Room updated successfully" }
+      },
+    }
+
+    const action: UpdateRoomAction = {
+      type: "UPDATE_ROOM",
+      roomName: "Kitchen",
+      openingsToAdd: [{ kind: "window", count: 3 }],
+      requiresConfirmation: false,
+      summary: "Add 3 windows to Kitchen",
+    }
+
+    const result = executeVoiceAction(action, ctx)
+    assert.equal(result.ok, true)
+    assert.equal((updatedAction as UpdateRoomAction | null)?.roomName, "Kitchen")
+  })
+
+  it("executes ADD_JOB_NOTE via ctx.onAddJobNote", () => {
+    let noteAdded = ""
+    const ctx: VoiceExecutionContext = {
+      clients: mockClients,
+      estimates: mockEstimates,
+      createLead: () => ({ ok: true }),
+      navigate: () => {},
+      onAddJobNote: (note) => {
+        noteAdded = note.text
+        return { ok: true }
+      },
+    }
+
+    const action: AddJobNoteAction = {
+      type: "ADD_JOB_NOTE",
+      noteType: "job",
+      text: "Customer wants semi-gloss on trim",
+      requiresConfirmation: false,
+      summary: 'Add job note: "Customer wants semi-gloss on trim".',
+    }
+
+    const result = executeVoiceAction(action, ctx)
+    assert.equal(result.ok, true)
+    assert.equal(noteAdded, "Customer wants semi-gloss on trim")
   })
 })
