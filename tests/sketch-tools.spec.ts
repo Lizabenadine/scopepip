@@ -76,3 +76,141 @@ test("sketchpad includes Text tool and Print / PDF button, supports typing, edit
 
   await desktopContext.close()
 })
+
+test("sketchpad supports selecting, resizing corners, stretching edges, and moving placed stamps and shapes", async ({
+  browser,
+}) => {
+  const stamp = `sketch-resize-${Date.now()}`
+
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await context.newPage()
+
+  await page.goto("/signup")
+  await page.getByLabel("Your name").fill("Resize Tester")
+  await page.getByLabel("Company name").fill("Resize Paint Co")
+  await page.getByLabel("Email").fill(`${stamp}@scopepipe.test`)
+  await page.getByLabel("Password").fill("password1")
+  await page.getByRole("button", { name: "Create account" }).click()
+  await expect(page).toHaveURL(/\/dashboard/)
+
+  await page.goto("/sketches")
+  await page.getByRole("button", { name: /new sketch/i }).first().click()
+
+  // 1. Stamp a badge (Patch / Repair)
+  const patchStampBtn = page.getByTestId("stamp-patch-btn")
+  await expect(patchStampBtn).toBeVisible()
+  await patchStampBtn.click()
+
+  const placedStamp = page.locator("[data-testid^='sketch-text-item-']").first()
+  await expect(placedStamp).toBeVisible()
+  await expect(placedStamp).toContainText("Patch")
+
+  // 2. Verify all 8 handles (4 corners + 4 edges) are visible
+  const handleNW = page.getByTestId("handle-nw")
+  const handleN = page.getByTestId("handle-n")
+  const handleNE = page.getByTestId("handle-ne")
+  const handleE = page.getByTestId("handle-e")
+  const handleSE = page.getByTestId("handle-se")
+  const handleS = page.getByTestId("handle-s")
+  const handleSW = page.getByTestId("handle-sw")
+  const handleW = page.getByTestId("handle-w")
+
+  await expect(handleNW).toBeVisible()
+  await expect(handleN).toBeVisible()
+  await expect(handleNE).toBeVisible()
+  await expect(handleE).toBeVisible()
+  await expect(handleSE).toBeVisible()
+  await expect(handleS).toBeVisible()
+  await expect(handleSW).toBeVisible()
+  await expect(handleW).toBeVisible()
+
+  // 3. Test Edge Stretching (Width via handle-e)
+  const initialBox = await placedStamp.boundingBox()
+  expect(initialBox).not.toBeNull()
+
+  const handleEBox = await handleE.boundingBox()
+  expect(handleEBox).not.toBeNull()
+
+  // Drag handle-e rightwards by 60px to stretch width
+  await page.mouse.move(handleEBox!.x + handleEBox!.width / 2, handleEBox!.y + handleEBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handleEBox!.x + handleEBox!.width / 2 + 60, handleEBox!.y + handleEBox!.height / 2, { steps: 5 })
+  await page.mouse.up()
+
+  const stretchedWidthBox = await placedStamp.boundingBox()
+  expect(stretchedWidthBox).not.toBeNull()
+  expect(stretchedWidthBox!.width).toBeGreaterThan(initialBox!.width + 20)
+
+  // 4. Test Edge Stretching (Height via handle-s)
+  const handleSBox = await handleS.boundingBox()
+  expect(handleSBox).not.toBeNull()
+
+  // Drag handle-s downwards by 40px to stretch height
+  await page.mouse.move(handleSBox!.x + handleSBox!.width / 2, handleSBox!.y + handleSBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handleSBox!.x + handleSBox!.width / 2, handleSBox!.y + handleSBox!.height / 2 + 40, { steps: 5 })
+  await page.mouse.up()
+
+  const stretchedHeightBox = await placedStamp.boundingBox()
+  expect(stretchedHeightBox).not.toBeNull()
+  expect(stretchedHeightBox!.height).toBeGreaterThan(stretchedWidthBox!.height + 15)
+
+  // 5. Test Corner Resizing (both width and height via handle-se)
+  const handleSEBox = await handleSE.boundingBox()
+  expect(handleSEBox).not.toBeNull()
+
+  await page.mouse.move(handleSEBox!.x + handleSEBox!.width / 2, handleSEBox!.y + handleSEBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handleSEBox!.x + handleSEBox!.width / 2 + 50, handleSEBox!.y + handleSEBox!.height / 2 + 30, { steps: 5 })
+  await page.mouse.up()
+
+  const cornerResizedBox = await placedStamp.boundingBox()
+  expect(cornerResizedBox).not.toBeNull()
+  expect(cornerResizedBox!.width).toBeGreaterThan(stretchedHeightBox!.width + 15)
+  expect(cornerResizedBox!.height).toBeGreaterThan(stretchedHeightBox!.height + 10)
+
+  // 6. Test Moving the object by dragging the body
+  const bodyCenter = {
+    x: cornerResizedBox!.x + cornerResizedBox!.width / 2,
+    y: cornerResizedBox!.y + cornerResizedBox!.height / 2,
+  }
+  await page.mouse.move(bodyCenter.x, bodyCenter.y)
+  await page.mouse.down()
+  await page.mouse.move(bodyCenter.x - 80, bodyCenter.y - 50, { steps: 5 })
+  await page.mouse.up()
+
+  const movedBox = await placedStamp.boundingBox()
+  expect(movedBox).not.toBeNull()
+  expect(movedBox!.x).toBeLessThan(cornerResizedBox!.x - 30)
+  expect(movedBox!.y).toBeLessThan(cornerResizedBox!.y - 20)
+
+  // 7. Add a shape (Box) via shape-box-button
+  const shapeBoxBtn = page.getByTestId("shape-box-button")
+  await expect(shapeBoxBtn).toBeVisible()
+  await shapeBoxBtn.click()
+
+  const placedShape = page.locator("[data-testid^='sketch-text-item-']").nth(1)
+  await expect(placedShape).toBeVisible()
+
+  // Verify shape is selected with 8 handles
+  await expect(page.getByTestId("handle-se")).toBeVisible()
+
+  // 8. Save the sketch
+  await page.getByLabel("Sketch Title").fill("Stretched Object Room")
+  await page.getByRole("button", { name: "Save Sketch & Notes" }).click()
+  await expect(page.getByText("Stretched Object Room")).toBeVisible()
+
+  // 9. Reopen sketch and verify stretched dimensions and positions persist
+  await page.locator("[data-testid^='sketch-card-']").first().click()
+  await expect(page.getByLabel("Sketch Title")).toHaveValue("Stretched Object Room")
+
+  const reopenedStamp = page.locator("[data-testid^='sketch-text-item-']").first()
+  await expect(reopenedStamp).toBeVisible()
+  const reopenedBox = await reopenedStamp.boundingBox()
+  expect(reopenedBox).not.toBeNull()
+  // Ensure the stretched width is preserved (much larger than the initial default)
+  expect(reopenedBox!.width).toBeGreaterThan(initialBox!.width + 30)
+
+  await page.getByRole("button", { name: "Cancel" }).click()
+  await context.close()
+})

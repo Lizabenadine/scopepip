@@ -285,6 +285,8 @@ export interface AreaGroup {
   name: string
 }
 
+export type SketchItemKind = "text" | "stamp" | "rect" | "circle" | "arrow"
+
 export interface SketchTextItem {
   id: string
   text: string
@@ -294,6 +296,13 @@ export interface SketchTextItem {
   y: number
   color: string
   fontSize?: number
+  /** Width in pixels relative to standard 720px canvas coordinate space */
+  width?: number
+  /** Height in pixels relative to standard 540px canvas coordinate space */
+  height?: number
+  kind?: SketchItemKind
+  borderWidth?: number
+  backgroundColor?: string
 }
 
 export interface RoomSketch {

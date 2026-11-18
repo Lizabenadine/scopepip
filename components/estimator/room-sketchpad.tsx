@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react"
 import {
   Camera,
   Check,
+  Circle,
   Download,
   Eraser,
   Eye,
@@ -15,6 +16,7 @@ import {
   Printer,
   Redo2,
   RotateCcw,
+  Square,
   Tag,
   Trash2,
   Type,
@@ -32,6 +34,40 @@ interface RoomSketchpadProps {
   initialSketch?: RoomSketch | null
   onSave: (sketch: RoomSketch) => void
   onClose: () => void
+}
+
+type TransformMode = "move" | "nw" | "ne" | "se" | "sw" | "n" | "s" | "w" | "e"
+
+interface DragTransformState {
+  id: string
+  mode: TransformMode
+  startPointerX: number
+  startPointerY: number
+  startXPct: number
+  startYPct: number
+  startWidth: number
+  startHeight: number
+  containerWidth: number
+  containerHeight: number
+}
+
+function getItemDimensions(item: SketchTextItem): { width: number; height: number } {
+  if (item.width && item.height && item.width > 0 && item.height > 0) {
+    return { width: item.width, height: item.height }
+  }
+  if (item.kind === "rect") {
+    return { width: 160, height: 110 }
+  }
+  if (item.kind === "circle") {
+    return { width: 130, height: 130 }
+  }
+  const textLen = (item.text || "").length
+  const estimatedW = Math.max(130, Math.min(480, textLen * 11 + 32))
+  const estimatedH = 42
+  return {
+    width: item.width || estimatedW,
+    height: item.height || estimatedH,
+  }
 }
 
 const COLORS = [
@@ -68,7 +104,110 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   const [textItems, setTextItems] = useState<SketchTextItem[]>(initialSketch?.textItems || [])
   const [activeTextId, setActiveTextId] = useState<string | null>(null)
   const [isEditingText, setIsEditingText] = useState(false)
-  const [draggingTextId, setDraggingTextId] = useState<string | null>(null)
+  const [dragTransform, setDragTransform] = useState<DragTransformState | null>(null)
+
+  useEffect(() => {
+    if (!dragTransform) return
+
+    function onPointerMove(e: globalThis.PointerEvent) {
+      if (!dragTransform) return
+      const {
+        id,
+        mode,
+        startPointerX,
+        startPointerY,
+        startXPct,
+        startYPct,
+        startWidth,
+        startHeight,
+        containerWidth,
+        containerHeight,
+      } = dragTransform
+
+      const scaleX = 720 / Math.max(1, containerWidth)
+      const scaleY = 540 / Math.max(1, containerHeight)
+      const deltaX = (e.clientX - startPointerX) * scaleX
+      const deltaY = (e.clientY - startPointerY) * scaleY
+
+      const centerX0 = (startXPct / 100) * 720
+      const centerY0 = (startYPct / 100) * 540
+      const left0 = centerX0 - startWidth / 2
+      const right0 = centerX0 + startWidth / 2
+      const top0 = centerY0 - startHeight / 2
+      const bottom0 = centerY0 + startHeight / 2
+
+      const minW = 40
+      const minH = 28
+
+      let newLeft = left0
+      let newRight = right0
+      let newTop = top0
+      let newBottom = bottom0
+
+      if (mode === "move") {
+        newLeft = left0 + deltaX
+        newRight = right0 + deltaX
+        newTop = top0 + deltaY
+        newBottom = bottom0 + deltaY
+      } else if (mode === "se") {
+        newRight = Math.max(left0 + minW, right0 + deltaX)
+        newBottom = Math.max(top0 + minH, bottom0 + deltaY)
+      } else if (mode === "nw") {
+        newLeft = Math.min(right0 - minW, left0 + deltaX)
+        newTop = Math.min(bottom0 - minH, top0 + deltaY)
+      } else if (mode === "ne") {
+        newRight = Math.max(left0 + minW, right0 + deltaX)
+        newTop = Math.min(bottom0 - minH, top0 + deltaY)
+      } else if (mode === "sw") {
+        newLeft = Math.min(right0 - minW, left0 + deltaX)
+        newBottom = Math.max(top0 + minH, bottom0 + deltaY)
+      } else if (mode === "e") {
+        newRight = Math.max(left0 + minW, right0 + deltaX)
+      } else if (mode === "w") {
+        newLeft = Math.min(right0 - minW, left0 + deltaX)
+      } else if (mode === "s") {
+        newBottom = Math.max(top0 + minH, bottom0 + deltaY)
+      } else if (mode === "n") {
+        newTop = Math.min(bottom0 - minH, top0 + deltaY)
+      }
+
+      const calculatedW = Math.max(minW, Math.min(710, newRight - newLeft))
+      const calculatedH = Math.max(minH, Math.min(530, newBottom - newTop))
+      const newCenterX = (newLeft + newRight) / 2
+      const newCenterY = (newTop + newBottom) / 2
+
+      const newXPct = Math.max(2, Math.min(98, (newCenterX / 720) * 100))
+      const newYPct = Math.max(2, Math.min(98, (newCenterY / 540) * 100))
+
+      setTextItems((prev) =>
+        prev.map((it) =>
+          it.id === id
+            ? {
+                ...it,
+                x: Math.round(newXPct * 10) / 10,
+                y: Math.round(newYPct * 10) / 10,
+                width: Math.round(calculatedW),
+                height: Math.round(calculatedH),
+              }
+            : it,
+        ),
+      )
+    }
+
+    function onPointerUp() {
+      setDragTransform(null)
+    }
+
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp)
+    window.addEventListener("pointercancel", onPointerUp)
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", onPointerUp)
+      window.removeEventListener("pointercancel", onPointerUp)
+    }
+  }, [dragTransform])
 
   const dimensionsText = room?.lengthFt && room?.widthFt ? `${room.lengthFt}' × ${room.widthFt}' (${room.heightFt || 8}ft ceiling)` : ""
 
@@ -198,7 +337,10 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
         text: "New note",
         x: Math.round(xPct),
         y: Math.round(yPct),
+        width: 140,
+        height: 40,
         color: color || "#06b6d4",
+        kind: "text",
         fontSize: 16,
       }
       setTextItems((prev) => [...prev, newItem])
@@ -206,6 +348,10 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
       setIsEditingText(true)
       return
     }
+
+    // Clicking blank canvas deselects any active item
+    setActiveTextId(null)
+    setIsEditingText(false)
 
     const canvas = canvasRef.current
     if (!canvas) return
@@ -257,42 +403,51 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
     saveState()
   }
 
-  function handleTextDragStart(event: React.PointerEvent, id: string) {
+  function handleTransformStart(
+    event: React.PointerEvent,
+    id: string,
+    mode: TransformMode,
+  ) {
     event.stopPropagation()
-    const target = event.currentTarget as HTMLElement
-    try {
-      target.setPointerCapture(event.pointerId)
-    } catch {
-      // ignore
-    }
-    setActiveTextId(id)
-    setDraggingTextId(id)
-  }
-
-  function handleTextDragMove(event: React.PointerEvent) {
-    if (!draggingTextId) return
+    event.preventDefault()
     const container = canvasContainerRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
-    const xPct = Math.max(4, Math.min(96, ((event.clientX - rect.left) / rect.width) * 100))
-    const yPct = Math.max(4, Math.min(96, ((event.clientY - rect.top) / rect.height) * 100))
+    const item = textItems.find((it) => it.id === id)
+    if (!item) return
+    const dims = getItemDimensions(item)
 
-    setTextItems((prev) =>
-      prev.map((item) =>
-        item.id === draggingTextId ? { ...item, x: Math.round(xPct), y: Math.round(yPct) } : item,
-      ),
-    )
+    setActiveTextId(id)
+    setDragTransform({
+      id,
+      mode,
+      startPointerX: event.clientX,
+      startPointerY: event.clientY,
+      startXPct: item.x,
+      startYPct: item.y,
+      startWidth: dims.width,
+      startHeight: dims.height,
+      containerWidth: rect.width,
+      containerHeight: rect.height,
+    })
   }
 
-  function handleTextDragEnd(event: React.PointerEvent) {
-    if (!draggingTextId) return
-    try {
-      const target = event.currentTarget as HTMLElement
-      target.releasePointerCapture(event.pointerId)
-    } catch {
-      // ignore
+  function addShape(kind: "rect" | "circle") {
+    const newItem: SketchTextItem = {
+      id: `shape_${crypto.randomUUID()}`,
+      text: "",
+      x: 50,
+      y: 50,
+      width: kind === "circle" ? 140 : 160,
+      height: kind === "circle" ? 140 : 110,
+      color: color || "#06b6d4",
+      kind,
+      borderWidth: Math.max(2, lineWidth),
+      backgroundColor: "rgba(6, 182, 212, 0.12)",
     }
-    setDraggingTextId(null)
+    setTextItems((prev) => [...prev, newItem])
+    setActiveTextId(newItem.id)
+    setIsEditingText(false)
   }
 
   function handleUpdateText(id: string, newText: string) {
@@ -319,41 +474,84 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
     const ctx = composite.getContext("2d")
     if (!ctx) return canvas
 
-    // 1. Draw raw canvas (freehand strokes, photo/grid, stamped badges)
+    // 1. Draw raw canvas (freehand strokes, photo/grid)
     ctx.drawImage(canvas, 0, 0)
 
-    // 2. Draw each text item with high contrast badge styling
+    // 2. Draw placed items with exact dimensions and positions
     for (const item of textItems) {
-      if (!item.text.trim()) continue
+      const dims = getItemDimensions(item)
       const pixelX = (item.x / 100) * composite.width
       const pixelY = (item.y / 100) * composite.height
-      const fontSize = item.fontSize || 16
+      const pixelW = (dims.width / 720) * composite.width
+      const pixelH = (dims.height / 540) * composite.height
+      const left = pixelX - pixelW / 2
+      const top = pixelY - pixelH / 2
 
       ctx.save()
-      ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`
-      ctx.textAlign = "center"
-      ctx.textBaseline = "middle"
 
-      const metrics = ctx.measureText(item.text)
-      const padX = 12
-      const padY = 6
-      const boxW = metrics.width + padX * 2
-      const boxH = fontSize + padY * 2
-      const boxX = pixelX - boxW / 2
-      const boxY = pixelY - boxH / 2
+      if (item.kind === "rect") {
+        ctx.fillStyle = item.backgroundColor || "rgba(6, 182, 212, 0.15)"
+        ctx.strokeStyle = item.color || "#06b6d4"
+        ctx.lineWidth = item.borderWidth || 3
+        ctx.beginPath()
+        if (typeof ctx.roundRect === "function") {
+          ctx.roundRect(left, top, pixelW, pixelH, 6)
+        } else {
+          ctx.rect(left, top, pixelW, pixelH)
+        }
+        ctx.fill()
+        ctx.stroke()
 
-      // Background badge pill
-      ctx.fillStyle = "rgba(15, 23, 42, 0.92)"
-      ctx.strokeStyle = item.color || "#06b6d4"
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.roundRect(boxX, boxY, boxW, boxH, 6)
-      ctx.fill()
-      ctx.stroke()
+        if (item.text && item.text.trim()) {
+          const fontSize = item.fontSize || 16
+          ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          ctx.fillStyle = "#ffffff"
+          ctx.fillText(item.text, pixelX, pixelY)
+        }
+      } else if (item.kind === "circle") {
+        ctx.fillStyle = item.backgroundColor || "rgba(6, 182, 212, 0.15)"
+        ctx.strokeStyle = item.color || "#06b6d4"
+        ctx.lineWidth = item.borderWidth || 3
+        ctx.beginPath()
+        ctx.ellipse(pixelX, pixelY, pixelW / 2, pixelH / 2, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
 
-      // Crisp white text
-      ctx.fillStyle = "#ffffff"
-      ctx.fillText(item.text, pixelX, pixelY)
+        if (item.text && item.text.trim()) {
+          const fontSize = item.fontSize || 16
+          ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          ctx.fillStyle = "#ffffff"
+          ctx.fillText(item.text, pixelX, pixelY)
+        }
+      } else {
+        // Stamp or text badge
+        if (item.text && item.text.trim()) {
+          const fontSize = item.fontSize || 16
+          ctx.fillStyle = item.backgroundColor || "rgba(15, 23, 42, 0.92)"
+          ctx.strokeStyle = item.color || "#06b6d4"
+          ctx.lineWidth = item.borderWidth || 2
+          const radius = Math.min(10, pixelH / 2)
+          ctx.beginPath()
+          if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(left, top, pixelW, pixelH, radius)
+          } else {
+            ctx.rect(left, top, pixelW, pixelH)
+          }
+          ctx.fill()
+          ctx.stroke()
+
+          ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          ctx.fillStyle = "#ffffff"
+          ctx.fillText(item.text, pixelX, pixelY)
+        }
+      }
+
       ctx.restore()
     }
 
@@ -538,42 +736,23 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
   }
 
   function stampBadgeText(textToStamp: string) {
-    const canvas = canvasRef.current
-    if (!canvas || !textToStamp.trim()) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const x = canvas.width / 2
-    const y = canvas.height / 2
-
-    ctx.save()
-    ctx.font = "bold 20px system-ui, -apple-system, sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-
-    const metrics = ctx.measureText(textToStamp)
-    const paddingX = 16
-    const paddingY = 10
-    const boxW = metrics.width + paddingX * 2
-    const boxH = 38
-    const boxX = x - boxW / 2
-    const boxY = y - boxH / 2
-
-    // Background badge pill
-    ctx.fillStyle = "rgba(15, 23, 42, 0.88)"
-    ctx.strokeStyle = color || "#06b6d4"
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.roundRect(boxX, boxY, boxW, boxH, 10)
-    ctx.fill()
-    ctx.stroke()
-
-    // Badge text
-    ctx.fillStyle = "#ffffff"
-    ctx.fillText(textToStamp, x, y)
-    ctx.restore()
-
-    saveState()
+    if (!textToStamp.trim()) return
+    const trimmed = textToStamp.trim()
+    const estimatedW = Math.max(160, Math.min(460, trimmed.length * 11 + 36))
+    const newItem: SketchTextItem = {
+      id: `stamp_${crypto.randomUUID()}`,
+      text: trimmed,
+      x: 50,
+      y: 50,
+      width: estimatedW,
+      height: 44,
+      color: color || "#06b6d4",
+      kind: "stamp",
+      fontSize: 16,
+    }
+    setTextItems((prev) => [...prev, newItem])
+    setActiveTextId(newItem.id)
+    setIsEditingText(false)
     setCustomText("")
   }
 
@@ -720,6 +899,26 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
               <Type className="size-3.5" />
               <span>Text</span>
             </button>
+            <button
+              type="button"
+              onClick={() => addShape("rect")}
+              data-testid="shape-box-button"
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium transition-colors text-slate-300 hover:bg-slate-800"
+              title="Add Box / Rectangle shape"
+            >
+              <Square className="size-3.5" />
+              <span>Box</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => addShape("circle")}
+              data-testid="shape-circle-button"
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium transition-colors text-slate-300 hover:bg-slate-800"
+              title="Add Circle shape"
+            >
+              <Circle className="size-3.5" />
+              <span>Circle</span>
+            </button>
 
             {/* Colors */}
             <div className="flex items-center gap-1 ml-2 border-l border-slate-700 pl-2">
@@ -816,6 +1015,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
           </span>
           <button
             type="button"
+            data-testid="stamp-dimensions-btn"
             onClick={() => stampBadgeText(dimensionsText)}
             className="rounded bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 border border-slate-700 px-2 py-0.5"
           >
@@ -823,6 +1023,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
           </button>
           <button
             type="button"
+            data-testid="stamp-patch-btn"
             onClick={() => stampBadgeText("⚠️ Drywall Repair / Patch")}
             className="rounded bg-slate-800 hover:bg-amber-950 hover:text-amber-300 border border-slate-700 px-2 py-0.5"
           >
@@ -830,6 +1031,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
           </button>
           <button
             type="button"
+            data-testid="stamp-door-btn"
             onClick={() => stampBadgeText("🚪 Door & Casing")}
             className="rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 py-0.5"
           >
@@ -837,6 +1039,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
           </button>
           <button
             type="button"
+            data-testid="stamp-window-btn"
             onClick={() => stampBadgeText("🪟 Window Trim")}
             className="rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 py-0.5"
           >
@@ -844,6 +1047,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
           </button>
           <button
             type="button"
+            data-testid="stamp-accent-btn"
             onClick={() => stampBadgeText("🎨 Accent Wall")}
             className="rounded bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 border border-slate-700 px-2 py-0.5"
           >
@@ -865,6 +1069,7 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
             {customText.trim() ? (
               <button
                 type="button"
+                data-testid="stamp-custom-btn"
                 onClick={() => stampBadgeText(customText.trim())}
                 className="h-6 rounded bg-cyan-600 px-1.5 text-[10px] font-bold text-white hover:bg-cyan-500"
               >
@@ -878,8 +1083,6 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
         <div className="relative flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center bg-slate-950">
           <div
             ref={canvasContainerRef}
-            onPointerMove={handleTextDragMove}
-            onPointerUp={handleTextDragEnd}
             className="relative w-full max-w-2xl aspect-[4/3] select-none"
           >
             <canvas
@@ -894,10 +1097,15 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
               style={{ touchAction: "none" }}
             />
 
-            {/* Overlaid Interactive Text Items */}
+            {/* Overlaid Interactive Placed Items (Stamps, Shapes, Text Notes) */}
             {textItems.map((item) => {
               const isSelected = activeTextId === item.id
               const isEditing = isSelected && isEditingText
+              const dims = getItemDimensions(item)
+              const widthPct = (dims.width / 720) * 100
+              const heightPct = (dims.height / 540) * 100
+              const isCircle = item.kind === "circle"
+              const isRect = item.kind === "rect"
 
               return (
                 <div
@@ -906,18 +1114,21 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
                   style={{
                     left: `${item.x}%`,
                     top: `${item.y}%`,
+                    width: `${widthPct}%`,
+                    height: `${heightPct}%`,
                     transform: "translate(-50%, -50%)",
+                    touchAction: "none",
                   }}
-                  className={`absolute z-20 flex items-center gap-1 ${
-                    isSelected ? "ring-2 ring-cyan-400 ring-offset-1 ring-offset-slate-950 rounded-lg" : ""
-                  }`}
+                  className={`absolute z-20 select-none ${
+                    isSelected ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-950" : ""
+                  } ${isCircle ? "rounded-full" : "rounded-lg"}`}
                   onClick={(e) => {
                     e.stopPropagation()
                     setActiveTextId(item.id)
                   }}
                 >
                   {isEditing ? (
-                    <div className="flex items-center gap-1 rounded-lg bg-slate-900 border-2 border-cyan-400 p-1 shadow-2xl">
+                    <div className="flex h-full w-full items-center justify-center gap-1 rounded-lg bg-slate-900 border-2 border-cyan-400 p-1 shadow-2xl">
                       <input
                         autoFocus
                         value={item.text}
@@ -927,12 +1138,15 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
                             setIsEditingText(false)
                           }
                         }}
-                        className="h-7 min-w-28 max-w-56 rounded bg-slate-950 px-2 text-xs font-semibold text-white outline-none"
+                        className="h-full w-full rounded bg-slate-950 px-2 text-xs font-semibold text-white outline-none"
                         placeholder="Type text..."
                       />
                       <button
                         type="button"
-                        onClick={() => setIsEditingText(false)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsEditingText(false)
+                        }}
                         className="rounded bg-cyan-500 hover:bg-cyan-400 p-1 text-slate-950"
                         title="Done"
                       >
@@ -940,48 +1154,60 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteText(item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteText(item.id)
+                        }}
                         className="rounded bg-rose-500/20 hover:bg-rose-500/40 p-1 text-rose-300"
-                        title="Delete text"
+                        title="Delete"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
                     </div>
                   ) : (
                     <div
-                      className="group flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold text-white shadow-md border"
+                      onPointerDown={(e) => handleTransformStart(e, item.id, "move")}
+                      className={`relative flex h-full w-full cursor-move items-center justify-center p-1.5 shadow-md border ${
+                        isCircle ? "rounded-full" : "rounded-lg"
+                      }`}
                       style={{
-                        backgroundColor: "rgba(15, 23, 42, 0.92)",
+                        backgroundColor:
+                          item.backgroundColor ||
+                          (isRect || isCircle ? "rgba(6, 182, 212, 0.12)" : "rgba(15, 23, 42, 0.92)"),
                         borderColor: item.color || "#06b6d4",
+                        borderWidth: `${item.borderWidth || 2}px`,
                       }}
                     >
-                      {/* Drag handle */}
-                      <button
-                        type="button"
-                        onPointerDown={(e) => handleTextDragStart(e, item.id)}
-                        className="cursor-move p-0.5 text-slate-400 hover:text-white touch-none"
-                        title="Drag to move"
-                      >
-                        <GripVertical className="size-3.5" />
-                      </button>
+                      {/* Text content if present */}
+                      {item.text ? (
+                        <span
+                          className="cursor-pointer select-none px-1 text-center font-bold text-white leading-tight"
+                          style={{
+                            fontSize: `${item.fontSize || 14}px`,
+                            wordBreak: "break-word",
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation()
+                            setActiveTextId(item.id)
+                            setIsEditingText(true)
+                          }}
+                        >
+                          {item.text}
+                        </span>
+                      ) : null}
 
-                      {/* Text content */}
-                      <span
-                        className="cursor-pointer select-none px-1"
-                        onDoubleClick={() => {
-                          setActiveTextId(item.id)
-                          setIsEditingText(true)
-                        }}
-                      >
-                        {item.text}
-                      </span>
-
-                      {/* Controls on selection */}
+                      {/* Small Quick-Action Toolbar above object when selected */}
                       {isSelected ? (
-                        <div className="flex items-center gap-0.5 ml-1 border-l border-slate-700 pl-1">
+                        <div
+                          className="absolute -top-7 right-0 flex items-center gap-1 rounded bg-slate-900/95 border border-slate-700 px-1.5 py-0.5 shadow-lg z-30"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
-                            onClick={() => setIsEditingText(true)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setIsEditingText(true)
+                            }}
                             className="rounded p-0.5 text-cyan-300 hover:bg-slate-800"
                             title="Edit text"
                           >
@@ -989,13 +1215,78 @@ export function RoomSketchpad({ room, initialSketch, onSave, onClose }: RoomSket
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteText(item.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteText(item.id)
+                            }}
                             className="rounded p-0.5 text-rose-400 hover:bg-slate-800"
-                            title="Delete text"
+                            title="Delete item"
                           >
                             <Trash2 className="size-3" />
                           </button>
                         </div>
+                      ) : null}
+
+                      {/* 8 Draggable Corner & Edge Handles */}
+                      {isSelected && !isEditing ? (
+                        <>
+                          {/* Top-Left Corner (NW) */}
+                          <div
+                            data-testid="handle-nw"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "nw")}
+                            title="Resize Corner (NW)"
+                            className="absolute -top-1.5 -left-1.5 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-nwse-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Top Edge (N) */}
+                          <div
+                            data-testid="handle-n"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "n")}
+                            title="Stretch Height (N)"
+                            className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-ns-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Top-Right Corner (NE) */}
+                          <div
+                            data-testid="handle-ne"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "ne")}
+                            title="Resize Corner (NE)"
+                            className="absolute -top-1.5 -right-1.5 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-nesw-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Right Edge (E) */}
+                          <div
+                            data-testid="handle-e"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "e")}
+                            title="Stretch Width (E)"
+                            className="absolute top-1/2 -right-1.5 -translate-y-1/2 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-ew-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Bottom-Right Corner (SE) */}
+                          <div
+                            data-testid="handle-se"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "se")}
+                            title="Resize Corner (SE)"
+                            className="absolute -bottom-1.5 -right-1.5 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-nwse-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Bottom Edge (S) */}
+                          <div
+                            data-testid="handle-s"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "s")}
+                            title="Stretch Height (S)"
+                            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-ns-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Bottom-Left Corner (SW) */}
+                          <div
+                            data-testid="handle-sw"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "sw")}
+                            title="Resize Corner (SW)"
+                            className="absolute -bottom-1.5 -left-1.5 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-nesw-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                          {/* Left Edge (W) */}
+                          <div
+                            data-testid="handle-w"
+                            onPointerDown={(e) => handleTransformStart(e, item.id, "w")}
+                            title="Stretch Width (W)"
+                            className="absolute top-1/2 -left-1.5 -translate-y-1/2 z-30 size-3 rounded-sm bg-white border-2 border-cyan-500 shadow-md cursor-ew-resize touch-none select-none hover:scale-125 transition-transform"
+                          />
+                        </>
                       ) : null}
                     </div>
                   )}
