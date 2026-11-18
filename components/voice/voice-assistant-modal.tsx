@@ -29,7 +29,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useScope } from "@/lib/data/store"
-import { parseVoiceCommand, type ParsedVoiceResult, type VoiceAction } from "@/lib/voice/voice-parser"
+import {
+  parseVoiceCommand,
+  normalizeSpokenNumbers,
+  KNOWN_ROOM_NAMES,
+  type ParsedVoiceResult,
+  type VoiceAction,
+  type AddRoomAction,
+  type ClarifyAction,
+} from "@/lib/voice/voice-parser"
 import { executeVoiceAction, type VoiceExecutionContext } from "@/lib/voice/voice-executor"
 import type { AreaInput } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -108,9 +116,14 @@ export function VoiceAssistantModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isConfirming, setIsConfirming] = useState(false)
+  const [pendingClarification, setPendingClarification] = useState<ClarifyAction | null>(null)
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const isStoppingRef = useRef(false)
+  const latestTranscriptRef = useRef("")
+  const isProcessedRef = useRef(false)
+  const pendingClarificationRef = useRef<ClarifyAction | null>(null)
+  pendingClarificationRef.current = pendingClarification
 
   useEffect(() => {
     const Ctor = getSpeechRecognitionConstructor()
@@ -121,10 +134,14 @@ export function VoiceAssistantModal({
   useEffect(() => {
     if (open) {
       setTranscript("")
+      latestTranscriptRef.current = ""
+      isProcessedRef.current = false
       setParsedResult(null)
       setErrorMessage(null)
       setSuccessMessage(null)
       setIsConfirming(false)
+      setPendingClarification(null)
+      pendingClarificationRef.current = null
       // Slight delay for smooth dialog transition
       const timer = setTimeout(() => {
         startListening()
@@ -145,6 +162,13 @@ export function VoiceAssistantModal({
       }
     }
     setIsListening(false)
+
+    // Ensure recognized speech triggers action execution even when stopped manually
+    const spoken = latestTranscriptRef.current.trim()
+    if (spoken && !isProcessedRef.current) {
+      isProcessedRef.current = true
+      handleVoiceProcessed(spoken)
+    }
   }
 
   function startListening() {
@@ -170,6 +194,8 @@ export function VoiceAssistantModal({
       recognition.lang = typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US"
 
       isStoppingRef.current = false
+      isProcessedRef.current = false
+      latestTranscriptRef.current = ""
       setErrorMessage(null)
       setSuccessMessage(null)
 
@@ -195,6 +221,7 @@ export function VoiceAssistantModal({
 
         const currentSpoken = (finalText || interimText).trim()
         if (currentSpoken) {
+          latestTranscriptRef.current = currentSpoken
           setTranscript(currentSpoken)
           const parsed = parseVoiceCommand(currentSpoken)
           setParsedResult(parsed)
@@ -210,14 +237,16 @@ export function VoiceAssistantModal({
         } else if (event.error === "network") {
           setErrorMessage("Network connection error during voice recognition.")
         } else {
-          setErrorMessage(`Voice recognition error: ${event.error}`)
+          setErrorMessage(`Voice recognition notice: ${event.error}`)
         }
       }
 
       recognition.onend = () => {
         setIsListening(false)
-        if (!isStoppingRef.current && transcript) {
-          handleVoiceProcessed(transcript)
+        const spoken = latestTranscriptRef.current.trim()
+        if (!isStoppingRef.current && spoken && !isProcessedRef.current) {
+          isProcessedRef.current = true
+          handleVoiceProcessed(spoken)
         }
       }
 
@@ -229,15 +258,114 @@ export function VoiceAssistantModal({
     }
   }
 
+  function titleCase(text: string): string {
+    return text
+      .split(/\s+/)
+      .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ""))
+      .join(" ")
+      .trim()
+  }
+
   function handleVoiceProcessed(spokenText: string) {
+    const activeClarification = pendingClarificationRef.current
+
+    // If waiting for clarification, attempt to merge with pending partial room
+    if (activeClarification && activeClarification.partialRoom) {
+      const normalizedSpoken = normalizeSpokenNumbers(spokenText).trim()
+
+      if (activeClarification.missingField === "roomName") {
+        let matchedRoom: string | null = null
+        for (const known of KNOWN_ROOM_NAMES) {
+          if (new RegExp(`\\b${known}\\b`, "i").test(normalizedSpoken)) {
+            matchedRoom = titleCase(known)
+            break
+          }
+        }
+        if (!matchedRoom) {
+          matchedRoom = titleCase(normalizedSpoken.replace(/[.,!?;:]+$/, ""))
+        }
+
+        if (matchedRoom) {
+          const partial = activeClarification.partialRoom
+          const completeAction: AddRoomAction = {
+            type: "ADD_ROOM",
+            roomName: matchedRoom,
+            lengthFt: partial.lengthFt ?? 0,
+            widthFt: partial.widthFt ?? 0,
+            heightFt: partial.heightFt ?? 8,
+            surfaces: partial.surfaces ?? [
+              { rateId: "walls", label: "Walls", coatCount: 2 },
+              { rateId: "ceiling", label: "Ceiling", coatCount: 2 },
+            ],
+            openings: partial.openings ?? [],
+            requiresConfirmation: false,
+            summary: `Add ${matchedRoom} (${partial.lengthFt}' × ${partial.widthFt}' × ${partial.heightFt ?? 8}') with ${(partial.surfaces || []).map((s) => s.label).join(", ")}.`,
+          }
+          setPendingClarification(null)
+          pendingClarificationRef.current = null
+          setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+          executeAction(completeAction)
+          return
+        }
+      } else if (activeClarification.missingField === "dimensions") {
+        const dimRegex = /\b(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?))?(?:\s*(?:ft|feet|'|foot))?\b/i
+        const dimMatch = normalizedSpoken.match(dimRegex)
+        if (dimMatch) {
+          const lengthFt = parseFloat(dimMatch[1])
+          const widthFt = parseFloat(dimMatch[2])
+          const heightFt = dimMatch[3] ? parseFloat(dimMatch[3]) : (activeClarification.partialRoom.heightFt ?? 8)
+          const partial = activeClarification.partialRoom
+          const roomName = partial.roomName || "Living Room"
+
+          const completeAction: AddRoomAction = {
+            type: "ADD_ROOM",
+            roomName,
+            lengthFt,
+            widthFt,
+            heightFt,
+            surfaces: partial.surfaces ?? [
+              { rateId: "walls", label: "Walls", coatCount: 2 },
+              { rateId: "ceiling", label: "Ceiling", coatCount: 2 },
+            ],
+            openings: partial.openings ?? [],
+            requiresConfirmation: false,
+            summary: `Add ${roomName} (${lengthFt}' × ${widthFt}' × ${heightFt}') with ${(partial.surfaces || []).map((s) => s.label).join(", ")}.`,
+          }
+          setPendingClarification(null)
+          pendingClarificationRef.current = null
+          setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+          executeAction(completeAction)
+          return
+        }
+      }
+    }
+
     const parsed = parseVoiceCommand(spokenText)
     setParsedResult(parsed)
+
+    if (parsed.action.type === "CLARIFY") {
+      setPendingClarification(parsed.action)
+      setErrorMessage(null)
+      setSuccessMessage(null)
+      setIsConfirming(false)
+      return
+    }
+
+    setPendingClarification(null)
+    pendingClarificationRef.current = null
 
     if (parsed.action.requiresConfirmation) {
       setIsConfirming(true)
     } else {
       executeAction(parsed.action)
     }
+  }
+
+  function handleClarificationAnswer(answer: string) {
+    setTranscript(answer)
+    latestTranscriptRef.current = answer
+    isProcessedRef.current = true
+    handleVoiceProcessed(answer)
   }
 
   function executeAction(action: VoiceAction) {
@@ -262,7 +390,9 @@ export function VoiceAssistantModal({
     const result = executeVoiceAction(action, ctx)
     if (result.ok) {
       setSuccessMessage(result.message)
+      setErrorMessage(null)
       setIsConfirming(false)
+      setPendingClarification(null)
       // Auto-navigate and dismiss on redirect
       if (result.redirect) {
         setTimeout(() => {
@@ -270,15 +400,23 @@ export function VoiceAssistantModal({
         }, 800)
       }
     } else {
-      setErrorMessage(result.message)
+      setSuccessMessage(null)
+      if (result.needsClarification) {
+        // Clarification handled by state
+      } else {
+        setErrorMessage(result.message)
+      }
       setIsConfirming(false)
     }
   }
 
   function handleExampleClick(sampleText: string) {
     setTranscript(sampleText)
+    latestTranscriptRef.current = sampleText
+    isProcessedRef.current = true
     setErrorMessage(null)
     setSuccessMessage(null)
+    setPendingClarification(null)
     handleVoiceProcessed(sampleText)
   }
 
@@ -378,6 +516,37 @@ export function VoiceAssistantModal({
               </p>
             )}
           </div>
+
+          {/* Clarification Card (Requirement 7) */}
+          {pendingClarification && (
+            <div
+              className="w-full rounded-xl border border-blue-200 bg-blue-50/90 p-4 text-left shadow-sm transition-all"
+              data-testid="voice-clarification-card"
+            >
+              <div className="flex items-center gap-2 text-blue-900 font-semibold text-sm mb-1.5">
+                <HelpCircle className="size-4 text-blue-600" />
+                <span>Clarification Needed</span>
+              </div>
+              <p className="text-xs text-blue-950 font-medium mb-3" data-testid="voice-clarification-prompt">
+                {pendingClarification.prompt}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {(pendingClarification.missingField === "roomName"
+                  ? ["Living Room", "Master Bedroom", "Kitchen", "Dining Room", "Bedroom", "Bathroom"]
+                  : ["12 by 14", "15 by 20", "10 by 12", "14 by 16", "15 by 15"]
+                ).map((choice) => (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => handleClarificationAnswer(choice)}
+                    className="rounded-lg border border-blue-300 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    {choice}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Safety Confirmation Card (Requirement 8) */}
           {isConfirming && parsedResult?.action && (
@@ -507,6 +676,7 @@ export function VoiceAssistantModal({
             </p>
             <div className="flex flex-wrap gap-1.5">
               {[
+                "15 x 15 walls and ceilings living room",
                 "Add living room, 15 by 20, walls and ceiling",
                 "Create lead John Smith, 503-555-1234, 123 Oak St",
                 "Schedule appointment with Sarah Connor tomorrow at 2 PM",

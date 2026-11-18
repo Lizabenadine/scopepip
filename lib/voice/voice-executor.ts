@@ -29,6 +29,8 @@ export interface VoiceExecutionResult {
   message: string
   redirect?: string
   roomAdded?: AreaInput
+  needsClarification?: boolean
+  clarificationPrompt?: string
 }
 
 /**
@@ -50,7 +52,7 @@ export function buildAreaFromVoiceAction(action: AddRoomAction): AreaInput {
     id: crypto.randomUUID(),
     rateId: s.rateId,
     coatCount: s.coatCount,
-    itemCount: s.rateId.includes("door") || s.rateId.includes("window") ? 1 : 0,
+    itemCount: s.itemCount ?? (s.rateId.includes("door") || s.rateId.includes("window") ? 1 : 0),
     quantityOverride: null,
     crewNote: "",
   }))
@@ -72,7 +74,7 @@ export function buildAreaFromVoiceAction(action: AddRoomAction): AreaInput {
     widthFt: action.widthFt,
     heightFt: action.heightFt > 0 ? action.heightFt : 8,
     surfaces: surfaces.length > 0 ? surfaces : base.surfaces,
-    openings: openings.length > 0 ? openings : base.openings,
+    openings: openings.length > 0 ? openings : (base.openings ?? []),
   }
 }
 
@@ -87,17 +89,48 @@ export function executeVoiceAction(action: VoiceAction, ctx: VoiceExecutionConte
         ctx.onAddRoom(room)
         return {
           ok: true,
-          message: `Added ${action.roomName} (${action.lengthFt}' × ${action.widthFt}') with ${action.surfaces.length} surfaces to current estimate.`,
+          message: `Added ${action.roomName} (${action.lengthFt}' × ${action.widthFt}') with ${action.surfaces.map((s) => s.label).join(", ")} to current estimate.`,
           roomAdded: room,
         }
       }
-      // If not in active estimator, navigate to estimator
+
+      // Check if global estimator is mounted on current window
+      if (typeof window !== "undefined") {
+        const win = window as unknown as { __scopepipeAddRoom?: (room: AreaInput) => void }
+        if (typeof win.__scopepipeAddRoom === "function") {
+          win.__scopepipeAddRoom(room)
+          window.dispatchEvent(new CustomEvent("scopepipe:add-room", { detail: room }))
+          return {
+            ok: true,
+            message: `Added ${action.roomName} (${action.lengthFt}' × ${action.widthFt}') with ${action.surfaces.map((s) => s.label).join(", ")} to current estimate.`,
+            roomAdded: room,
+          }
+        }
+
+        // Stage for /estimate page load if navigated from another page
+        try {
+          sessionStorage.setItem("scopepipe:pending-voice-room", JSON.stringify(room))
+        } catch {
+          // ignore
+        }
+      }
+
+      // Navigate to estimator
       ctx.navigate("/estimate")
       return {
         ok: true,
         message: `Opening Estimator to add ${action.roomName} (${action.lengthFt}' × ${action.widthFt}').`,
         redirect: "/estimate",
         roomAdded: room,
+      }
+    }
+
+    case "CLARIFY": {
+      return {
+        ok: false,
+        needsClarification: true,
+        clarificationPrompt: action.prompt,
+        message: action.prompt,
       }
     }
 
@@ -211,8 +244,10 @@ export function executeVoiceAction(action: VoiceAction, ctx: VoiceExecutionConte
 
     case "DICTATE_TEXT": {
       return {
-        ok: true,
-        message: `Recognized: "${action.text}"`,
+        ok: false,
+        message: action.text
+          ? `Command not recognized for "${action.text}". Try saying: "Add living room, 15 by 20, walls and ceiling"`
+          : "No speech recognized.",
       }
     }
   }

@@ -59,17 +59,24 @@ test("Voice Assistant: DripJobs-grade capabilities, hands-free walkthrough estim
   // Modal opens in walkthrough mode
   await expect(page.getByTestId("voice-assistant-modal")).toBeVisible()
 
-  // Click: "Add living room, 15 by 20, walls and ceiling"
-  const roomChip = page.getByRole("button", { name: /Add living room, 15 by 20/i })
-  await expect(roomChip).toBeVisible()
-  await roomChip.click()
+  // Test the exact command requested: "15 x 15 walls and ceilings living room"
+  const naturalOrderChip = page.getByRole("button", { name: /15 x 15 walls and ceilings living room/i })
+  await expect(naturalOrderChip).toBeVisible()
+  await naturalOrderChip.click()
 
   // Verify room is added with dimensions to estimate
   await expect(page.getByTestId("voice-success-message")).toBeVisible()
+  await expect(page.getByTestId("voice-success-message")).toContainText("Living Room")
   await page.getByTestId("voice-assistant-close").click()
 
-  // Verify living room card is visible in area list with 15 and 20 dimensions
-  await expect(page.getByText("15 × 20 × 8 ft")).toBeVisible()
+  // Verify living room card is visible in area list with 15 × 15 × 8 ft dimensions
+  await expect(page.getByText("15 × 15 × 8 ft")).toBeVisible()
+
+  // Verify price is recalculated and summary updates
+  const summary = page.getByTestId("estimate-summary")
+  await expect(summary).toBeVisible()
+  const summaryText = await summary.textContent()
+  expect(summaryText).not.toContain("0 hrs · 0 gal")
 
   // 6. Test Mobile Responsiveness
   await page.setViewportSize({ width: 390, height: 844 })

@@ -4,6 +4,7 @@ import {
   normalizeSpokenNumbers,
   parseVoiceCommand,
   type AddRoomAction,
+  type ClarifyAction,
   type CreateLeadAction,
   type AddCustomerNoteAction,
   type ScheduleAppointmentAction,
@@ -74,6 +75,50 @@ describe("Voice Command Parser for Painting Contractors", () => {
       assert.equal(action.widthFt, 15)
       assert.equal(action.openings.find((o) => o.kind === "door")?.count, 2)
       assert.equal(action.openings.find((o) => o.kind === "window")?.count, 3)
+    })
+
+    it("parses inverted word order: 15 x 15 walls and ceilings living room.", () => {
+      const result = parseVoiceCommand("15 x 15 walls and ceilings living room.")
+      assert.equal(result.action.type, "ADD_ROOM")
+      const action = result.action as AddRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.equal(action.lengthFt, 15)
+      assert.equal(action.widthFt, 15)
+      assert.equal(action.heightFt, 8) // default ceiling height
+      assert.equal(action.surfaces.some((s) => s.rateId === "walls"), true)
+      assert.equal(action.surfaces.some((s) => s.rateId === "ceiling"), true)
+      assert.equal(action.surfaces.some((s) => s.rateId === "baseboards"), false)
+    })
+
+    it("parses: 15 by 15 walls and ceilings living room", () => {
+      const result = parseVoiceCommand("15 by 15 walls and ceilings living room")
+      assert.equal(result.action.type, "ADD_ROOM")
+      const action = result.action as AddRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.equal(action.lengthFt, 15)
+      assert.equal(action.widthFt, 15)
+      assert.equal(action.heightFt, 8)
+      assert.equal(action.surfaces.some((s) => s.rateId === "walls"), true)
+      assert.equal(action.surfaces.some((s) => s.rateId === "ceiling"), true)
+    })
+
+    it("asks for clarification when dimensions given without room name: 15 x 15 walls and ceilings", () => {
+      const result = parseVoiceCommand("15 x 15 walls and ceilings")
+      assert.equal(result.action.type, "CLARIFY")
+      const action = result.action as ClarifyAction
+      assert.equal(action.missingField, "roomName")
+      assert.equal(action.partialRoom?.lengthFt, 15)
+      assert.equal(action.partialRoom?.widthFt, 15)
+      assert.ok(action.prompt.includes("Which room"))
+    })
+
+    it("asks for clarification when room name given without dimensions: Add living room", () => {
+      const result = parseVoiceCommand("Add living room")
+      assert.equal(result.action.type, "CLARIFY")
+      const action = result.action as ClarifyAction
+      assert.equal(action.missingField, "dimensions")
+      assert.equal(action.partialRoom?.roomName, "Living Room")
+      assert.ok(action.prompt.includes("dimensions"))
     })
   })
 

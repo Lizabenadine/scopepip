@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTypedNumber } from "@/hooks/use-typed-number"
 import { ChevronLeft } from "lucide-react"
 import { ChangeOrderDialog } from "@/components/change-orders/change-order-dialog"
@@ -57,7 +57,7 @@ import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
-import type { LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
+import type { AreaInput, LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
 
 export function Estimator({
   mode,
@@ -86,6 +86,59 @@ export function Estimator({
     tone: "success" | "error"
     message: string
   } | null>(null)
+
+  const draftRef = useRef(estimator.draft)
+  draftRef.current = estimator.draft
+  const patchRef = useRef(estimator.patch)
+  patchRef.current = estimator.patch
+  const ratesRef = useRef(estimator.productionRates)
+  ratesRef.current = estimator.productionRates
+
+  // Listen for voice-added rooms from any voice assistant trigger (navbar, walkthrough mic, dashboard)
+  useEffect(() => {
+    const handleVoiceRoom = (room: AreaInput) => {
+      const currentDraft = draftRef.current
+      const currentRates = ratesRef.current
+      if (!currentDraft) return
+      const added = [room]
+      patchRef.current({
+        areas: [...currentDraft.areas, room],
+        rates: withCurrentRates(currentDraft.rates, currentRates, added),
+      })
+    }
+
+    if (typeof window !== "undefined") {
+      ;(window as unknown as { __scopepipeAddRoom?: (room: AreaInput) => void }).__scopepipeAddRoom = handleVoiceRoom
+
+      // Process pending voice room from previous navigation (e.g. from dashboard)
+      try {
+        const pendingRaw = sessionStorage.getItem("scopepipe:pending-voice-room")
+        if (pendingRaw) {
+          sessionStorage.removeItem("scopepipe:pending-voice-room")
+          const pendingRoom = JSON.parse(pendingRaw) as AreaInput
+          if (pendingRoom && pendingRoom.name) {
+            handleVoiceRoom(pendingRoom)
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const onCustomEvent = (e: CustomEvent<AreaInput>) => {
+      if (e.detail) {
+        handleVoiceRoom(e.detail)
+      }
+    }
+
+    window.addEventListener("scopepipe:add-room", onCustomEvent as EventListener)
+    return () => {
+      window.removeEventListener("scopepipe:add-room", onCustomEvent as EventListener)
+      if (typeof window !== "undefined") {
+        delete (window as unknown as { __scopepipeAddRoom?: unknown }).__scopepipeAddRoom
+      }
+    }
+  }, [])
 
   if (!estimator.ready) {
     return (

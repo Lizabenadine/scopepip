@@ -7,6 +7,7 @@
 
 export type VoiceIntentType =
   | "ADD_ROOM"
+  | "CLARIFY"
   | "CREATE_LEAD"
   | "ADD_CUSTOMER_NOTE"
   | "SCHEDULE_APPOINTMENT"
@@ -19,6 +20,7 @@ export interface VoiceSurfaceSpec {
   rateId: string
   label: string
   coatCount: number
+  itemCount?: number
 }
 
 export interface VoiceOpeningSpec {
@@ -34,6 +36,22 @@ export interface AddRoomAction {
   heightFt: number
   surfaces: VoiceSurfaceSpec[]
   openings: VoiceOpeningSpec[]
+  requiresConfirmation: boolean
+  summary: string
+}
+
+export interface ClarifyAction {
+  type: "CLARIFY"
+  prompt: string
+  missingField: "roomName" | "dimensions"
+  partialRoom?: {
+    roomName?: string
+    lengthFt?: number
+    widthFt?: number
+    heightFt?: number
+    surfaces?: VoiceSurfaceSpec[]
+    openings?: VoiceOpeningSpec[]
+  }
   requiresConfirmation: boolean
   summary: string
 }
@@ -101,6 +119,7 @@ export interface DictateTextAction {
 
 export type VoiceAction =
   | AddRoomAction
+  | ClarifyAction
   | CreateLeadAction
   | AddCustomerNoteAction
   | ScheduleAppointmentAction
@@ -249,48 +268,101 @@ export function parseTime(text: string): { time24: string; displayTime: string }
 }
 
 /**
- * Parses walkthrough estimating command:
- * e.g. "Add living room, 15 by 20, walls and ceiling"
- * "Add master bedroom, 14 by 16 by 9, two coats walls"
- * "Add 2 doors, 3 windows to kitchen"
+ * Known room names sorted longest-first so "master bedroom" is matched before "bedroom".
  */
-export function parseAddRoomCommand(transcript: string): AddRoomAction | null {
+export const KNOWN_ROOM_NAMES = [
+  "master bedroom",
+  "primary bedroom",
+  "guest bedroom",
+  "master bathroom",
+  "master bath",
+  "guest bathroom",
+  "half bathroom",
+  "half bath",
+  "powder room",
+  "living room",
+  "family room",
+  "dining room",
+  "formal dining room",
+  "breakfast nook",
+  "laundry room",
+  "utility room",
+  "mud room",
+  "mudroom",
+  "bonus room",
+  "game room",
+  "sun room",
+  "sunroom",
+  "walk-in closet",
+  "home office",
+  "front porch",
+  "back porch",
+  "screened porch",
+  "bedroom 1",
+  "bedroom 2",
+  "bedroom 3",
+  "bedroom 4",
+  "bedroom 5",
+  "bath 1",
+  "bath 2",
+  "bath 3",
+  "bedroom",
+  "kitchen",
+  "bathroom",
+  "bath",
+  "hallway",
+  "hall",
+  "entryway",
+  "entry",
+  "foyer",
+  "corridor",
+  "office",
+  "den",
+  "study",
+  "library",
+  "basement",
+  "attic",
+  "garage",
+  "patio",
+  "deck",
+  "porch",
+  "closet",
+  "pantry",
+  "stairway",
+  "stairs",
+  "stairwell",
+  "exterior",
+  "siding",
+  "cabinets",
+]
+
+/**
+ * Parses walkthrough estimating command:
+ * Works regardless of natural speaking order:
+ * e.g. "Add living room, 15 by 20, walls and ceiling"
+ * "15 x 15 walls and ceilings living room"
+ * "15 by 15 walls and ceilings living room"
+ * "12 by 14 master bedroom two coats walls"
+ * "Living room 15 by 20 walls and ceiling"
+ * "15 x 15 walls and ceiling" (Clarification: missing room name)
+ * "Add living room" (Clarification: missing dimensions)
+ */
+export function parseAddRoomCommand(transcript: string): AddRoomAction | ClarifyAction | null {
   const normalized = normalizeSpokenNumbers(transcript)
 
-  // Explicitly ignore lead, customer, appointment, note commands
-  if (/\b(?:lead|customer|client|appointment|visit|meeting|note|follow-?up)\b/i.test(normalized)) {
+  // Explicitly ignore lead, customer, appointment, note, navigation commands
+  if (/\b(?:lead|customer|client|appointment|visit|meeting|note|follow-?up|go\s+to|navigate\s+to)\b/i.test(normalized)) {
     return null
   }
 
-  // Must have an "add [room]..." or "new room..." pattern
-  const addRoomPattern = /\b(?:add|create|new|include)\s+(?:a\s+|the\s+)?([a-z0-9\s'-]+?)(?:,|\s+(?:measuring|size|dimensions?|at|\d|with|\bft\b|\bby\b|\bx\b))/i
-  const simpleAddPattern = /\b(?:add|new)\s+(living room|master bedroom|bedroom|kitchen|dining room|bathroom|hallway|office|basement|garage|exterior|patio|closet|laundry|entryway|foyer)\b/i
-
-  let roomMatch = normalized.match(addRoomPattern)
-  if (!roomMatch) {
-    roomMatch = normalized.match(simpleAddPattern)
-  }
-
-  // If not explicitly "add room", check if it starts with room dimension phrasing: "Living room 15 by 20..."
-  if (!roomMatch) {
-    const startsWithRoom = /^(living room|master bedroom|bedroom(?:\s+\d)?|kitchen|dining room|bathroom|hallway|office|basement|garage|exterior|patio|closet|laundry|entryway|foyer)\b/i
-    roomMatch = normalized.match(startsWithRoom)
-  }
-
-  if (!roomMatch) return null
-
-  let rawRoomName = roomMatch[1].trim()
-  // Clean up any extraneous words
-  rawRoomName = rawRoomName.replace(/\b(?:room|area)\s+called\s+/i, "")
-  const roomName = titleCase(rawRoomName)
-
-  // Extract dimensions: "15 by 20", "15x20", "15 by 20 by 9", "12 feet by 14 feet"
-  const dimRegex = /(\d+(?:\.\d+)?)\s*(?:ft|feet|'|x|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:ft|feet|'|x|by|\*)\s*(\d+(?:\.\d+)?))?/i
+  // 1. Dimensions extraction
+  // Handles: "15 x 15", "15 by 15", "15*15", "15 by 20 by 9", "12 feet by 14 feet", "12' x 14'"
+  const dimRegex = /\b(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)(?:\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?))?(?:\s*(?:ft|feet|'|foot))?\b/i
   const dimMatch = normalized.match(dimRegex)
 
   let lengthFt = 0
   let widthFt = 0
-  let heightFt = 8 // Default residential height
+  let heightFt = 8 // Scopepipe default residential height
 
   if (dimMatch) {
     lengthFt = parseFloat(dimMatch[1])
@@ -301,14 +373,38 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | null {
   }
 
   // Check for standalone ceiling height: "9 foot ceiling", "ceiling 10 ft", "height 9"
-  const ceilingHeightRegex = /(?:(\d+(?:\.\d+)?)\s*(?:ft|foot|feet|')\s*(?:ceiling|ceilings|height)|(?:ceiling|ceilings|height)\s*(?:of|is|at)?\s*(\d+(?:\.\d+)?))/i
+  const ceilingHeightRegex = /(?:(\d+(?:\.\d+)?)\s*(?:ft|foot|feet|')?\s*(?:ceiling|ceilings|height)|(?:ceiling|ceilings|height)\s*(?:of|is|at)?\s*(\d+(?:\.\d+)?))/i
   const ceilingMatch = normalized.match(ceilingHeightRegex)
   if (ceilingMatch) {
     const val = ceilingMatch[1] || ceilingMatch[2]
     if (val) heightFt = parseFloat(val)
   }
 
-  // Extract coat counts if mentioned: "two coats", "1 coat", "prime and 2 coats"
+  // 2. Room Name extraction
+  let roomName: string | null = null
+
+  // Search for known room names in the transcript
+  for (const known of KNOWN_ROOM_NAMES) {
+    const reg = new RegExp(`\\b${known}\\b`, "i")
+    if (reg.test(normalized)) {
+      roomName = titleCase(known)
+      break
+    }
+  }
+
+  // If not in known list, check for explicit add/create/walk pattern
+  if (!roomName) {
+    const addPrefixRegex = /\b(?:add|create|new|walk)\s+(?:a\s+|the\s+)?([a-z0-9\s'-]+?)(?:,|\s+(?:measuring|size|dimensions?|at|\d|with|\bft\b|\bby\b|\bx\b|$))/i
+    const prefixMatch = normalized.match(addPrefixRegex)
+    if (prefixMatch) {
+      const candidate = prefixMatch[1].trim()
+      if (candidate && !/^(?:room|area|measurements?|dimensions?)$/i.test(candidate)) {
+        roomName = titleCase(candidate)
+      }
+    }
+  }
+
+  // 3. Coat count extraction: "two coats", "1 coat", "prime and 2 coats"
   let coatCount = 2 // Standard default
   const coatRegex = /(\d+)\s*(?:coat|coats)\b/i
   const coatMatch = normalized.match(coatRegex)
@@ -316,7 +412,7 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | null {
     coatCount = Math.max(1, parseInt(coatMatch[1], 10))
   }
 
-  // Extract surfaces: walls, ceiling, baseboards, doors, trim, crown molding, siding, cabinets
+  // 4. Surfaces extraction: walls, ceiling, baseboards, doors, trim, crown molding, siding, cabinets
   const surfaces: VoiceSurfaceSpec[] = []
   const hasWalls = /\b(walls?|wall)\b/i.test(normalized)
   const hasCeiling = /\b(ceilings?|ceiling)\b/i.test(normalized)
@@ -330,19 +426,20 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | null {
   if (wallsOnly) {
     surfaces.push({ rateId: "walls", label: "Walls", coatCount })
   } else {
-    if (hasWalls) surfaces.push({ rateId: "walls", label: "Walls", coatCount })
-    if (hasCeiling) surfaces.push({ rateId: "ceiling", label: "Ceiling", coatCount })
-    if (hasBaseboards) surfaces.push({ rateId: "baseboards", label: "Baseboards", coatCount })
-    if (hasTrim && !hasBaseboards) surfaces.push({ rateId: "baseboards", label: "Trim", coatCount })
-    if (hasCrown) surfaces.push({ rateId: "crown-molding", label: "Crown Molding", coatCount })
-    if (hasSiding) surfaces.push({ rateId: "siding", label: "Siding", coatCount })
-    if (hasCabinets) surfaces.push({ rateId: "cabinet-doors", label: "Cabinets", coatCount })
-
-    // If no surfaces explicitly named, supply standard room surfaces
-    if (surfaces.length === 0) {
-      if (roomName.toLowerCase().includes("exterior")) {
+    const anySurfaceMentioned = hasWalls || hasCeiling || hasBaseboards || hasTrim || hasCrown || hasSiding || hasCabinets
+    if (anySurfaceMentioned) {
+      if (hasWalls) surfaces.push({ rateId: "walls", label: "Walls", coatCount })
+      if (hasCeiling) surfaces.push({ rateId: "ceiling", label: "Ceiling", coatCount })
+      if (hasBaseboards) surfaces.push({ rateId: "baseboards", label: "Baseboards", coatCount })
+      if (hasTrim && !hasBaseboards) surfaces.push({ rateId: "baseboards", label: "Trim", coatCount })
+      if (hasCrown) surfaces.push({ rateId: "crown", label: "Crown Molding", coatCount })
+      if (hasSiding) surfaces.push({ rateId: "siding", label: "Siding", coatCount })
+      if (hasCabinets) surfaces.push({ rateId: "cabinet-doors", label: "Cabinets", coatCount })
+    } else {
+      // If no surfaces explicitly named, supply standard room surfaces
+      if (roomName && roomName.toLowerCase().includes("exterior")) {
         surfaces.push({ rateId: "siding", label: "Siding", coatCount })
-      } else if (roomName.toLowerCase().includes("cabinet")) {
+      } else if (roomName && roomName.toLowerCase().includes("cabinet")) {
         surfaces.push({ rateId: "cabinet-doors", label: "Cabinets", coatCount })
       } else {
         surfaces.push(
@@ -354,7 +451,7 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | null {
     }
   }
 
-  // Extract openings: doors and windows
+  // 5. Openings extraction: doors and windows
   const openings: VoiceOpeningSpec[] = []
   const doorsRegex = /(\d+)\s*(?:door|doors)\b/i
   const doorsMatch = normalized.match(doorsRegex)
@@ -368,21 +465,57 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | null {
     openings.push({ kind: "window", count: parseInt(windowsMatch[1], 10) })
   }
 
-  const surfaceSummary = surfaces.map((s) => `${s.label} (${s.coatCount} coats)`).join(", ")
-  const openingsSummary = openings.length > 0 ? `, Openings: ${openings.map((o) => `${o.count} ${o.kind}s`).join(", ")}` : ""
-  const dimSummary = lengthFt > 0 && widthFt > 0 ? ` (${lengthFt}' × ${widthFt}' × ${heightFt}')` : ""
+  const hasDimensions = lengthFt > 0 && widthFt > 0
 
-  return {
-    type: "ADD_ROOM",
-    roomName,
-    lengthFt,
-    widthFt,
-    heightFt,
-    surfaces,
-    openings,
-    requiresConfirmation: false, // Walkthrough estimating is hands-free; room is populated directly with instant undo
-    summary: `Add ${roomName}${dimSummary} with ${surfaceSummary}${openingsSummary}.`,
+  // 6. Action determination:
+  // Case A: Complete room with both name and dimensions
+  if (roomName && hasDimensions) {
+    const surfaceSummary = surfaces.map((s) => `${s.label} (${s.coatCount} coats)`).join(", ")
+    const openingsSummary = openings.length > 0 ? `, Openings: ${openings.map((o) => `${o.count} ${o.kind}s`).join(", ")}` : ""
+    const dimSummary = ` (${lengthFt}' × ${widthFt}' × ${heightFt}')`
+
+    return {
+      type: "ADD_ROOM",
+      roomName,
+      lengthFt,
+      widthFt,
+      heightFt,
+      surfaces,
+      openings,
+      requiresConfirmation: false,
+      summary: `Add ${roomName}${dimSummary} with ${surfaceSummary}${openingsSummary}.`,
+    }
   }
+
+  // Case B: Dimensions given, but NO room name spoken (e.g. "15 x 15 walls and ceilings")
+  if (hasDimensions && !roomName) {
+    const surfaceLabels = surfaces.map((s) => s.label).join(", ")
+    return {
+      type: "CLARIFY",
+      missingField: "roomName",
+      prompt: `Got ${lengthFt}' × ${widthFt}' (${heightFt}' ceiling) with ${surfaceLabels}. Which room is this for (e.g. Living Room, Bedroom, Kitchen)?`,
+      partialRoom: { lengthFt, widthFt, heightFt, surfaces, openings },
+      requiresConfirmation: false,
+      summary: `Need room name for ${lengthFt}' × ${widthFt}' area.`,
+    }
+  }
+
+  // Case C: Room name given with estimating intent, but NO dimensions spoken (e.g. "Add living room" or "Living room walls and ceiling")
+  const hasAddKeyword = /\b(?:add|create|new|walk)\b/i.test(normalized)
+  const hasSurfaceKeyword = hasWalls || hasCeiling || hasBaseboards || hasTrim || hasCrown || hasSiding || hasCabinets
+  if (roomName && !hasDimensions && (hasAddKeyword || hasSurfaceKeyword)) {
+    const surfaceLabels = surfaces.map((s) => s.label).join(", ")
+    return {
+      type: "CLARIFY",
+      missingField: "dimensions",
+      prompt: `Adding ${roomName} with ${surfaceLabels}. What are the dimensions (e.g. 15 by 20)?`,
+      partialRoom: { roomName, surfaces, openings, heightFt },
+      requiresConfirmation: false,
+      summary: `Need dimensions for ${roomName}.`,
+    }
+  }
+
+  return null
 }
 
 /**
