@@ -111,8 +111,8 @@ export function featuredIntegrations(book: FeaturedBook, host: HostConnections |
     item({
       id: "google-sheets",
       name: "Google Sheets",
-      description: "CSV export for leads, customers, estimates, and jobs. No OAuth needed.",
-      setup: "Export your leads, customers, estimates, or jobs to CSV and open in Google Sheets.",
+      description: "CSV import and export for leads, customers, estimates, and jobs. No OAuth needed.",
+      setup: "Export or import your leads, customers, estimates, or jobs to CSV directly in Google Sheets.",
       status: zapierSaved ? "configured" : "disconnected",
       pending: false,
     }),

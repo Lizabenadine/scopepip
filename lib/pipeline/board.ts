@@ -44,6 +44,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   google: "Google",
   referral: "Referral",
   webhook: "Webhook",
+  csv: "CSV Import",
 }
 
 export const DATE_RANGES = [

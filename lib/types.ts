@@ -444,6 +444,7 @@ export const LEAD_SOURCES = [
   "google",
   "referral",
   "webhook",
+  "csv",
 ] as const
 
 export type LeadSource = (typeof LEAD_SOURCES)[number]

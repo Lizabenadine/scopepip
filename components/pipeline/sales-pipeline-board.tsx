@@ -13,6 +13,7 @@ import {
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { SalesDealCard } from "@/components/pipeline/sales-deal-card"
 import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
+import { ImportLeadsButton } from "@/components/leads/import-leads-dialog"
 import { MobileStageNavigator, usePipelineStageSelection } from "@/components/pipeline/stage-navigator"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -408,6 +409,10 @@ export function SalesPipelineBoard() {
       {/* Filter and Action Bar */}
       <div className="flex flex-wrap items-center gap-2">
         <NewLeadButton label={say("+ New Lead")} className={newLeadButtonClass()} />
+        <ImportLeadsButton
+          label={say("Import Leads")}
+          className="h-9 border-slate-300 bg-white font-medium shadow-xs text-slate-700 hover:text-slate-900"
+        />
         <Link
           href="/estimates/new"
           data-testid="new-proposal"

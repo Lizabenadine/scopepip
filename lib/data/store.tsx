@@ -40,6 +40,7 @@ import type { ProposalEngagementEvent } from "@/lib/proposals/engagement"
 import { JOB_PIPELINE_STAGES, SALES_STAGES, type SalesStage } from "@/lib/types"
 import { applyInboundLead } from "@/lib/leads/apply"
 import { createOfficeLead, type LeadReach } from "@/lib/leads/office-lead"
+import { applyCsvLeadRows, type ParsedCsvLead } from "@/lib/leads/csv-import"
 import type { InboundLead } from "@/lib/leads/types"
 import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
@@ -709,6 +710,13 @@ export interface ScopeApi {
     reachedBy: LeadReach
     service?: string
   }) => { ok: true; estimateId: string } | { ok: false; reason: string }
+  importCsvLeads: (leads: ParsedCsvLead[]) => {
+    ok: boolean
+    total: number
+    imported: number
+    skipped: number
+    failed: number
+  }
   receivePublicBooking: (booking: PublicBooking) => { matched: boolean }
   receiveProposalEvent: (event: ProposalEngagementEvent) => { matched: boolean }
   markZapierDelivered: (ids: string[]) => void
@@ -1451,6 +1459,20 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       if (!saved.ok) return saved
       commitReconciled(saved.state)
       return { ok: true, estimateId: saved.estimateId }
+    },
+    importCsvLeads: (leads) => {
+      const latest = getSnapshot().state
+      const result = applyCsvLeadRows(latest, leads)
+      if (result.imported > 0) {
+        commitReconciled(result.state)
+      }
+      return {
+        ok: true,
+        total: result.total,
+        imported: result.imported,
+        skipped: result.skipped,
+        failed: result.failed,
+      }
     },
     receivePublicBooking: (booking) => {
       const latest = getSnapshot().state

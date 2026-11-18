@@ -68,6 +68,7 @@ const LABELS: Record<string, string> = {
   "Pick the day you're on site. You can change it from the estimate.":
     "Elige el día en el sitio. Puedes cambiarlo desde el estimado.",
   "+ New Lead": "+ Nuevo prospecto",
+  "Import Leads": "Importar prospectos",
   "+ New Proposal": "+ Nueva propuesta",
   "Lead Source": "Origen",
   "Date Range": "Fechas",

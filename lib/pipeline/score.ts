@@ -13,6 +13,7 @@ const SOURCE_POINTS: Record<LeadSource, number> = {
   yelp: 8,
   facebook: 8,
   webhook: 8,
+  csv: 10,
 }
 
 const STAGE_POINTS: Record<string, number> = {

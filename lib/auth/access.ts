@@ -7,6 +7,7 @@ const MANAGER_PREFIXES = ["/dispatch", "/work-orders", "/payments", "/help", "/s
 const ESTIMATOR_PREFIXES = [
   "/dashboard",
   "/sales-pipeline",
+  "/leads",
   "/estimate",
   "/estimates",
   "/clients",

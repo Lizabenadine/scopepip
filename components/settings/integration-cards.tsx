@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ImportLeadsButton } from "@/components/leads/import-leads-dialog"
 import { usePageOrigin } from "@/lib/browser/client-env"
 import { useScope } from "@/lib/data/store"
 import { reviewLink } from "@/lib/follow-ups/review"
@@ -231,6 +232,11 @@ export function IntegrationCards() {
                     <Button type="button" variant="outline" className="h-9 text-xs" onClick={() => downloadCsv("jobs")} data-testid="export-csv-jobs">
                       Export Jobs CSV
                     </Button>
+                    <ImportLeadsButton
+                      label="Import Leads CSV"
+                      variant="default"
+                      className="h-9 text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-medium"
+                    />
                   </div>
                 </div>
               ) : null}
