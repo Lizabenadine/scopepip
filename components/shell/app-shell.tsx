@@ -8,6 +8,7 @@ import { AuthForm } from "@/components/auth/auth-form"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
 import { BrandLogo, LogoHeader } from "@/components/brand/brand-logo"
+import { VoiceAssistantButton } from "@/components/voice/voice-assistant-modal"
 import { SiteFooter } from "@/components/marketing/site-footer"
 import { buttonVariants } from "@/components/ui/button"
 import type { UserRole } from "@/lib/auth/role"
@@ -188,6 +189,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             {say("Help")}
           </Link>
+          <VoiceAssistantButton
+            label={say("Voice")}
+            testId="nav-voice-assistant"
+            className="h-8 px-2.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-none"
+          />
           <FieldLanguageSwitch />
           <button type="button" data-testid="sign-out" className="text-sm font-medium text-slate-200 hover:text-white" onClick={() => void signOut()}>
             {say("Sign out")}

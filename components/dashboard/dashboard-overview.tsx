@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { NewLeadButton, newLeadButtonClass } from "@/components/pipeline/new-lead-dialog"
 import { EstimatorPerformance } from "@/components/pipeline/estimator-performance"
+import { VoiceAssistantButton } from "@/components/voice/voice-assistant-modal"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { roleCanOpen } from "@/lib/auth/access"
 import { useScope } from "@/lib/data/store"
@@ -230,6 +231,11 @@ export function DashboardOverview() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
+          <VoiceAssistantButton
+            label={say("Voice Assistant")}
+            testId="dashboard-voice-assistant"
+            className="h-9 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-800 shadow-xs px-3 font-semibold"
+          />
           <NewLeadButton label={say("+ New Lead")} className={newLeadButtonClass()} />
           <Link
             href="/estimates/new"

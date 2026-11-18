@@ -30,6 +30,7 @@ import {
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
 import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type EstimateSettings, type LineItemInput, type ProductionRate, type RoomSketch, type Substrate, type SurfaceInput } from "@/lib/types"
 import { RoomSketchpad } from "@/components/estimator/room-sketchpad"
+import { VoiceAssistantButton } from "@/components/voice/voice-assistant-modal"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 function withBlankDimensions(room: AreaInput): AreaInput {
@@ -133,6 +134,15 @@ const group = createAreaGroup(groupDraft)
           >
             Area names
           </button>
+          <VoiceAssistantButton
+            label="Voice Walkthrough"
+            initialMode="estimator"
+            onAddRoom={(room) => {
+              onChange([...areas, room])
+            }}
+            testId="estimator-voice-assistant"
+            className="h-7 text-xs font-semibold rounded-md bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+          />
         </div>
       </div>
       <div className="rounded-2xl bg-card p-3 border border-slate-200 bg-white shadow-sm" data-testid="add-room">
@@ -161,6 +171,15 @@ const group = createAreaGroup(groupDraft)
           >
             Add
           </button>
+          <VoiceAssistantButton
+            label="Walkthrough Mic"
+            initialMode="estimator"
+            onAddRoom={(room) => {
+              onChange([...areas, room])
+            }}
+            testId="estimator-walkthrough-mic"
+            className="h-11 rounded-lg border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-3 text-sm shrink-0"
+          />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {areaTemplatesFor(kind).slice(0, 8).map((template) => (
