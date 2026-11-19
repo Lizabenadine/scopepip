@@ -47,7 +47,7 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
 import { copyLineItem, insertAfter } from "@/lib/estimate/copy"
-import { blankLineItem, paintUpgradeLine } from "@/lib/defaults"
+import { DEFAULT_PRODUCTION_RATES, blankLineItem, paintUpgradeLine } from "@/lib/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
@@ -103,8 +103,19 @@ export function Estimator({
       const currentRates = ratesRef.current
       if (!currentDraft) return
       const added = [room]
-      const baseRates = rateToAdd ? [...currentDraft.rates, rateToAdd] : currentDraft.rates
-      const allCurrentRates = rateToAdd ? [...currentRates, rateToAdd] : currentRates
+      let allCurrentRates = rateToAdd ? [...currentRates, rateToAdd] : [...currentRates]
+      for (const s of room.surfaces) {
+        if (!allCurrentRates.some((r) => r.id === s.rateId)) {
+          const found = DEFAULT_PRODUCTION_RATES.find((r) => r.id === s.rateId)
+          if (found) {
+            allCurrentRates.push(found)
+          }
+        }
+      }
+      const baseRates =
+        rateToAdd && !currentDraft.rates.some((r) => r.id === rateToAdd.id)
+          ? [...currentDraft.rates, rateToAdd]
+          : currentDraft.rates
       patchRef.current({
         areas: [...currentDraft.areas, room],
         rates: withCurrentRates(baseRates, allCurrentRates, added),

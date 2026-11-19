@@ -28,6 +28,7 @@ import {
   surfaceHeads,
 } from "@/lib/estimate/substrate"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
+import { DEFAULT_PRODUCTION_RATES } from "@/lib/defaults"
 import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOpening, type EstimateKind, type EstimateSettings, type LineItemInput, type ProductionRate, type RoomSketch, type Substrate, type SurfaceInput } from "@/lib/types"
 import { RoomSketchpad } from "@/components/estimator/room-sketchpad"
 import { VoiceAssistantButton } from "@/components/voice/voice-assistant-modal"
@@ -161,11 +162,19 @@ const group = createAreaGroup(groupDraft)
             label="Voice Walkthrough"
             initialMode="estimator"
             onAddRoom={(room, rateToAdd) => {
-              if (rateToAdd) {
-                onChange([...areas, room], undefined, undefined, [...rates, rateToAdd])
-              } else {
-                onChange([...areas, room])
+              let nextRates = rates
+              if (rateToAdd && !nextRates.some((r) => r.id === rateToAdd.id)) {
+                nextRates = [...nextRates, rateToAdd]
               }
+              for (const s of room.surfaces) {
+                if (!nextRates.some((r) => r.id === s.rateId)) {
+                  const found = DEFAULT_PRODUCTION_RATES.find((r) => r.id === s.rateId)
+                  if (found) {
+                    nextRates = [...nextRates, found]
+                  }
+                }
+              }
+              onChange([...areas, room], undefined, undefined, nextRates)
             }}
             onUpdateRoom={(update) => {
               const res = applyRoomUpdateToAreas(areas, update)
@@ -219,11 +228,19 @@ const group = createAreaGroup(groupDraft)
             label="Walkthrough Mic"
             initialMode="estimator"
             onAddRoom={(room, rateToAdd) => {
-              if (rateToAdd) {
-                onChange([...areas, room], undefined, undefined, [...rates, rateToAdd])
-              } else {
-                onChange([...areas, room])
+              let nextRates = rates
+              if (rateToAdd && !nextRates.some((r) => r.id === rateToAdd.id)) {
+                nextRates = [...nextRates, rateToAdd]
               }
+              for (const s of room.surfaces) {
+                if (!nextRates.some((r) => r.id === s.rateId)) {
+                  const found = DEFAULT_PRODUCTION_RATES.find((r) => r.id === s.rateId)
+                  if (found) {
+                    nextRates = [...nextRates, found]
+                  }
+                }
+              }
+              onChange([...areas, room], undefined, undefined, nextRates)
             }}
             onUpdateRoom={(update) => {
               const res = applyRoomUpdateToAreas(areas, update)

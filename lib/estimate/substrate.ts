@@ -1,4 +1,4 @@
-import { WALL_SUBSTRATE_RATES } from "../defaults.ts"
+import { DEFAULT_PRODUCTION_RATES, WALL_SUBSTRATE_RATES } from "../defaults.ts"
 import type { AreaInput, ProductionRate, Substrate, SurfaceInput } from "../types.ts"
 import { SUBSTRATES } from "../types.ts"
 import { withCurrentRates } from "./saved-templates.ts"
@@ -93,9 +93,9 @@ export function ensureSubstrateRates(
   catalog: ProductionRate[] = [],
 ): ProductionRate[] {
   const byId = new Map<string, ProductionRate>()
-  for (const rate of WALL_SUBSTRATE_RATES) byId.set(rate.id, rate)
+  for (const rate of DEFAULT_PRODUCTION_RATES) byId.set(rate.id, rate)
   for (const rate of catalog) {
-    if (rate.substrate && rate.substrate !== "drywall") byId.set(rate.id, rate)
+    byId.set(rate.id, rate)
   }
   const ids = new Set(rates.map((rate) => rate.id))
   const missing = [...byId.values()].filter((rate) => !ids.has(rate.id))

@@ -1,6 +1,7 @@
 import type { AreaInput, Client, Estimate, ProductionRate, RateBasis } from "../types.ts"
 import { quickRoom } from "../estimate/quick-room.ts"
 import { createOneOffRate } from "../estimate/one-off.ts"
+import { DEFAULT_PRODUCTION_RATES } from "../defaults.ts"
 import type { LeadReach } from "../leads/office-lead.ts"
 import type {
   AddRoomAction,
@@ -73,6 +74,11 @@ export function buildAreaFromSurfaceAction(
       rateToAdd = newRate
       action.rateId = newRate.id
     }
+  } else {
+    const defaultRate = DEFAULT_PRODUCTION_RATES.find((r) => r.id === action.rateId)
+    if (defaultRate) {
+      rateToAdd = defaultRate
+    }
   }
 
   const surfaceId = crypto.randomUUID()
@@ -92,7 +98,7 @@ export function buildAreaFromSurfaceAction(
         rateId: action.rateId,
         coatCount: action.coatCount || 2,
         itemCount: action.count ?? 0,
-        quantityOverride: action.sqft ?? action.linearFt ?? null,
+        quantityOverride: action.sqft ?? action.linearFt ?? action.count ?? null,
         crewNote: "",
       },
     ],
