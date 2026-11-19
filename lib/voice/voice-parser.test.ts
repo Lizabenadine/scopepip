@@ -5,6 +5,8 @@ import {
   parseVoiceCommand,
   type AddRoomAction,
   type UpdateRoomAction,
+  type AddSurfaceAction,
+  type RemoveSurfaceAction,
   type AddJobNoteAction,
   type ClarifyAction,
   type CreateLeadAction,
@@ -358,6 +360,126 @@ describe("Voice Command Parser for Painting Contractors", () => {
       const result = parseVoiceCommand("Open help center")
       assert.equal(result.action.type, "NAVIGATE")
       assert.equal((result.action as NavigateAction).destination, "/help")
+    })
+  })
+
+  describe("Natural Language Painting Commands & Custom Surfaces", () => {
+    it("parses: Exterior, we need to paint the eaves.", () => {
+      const result = parseVoiceCommand("Exterior, we need to paint the eaves.")
+      assert.equal(result.action.type, "CLARIFY")
+      const clarify = result.action as ClarifyAction
+      assert.equal(clarify.missingField, "linearFt")
+      assert.equal(clarify.prompt, "Got it. How many linear feet?")
+      assert.equal(clarify.context?.rateId, "eaves")
+    })
+
+    it("parses: We need to paint the exterior eaves.", () => {
+      const result = parseVoiceCommand("We need to paint the exterior eaves.")
+      assert.equal(result.action.type, "CLARIFY")
+      const clarify = result.action as ClarifyAction
+      assert.equal(clarify.missingField, "linearFt")
+      assert.equal(clarify.prompt, "Got it. How many linear feet?")
+    })
+
+    it("parses: Add the fascia boards.", () => {
+      const result = parseVoiceCommand("Add the fascia boards.")
+      assert.equal(result.action.type, "CLARIFY")
+      const clarify = result.action as ClarifyAction
+      assert.equal(clarify.missingField, "linearFt")
+      assert.match(clarify.prompt, /how many linear feet/i)
+    })
+
+    it("parses: Add 150 linear feet of fascia", () => {
+      const result = parseVoiceCommand("Add 150 linear feet of fascia")
+      assert.equal(result.action.type, "ADD_SURFACE")
+      const action = result.action as AddSurfaceAction
+      assert.equal(action.rateId, "fascia")
+      assert.equal(action.linearFt, 150)
+    })
+
+    it("parses multi-surface: We're painting the soffits and gutters.", () => {
+      const result = parseVoiceCommand("We're painting the soffits and gutters.")
+      assert.equal(result.action.type, "CLARIFY")
+      const clarify = result.action as ClarifyAction
+      assert.match(clarify.prompt, /soffits/i)
+      assert.match(clarify.prompt, /gutters/i)
+    })
+
+    it("parses: Add two garage doors.", () => {
+      const result = parseVoiceCommand("Add two garage doors.")
+      assert.equal(result.action.type, "ADD_SURFACE")
+      const action = result.action as AddSurfaceAction
+      assert.equal(action.rateId, "garage-doors")
+      assert.equal(action.count, 2)
+    })
+
+    it("parses: The living room needs walls and ceilings.", () => {
+      const result = parseVoiceCommand("The living room needs walls and ceilings.")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Living Room")
+      assert.ok(action.surfacesToSet?.some((s) => s.rateId === "walls"))
+      assert.ok(action.surfacesToSet?.some((s) => s.rateId === "ceiling"))
+    })
+
+    it("parses negative surface: Don't include the trim.", () => {
+      const result = parseVoiceCommand("Don't include the trim.")
+      assert.equal(result.action.type, "REMOVE_SURFACE")
+      const action = result.action as RemoveSurfaceAction
+      assert.equal(action.surfaceKeyword, "trim")
+    })
+
+    it("parses negative surface: No baseboards in master bedroom", () => {
+      const result = parseVoiceCommand("No baseboards in master bedroom")
+      assert.equal(result.action.type, "REMOVE_SURFACE")
+      const action = result.action as RemoveSurfaceAction
+      assert.equal(action.surfaceKeyword, "baseboards")
+      assert.equal(action.roomName, "Master Bedroom")
+    })
+
+    it("parses dimension change: Change the bedroom walls to 15 by 20.", () => {
+      const result = parseVoiceCommand("Change the bedroom walls to 15 by 20.")
+      assert.equal(result.action.type, "UPDATE_ROOM")
+      const action = result.action as UpdateRoomAction
+      assert.equal(action.roomName, "Bedroom")
+      assert.equal(action.lengthFt, 15)
+      assert.equal(action.widthFt, 20)
+    })
+
+    it("parses unmodeled custom surface without dimensions: Add pergola beams", () => {
+      const result = parseVoiceCommand("Add pergola beams")
+      assert.equal(result.action.type, "CLARIFY")
+      const clarify = result.action as ClarifyAction
+      assert.equal(clarify.missingField, "customMeasurements")
+      assert.match(clarify.prompt, /pergola beams/i)
+      assert.equal(clarify.context?.entityKind, "custom_surface")
+    })
+
+    it("parses unmodeled custom surface: We need to paint the decorative columns", () => {
+      const result = parseVoiceCommand("We need to paint the decorative columns")
+      assert.equal(result.action.type, "CLARIFY")
+      const clarify = result.action as ClarifyAction
+      assert.equal(clarify.missingField, "customMeasurements")
+      assert.match(clarify.prompt, /decorative columns/i)
+      assert.equal(clarify.context?.entityKind, "custom_surface")
+    })
+
+    it("parses custom surface with count: Add 4 decorative columns", () => {
+      const result = parseVoiceCommand("Add 4 decorative columns")
+      assert.equal(result.action.type, "ADD_SURFACE")
+      const action = result.action as AddSurfaceAction
+      assert.equal(action.count, 4)
+      assert.equal(action.isOneOff, true)
+      assert.equal(action.oneOffBasis, "hours_per_item")
+    })
+
+    it("parses custom surface with linear feet: Add pergola beams, 60 linear feet", () => {
+      const result = parseVoiceCommand("Add pergola beams, 60 linear feet")
+      assert.equal(result.action.type, "ADD_SURFACE")
+      const action = result.action as AddSurfaceAction
+      assert.equal(action.linearFt, 60)
+      assert.equal(action.isOneOff, true)
+      assert.equal(action.oneOffBasis, "lnft_per_hour")
     })
   })
 })

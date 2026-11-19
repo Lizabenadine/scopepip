@@ -57,9 +57,9 @@ import { ESTIMATE_KINDS, ESTIMATE_KIND_LABEL } from "@/lib/estimate/templates"
 import { balanceAfterDeposit, clampDepositPercent, depositAmount } from "@/lib/payments/deposit"
 import { money, moneyExact } from "@/lib/format"
 import { NEXT_ACTION } from "@/lib/stages"
-import { applyRoomUpdateToAreas } from "@/lib/voice/voice-executor"
-import type { UpdateRoomAction, AddJobNoteAction } from "@/lib/voice/voice-parser"
-import type { AreaInput, LineItemInput, LineMaterial, LinePricingMode } from "@/lib/types"
+import { applyRoomUpdateToAreas, applyRemoveSurfaceFromAreas } from "@/lib/voice/voice-executor"
+import type { UpdateRoomAction, RemoveSurfaceAction, AddJobNoteAction } from "@/lib/voice/voice-parser"
+import type { AreaInput, LineItemInput, LineMaterial, LinePricingMode, ProductionRate } from "@/lib/types"
 
 export function Estimator({
   mode,
@@ -98,14 +98,16 @@ export function Estimator({
 
   // Listen for voice-added rooms, follow-up updates, and notes from any voice assistant trigger
   useEffect(() => {
-    const handleVoiceRoom = (room: AreaInput) => {
+    const handleVoiceRoom = (room: AreaInput, rateToAdd?: ProductionRate) => {
       const currentDraft = draftRef.current
       const currentRates = ratesRef.current
       if (!currentDraft) return
       const added = [room]
+      const baseRates = rateToAdd ? [...currentDraft.rates, rateToAdd] : currentDraft.rates
+      const allCurrentRates = rateToAdd ? [...currentRates, rateToAdd] : currentRates
       patchRef.current({
         areas: [...currentDraft.areas, room],
-        rates: withCurrentRates(currentDraft.rates, currentRates, added),
+        rates: withCurrentRates(baseRates, allCurrentRates, added),
       })
     }
 
@@ -125,6 +127,17 @@ export function Estimator({
       return { updated: false, message: `Could not find room "${update.roomName}".` }
     }
 
+    const handleVoiceRemoveSurface = (removeAction: RemoveSurfaceAction) => {
+      const currentDraft = draftRef.current
+      if (!currentDraft) return { updated: false, message: "No active estimate." }
+      const res = applyRemoveSurfaceFromAreas(currentDraft.areas, removeAction)
+      if (res.updated) {
+        patchRef.current({ areas: res.areas })
+        return { updated: true, message: res.message }
+      }
+      return { updated: false, message: res.message }
+    }
+
     const handleVoiceAddJobNote = (noteAction: AddJobNoteAction) => {
       const currentDraft = draftRef.current
       if (!currentDraft) return { ok: false, message: "No active estimate." }
@@ -141,22 +154,30 @@ export function Estimator({
 
     if (typeof window !== "undefined") {
       const win = window as unknown as {
-        __scopepipeAddRoom?: (room: AreaInput) => void
+        __scopepipeAddRoom?: (room: AreaInput, rate?: ProductionRate) => void
         __scopepipeUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+        __scopepipeRemoveSurface?: (action: RemoveSurfaceAction) => { updated: boolean; message?: string }
         __scopepipeAddJobNote?: (action: AddJobNoteAction) => { ok: boolean; message?: string }
       }
       win.__scopepipeAddRoom = handleVoiceRoom
       win.__scopepipeUpdateRoom = handleVoiceUpdateRoom
+      win.__scopepipeRemoveSurface = handleVoiceRemoveSurface
       win.__scopepipeAddJobNote = handleVoiceAddJobNote
 
-      // Process pending voice room from previous navigation (e.g. from dashboard)
+      // Process pending voice room and optional custom rate from previous navigation (e.g. from dashboard)
       try {
         const pendingRaw = sessionStorage.getItem("scopepipe:pending-voice-room")
+        const pendingRateRaw = sessionStorage.getItem("scopepipe:pending-voice-rate")
         if (pendingRaw) {
           sessionStorage.removeItem("scopepipe:pending-voice-room")
+          let pendingRate: ProductionRate | undefined
+          if (pendingRateRaw) {
+            sessionStorage.removeItem("scopepipe:pending-voice-rate")
+            pendingRate = JSON.parse(pendingRateRaw) as ProductionRate
+          }
           const pendingRoom = JSON.parse(pendingRaw) as AreaInput
           if (pendingRoom && pendingRoom.name) {
-            handleVoiceRoom(pendingRoom)
+            handleVoiceRoom(pendingRoom, pendingRate)
           }
         }
         const pendingUpdateRaw = sessionStorage.getItem("scopepipe:pending-voice-update-room")

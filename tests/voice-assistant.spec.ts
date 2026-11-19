@@ -99,7 +99,39 @@ test("Voice Assistant: DripJobs-grade capabilities, hands-free walkthrough estim
   await addRoomInput.press("Enter")
   await expect(page.getByText("12 × 14 × 8 ft")).toBeVisible()
 
-  // 6. Test Mobile Responsiveness
+  // 6. Test Natural Language Exterior Surfaces & Conversational Follow-up
+  await walkBtn.click()
+  await expect(page.getByTestId("voice-assistant-modal")).toBeVisible()
+
+  // Contractor says: "Exterior, we need to paint the eaves."
+  await page.getByTestId("voice-command-input").fill("Exterior, we need to paint the eaves.")
+  await page.getByTestId("voice-apply-command").click()
+
+  // Assistant asks: "Got it. How many linear feet?"
+  await expect(page.getByTestId("voice-clarification-prompt")).toBeVisible()
+  await expect(page.getByTestId("voice-clarification-prompt")).toContainText("How many linear feet?")
+
+  // Contractor replies: "About 180 feet"
+  await page.getByTestId("voice-command-input").fill("About 180 feet")
+  await page.getByTestId("voice-apply-command").click()
+
+  // Assistant asks: "What's the width or depth of the eaves?"
+  await expect(page.getByTestId("voice-clarification-prompt")).toBeVisible()
+  await expect(page.getByTestId("voice-clarification-prompt")).toContainText("width or depth")
+
+  // Contractor replies: "Two feet"
+  await page.getByTestId("voice-command-input").fill("Two feet")
+  await page.getByTestId("voice-apply-command").click()
+
+  // Eaves item created with measurements
+  await expect(page.getByTestId("voice-success-message")).toBeVisible()
+  await expect(page.getByTestId("voice-success-message")).toContainText("Exterior Eaves")
+  await page.getByTestId("voice-assistant-close").click()
+
+  // Verify Exterior Eaves appears in the estimate
+  await expect(page.getByText(/Exterior Eaves/i).first()).toBeVisible()
+
+  // 7. Test Mobile Responsiveness
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(navVoiceBtn).toBeVisible()
   await navVoiceBtn.click()

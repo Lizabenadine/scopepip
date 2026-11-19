@@ -5,9 +5,13 @@
  * appointment scheduling, follow-ups, document generation, and navigation.
  */
 
+import type { RateBasis } from "@/lib/types"
+
 export type VoiceIntentType =
   | "ADD_ROOM"
   | "UPDATE_ROOM"
+  | "ADD_SURFACE"
+  | "REMOVE_SURFACE"
   | "ADD_JOB_NOTE"
   | "CLARIFY"
   | "CREATE_LEAD"
@@ -42,11 +46,39 @@ export interface AddRoomAction {
   summary: string
 }
 
+export interface AddSurfaceAction {
+  type: "ADD_SURFACE"
+  surfaceName: string
+  rateId: string
+  category: "Exterior" | "Interior" | "Custom"
+  linearFt?: number
+  sqft?: number
+  count?: number
+  lengthFt?: number
+  widthFt?: number
+  heightFt?: number
+  coatCount: number
+  isOneOff?: boolean
+  oneOffBasis?: RateBasis
+  oneOffSpeed?: number
+  requiresConfirmation: boolean
+  summary: string
+}
+
+export interface RemoveSurfaceAction {
+  type: "REMOVE_SURFACE"
+  surfaceKeyword: string
+  roomName?: string
+  requiresConfirmation: boolean
+  summary: string
+}
+
 export interface UpdateRoomAction {
   type: "UPDATE_ROOM"
   roomName: string
   openingsToAdd?: VoiceOpeningSpec[]
   surfacesToAdd?: VoiceSurfaceSpec[]
+  surfacesToSet?: VoiceSurfaceSpec[]
   lengthFt?: number
   widthFt?: number
   heightFt?: number
@@ -65,7 +97,24 @@ export interface AddJobNoteAction {
 export interface ClarifyAction {
   type: "CLARIFY"
   prompt: string
-  missingField: "roomName" | "dimensions"
+  missingField: "roomName" | "dimensions" | "linearFt" | "itemCount" | "widthFt" | "customMeasurements"
+  context?: {
+    entityKind: "room" | "exterior_surface" | "custom_surface"
+    name: string
+    rateId?: string
+    surfaces?: VoiceSurfaceSpec[]
+    openings?: VoiceOpeningSpec[]
+    lengthFt?: number
+    widthFt?: number
+    heightFt?: number
+    linearFt?: number
+    sqft?: number
+    count?: number
+    step?: number
+    isOneOff?: boolean
+    oneOffBasis?: RateBasis
+    oneOffSpeed?: number
+  }
   partialRoom?: {
     roomName?: string
     lengthFt?: number
@@ -142,6 +191,8 @@ export interface DictateTextAction {
 export type VoiceAction =
   | AddRoomAction
   | UpdateRoomAction
+  | AddSurfaceAction
+  | RemoveSurfaceAction
   | AddJobNoteAction
   | ClarifyAction
   | CreateLeadAction
@@ -548,7 +599,17 @@ export function parseAddRoomCommand(transcript: string): AddRoomAction | Clarify
 export function resolveRoomName(raw: string): string | null {
   const cleaned = raw.replace(/[.,!?;:]+$/, "").trim().toLowerCase()
   for (const known of KNOWN_ROOM_NAMES) {
-    if (cleaned === known || cleaned.includes(known) || known.includes(cleaned)) {
+    if (cleaned === known) {
+      return titleCase(known)
+    }
+  }
+  for (const known of KNOWN_ROOM_NAMES) {
+    if (new RegExp(`\\b${known}\\b`, "i").test(cleaned)) {
+      return titleCase(known)
+    }
+  }
+  for (const known of KNOWN_ROOM_NAMES) {
+    if (cleaned.includes(known) || known.includes(cleaned)) {
       return titleCase(known)
     }
   }
@@ -585,8 +646,8 @@ export function parseUpdateRoomCommand(transcript: string): UpdateRoomAction | n
     }
   }
 
-  // e.g. "Set living room dimensions to 16 by 20" or "Change living room to 16 by 20"
-  const dimUpdateRegex = /\b(?:set|change|update)\s+(?:the\s+)?([a-z0-9\s'-]+?)(?:\s+(?:dimensions?|size))?\s+(?:to\s+)?(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\b/i
+  // e.g. "Set living room dimensions to 16 by 20" or "Change living room to 16 by 20" or "Change the bedroom walls to 15 by 20"
+  const dimUpdateRegex = /\b(?:set|change|update)\s+(?:the\s+)?([a-z0-9\s'-]+?)(?:\s+(?:dimensions?|size|walls?))?\s+(?:to\s+)?(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\b/i
   const dimMatch = norm.match(dimUpdateRegex)
   if (dimMatch) {
     const rawRoom = dimMatch[1].trim()
@@ -601,6 +662,39 @@ export function parseUpdateRoomCommand(transcript: string): UpdateRoomAction | n
         widthFt,
         requiresConfirmation: false,
         summary: `Set ${roomName} dimensions to ${lengthFt}' × ${widthFt}'.`,
+      }
+    }
+  }
+
+  // e.g. "The living room needs walls and ceilings" or "Living room needs walls and ceiling"
+  const needsMatch = norm.match(/(?:the\s+)?([a-z0-9\s'-]+?)\s+(?:needs|takes|gets|has)\s+(.+)/i)
+  if (needsMatch) {
+    const rawRoom = needsMatch[1].trim()
+    const rawSurfaces = needsMatch[2].trim()
+    const roomName = resolveRoomName(rawRoom)
+    if (roomName) {
+      const surfaces: VoiceSurfaceSpec[] = []
+      let coatCount = 2
+      const coatMatch = rawSurfaces.match(/(\d+)\s*(?:coat|coats)\b/i)
+      if (coatMatch) coatCount = parseInt(coatMatch[1], 10)
+
+      if (/\b(walls?|wall)\b/i.test(rawSurfaces)) surfaces.push({ rateId: "walls", label: "Walls", coatCount })
+      if (/\b(ceilings?|ceiling)\b/i.test(rawSurfaces)) surfaces.push({ rateId: "ceiling", label: "Ceiling", coatCount })
+      if (/\b(baseboards?|baseboard)\b/i.test(rawSurfaces)) surfaces.push({ rateId: "baseboards", label: "Baseboards", coatCount })
+      if (/\b(trim|casings?)\b/i.test(rawSurfaces) && !/\bbaseboards?\b/i.test(rawSurfaces)) surfaces.push({ rateId: "baseboards", label: "Trim", coatCount })
+      if (/\b(crown|crown molding)\b/i.test(rawSurfaces)) surfaces.push({ rateId: "crown", label: "Crown Molding", coatCount })
+      if (/\b(siding)\b/i.test(rawSurfaces)) surfaces.push({ rateId: "siding", label: "Siding", coatCount })
+      if (/\b(cabinets?|cabinet doors?)\b/i.test(rawSurfaces)) surfaces.push({ rateId: "cabinet-doors", label: "Cabinets", coatCount })
+
+      if (surfaces.length > 0) {
+        return {
+          type: "UPDATE_ROOM",
+          roomName,
+          surfacesToSet: surfaces,
+          surfacesToAdd: surfaces,
+          requiresConfirmation: false,
+          summary: `Set ${roomName} surfaces to ${surfaces.map((s) => s.label).join(" and ")}.`,
+        }
       }
     }
   }
@@ -676,6 +770,477 @@ export function parseUpdateRoomCommand(transcript: string): UpdateRoomAction | n
     requiresConfirmation: false,
     summary: `Add ${itemsList.join(" and ")} to ${roomName}.`,
   }
+}
+
+/**
+ * Known exterior surface definitions and templates.
+ */
+export interface ExteriorSurfaceDef {
+  id: string
+  name: string
+  aliases: string[]
+  unit: "lnft" | "sqft" | "items"
+  rateId: string
+  askWidth?: boolean
+}
+
+export const EXTERIOR_SURFACE_DEFS: ExteriorSurfaceDef[] = [
+  {
+    id: "eaves",
+    name: "Exterior Eaves",
+    aliases: ["exterior eaves", "exterior eave", "eaves", "eave"],
+    unit: "lnft",
+    rateId: "eaves",
+    askWidth: true,
+  },
+  {
+    id: "fascia",
+    name: "Fascia Boards",
+    aliases: ["fascia boards", "fascia board", "fascia", "fascias"],
+    unit: "lnft",
+    rateId: "fascia",
+  },
+  {
+    id: "soffit",
+    name: "Soffits",
+    aliases: ["exterior soffits", "exterior soffit", "soffits", "soffit"],
+    unit: "sqft",
+    rateId: "soffit",
+  },
+  {
+    id: "gutters",
+    name: "Gutters and Downspouts",
+    aliases: ["gutters and downspouts", "downspouts", "downspout", "gutters", "gutter"],
+    unit: "lnft",
+    rateId: "gutters",
+  },
+  {
+    id: "garage-doors",
+    name: "Garage Doors",
+    aliases: ["garage doors", "garage door"],
+    unit: "items",
+    rateId: "garage-doors",
+  },
+  {
+    id: "entry-doors",
+    name: "Entry Doors",
+    aliases: ["entry doors", "entry door", "front doors", "front door", "exterior doors", "exterior door"],
+    unit: "items",
+    rateId: "entry-door",
+  },
+  {
+    id: "siding",
+    name: "Exterior Siding",
+    aliases: ["exterior siding", "siding", "lap siding", "wood siding"],
+    unit: "sqft",
+    rateId: "siding",
+  },
+  {
+    id: "stucco",
+    name: "Stucco",
+    aliases: ["stucco siding", "stucco"],
+    unit: "sqft",
+    rateId: "stucco",
+  },
+  {
+    id: "exterior-trim",
+    name: "Exterior Trim",
+    aliases: ["exterior trim", "corner boards", "corner board", "window and door trim", "outside trim"],
+    unit: "lnft",
+    rateId: "exterior-trim",
+  },
+  {
+    id: "shutters",
+    name: "Shutters",
+    aliases: ["shutters", "shutter"],
+    unit: "items",
+    rateId: "shutters",
+  },
+  {
+    id: "deck",
+    name: "Deck",
+    aliases: ["deck stain", "decks", "deck"],
+    unit: "sqft",
+    rateId: "deck",
+  },
+  {
+    id: "porch",
+    name: "Porch",
+    aliases: ["porch floor", "porch ceiling", "porches", "porch"],
+    unit: "sqft",
+    rateId: "porch",
+  },
+  {
+    id: "railings",
+    name: "Railings",
+    aliases: ["deck railing", "deck railings", "handrail", "handrails", "railings", "railing"],
+    unit: "lnft",
+    rateId: "railings",
+  },
+  {
+    id: "fence",
+    name: "Fence",
+    aliases: ["fence stain", "fences", "fence"],
+    unit: "sqft",
+    rateId: "fence",
+  },
+]
+
+/**
+ * Parses negative surface requests such as "Don't include the trim", "No baseboards", "Exclude ceiling"
+ */
+export function parseRemoveSurfaceCommand(transcript: string): RemoveSurfaceAction | null {
+  const norm = normalizeSpokenNumbers(transcript).replace(/[.,!?;:]+$/, "").trim().toLowerCase()
+
+  const removePatterns = [
+    /\b(?:don't|do\s+not)\s+(?:include|paint|add|do|charge\s+for)\s+(?:the\s+)?([a-z0-9\s'-]+?)(?:\s+(?:in|for|from|on)\s+(?:the\s+)?([a-z0-9\s'-]+))?$/i,
+    /\b(?:no|exclude|remove|skip|leave\s+out|without)\s+(?:the\s+)?([a-z0-9\s'-]+?)(?:\s+(?:in|for|from|on)\s+(?:the\s+)?([a-z0-9\s'-]+))?$/i,
+  ]
+
+  for (const pat of removePatterns) {
+    const match = norm.match(pat)
+    if (match) {
+      const rawSurface = match[1].trim()
+      const rawRoom = match[2]?.trim()
+
+      const knownSurfaceKeywords = [
+        "trim", "baseboards", "baseboard", "ceiling", "ceilings", "walls", "wall",
+        "crown", "crown molding", "siding", "cabinets", "cabinet", "doors", "door",
+        "windows", "window", "fascia", "eaves", "soffit", "soffits", "gutters", "shutters", "railings", "fence", "stucco"
+      ]
+
+      const foundKeyword = knownSurfaceKeywords.find(
+        (k) => rawSurface === k || rawSurface.includes(k)
+      )
+
+      if (foundKeyword) {
+        const roomName = rawRoom ? resolveRoomName(rawRoom) || undefined : undefined
+        return {
+          type: "REMOVE_SURFACE",
+          surfaceKeyword: foundKeyword,
+          roomName,
+          requiresConfirmation: false,
+          summary: roomName
+            ? `Exclude ${foundKeyword} from ${roomName}.`
+            : `Exclude ${foundKeyword} from current estimate.`,
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Parses exterior templates and unmodeled/custom painting surfaces from natural language.
+ * Examples:
+ * - "Exterior, we need to paint the eaves."
+ * - "We need to paint the exterior eaves."
+ * - "Add the fascia boards."
+ * - "We're painting the soffits and gutters."
+ * - "Add two garage doors."
+ * - "Add pergola beams"
+ * - "We need to paint the decorative columns"
+ */
+export function parseExteriorOrCustomSurfaceCommand(transcript: string): VoiceAction | null {
+  const norm = normalizeSpokenNumbers(transcript).trim()
+  const lower = norm.toLowerCase()
+
+  // Guard: if it's explicitly a document or navigation or job note command, let those handle it
+  if (/\b(?:generate|open|go\s+to|navigate|create\s+lead|schedule|customer\s+note|crew\s+note|job\s+note)\b/i.test(lower)) {
+    return null
+  }
+
+  // Check if it's an exterior command or multi-surface exterior
+  // e.g. "We're painting the soffits and gutters"
+  const multiExteriorMatch = EXTERIOR_SURFACE_DEFS.filter((def) =>
+    def.aliases.some((alias) => new RegExp(`\\b${alias}\\b`, "i").test(lower))
+  )
+
+  if (multiExteriorMatch.length > 1) {
+    // Both soffits and gutters, etc.
+    const names = multiExteriorMatch.map((d) => d.name).join(" and ")
+    const prompt = `Got it. How many square feet of ${multiExteriorMatch[0].name.toLowerCase()}, and linear feet of ${multiExteriorMatch[1].name.toLowerCase()}?`
+    return {
+      type: "CLARIFY",
+      prompt,
+      missingField: "linearFt",
+      requiresConfirmation: false,
+      summary: prompt,
+      context: {
+        entityKind: "exterior_surface",
+        name: names,
+        rateId: multiExteriorMatch[0].rateId,
+        step: 1,
+      },
+    }
+  }
+
+  // Check single exterior surface definition
+  const matchedDef = EXTERIOR_SURFACE_DEFS.find((def) =>
+    def.aliases.some((alias) => new RegExp(`\\b${alias}\\b`, "i").test(lower))
+  )
+
+  if (matchedDef) {
+    // Check for measurements in the transcript
+    const lnFtMatch = norm.match(/(\d+(?:\.\d+)?)\s*(?:linear\s+feet|linear\s+ft|ln\s+ft|linear|feet|foot|ft|')\b/i)
+    const sqftMatch = norm.match(/(\d+(?:\.\d+)?)\s*(?:square\s+feet|square\s+ft|sq\s+ft|sqft)\b/i)
+    const dimMatch = norm.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet|'|foot)?\s*(?:x|by|\*)\s*(\d+(?:\.\d+)?)\b/i)
+    const countMatch =
+      norm.match(/(\d+)\s*(?:garage\s+doors?|entry\s+doors?|front\s+doors?|shutters?|doors?|items?)\b/i) ||
+      norm.match(/\b(?:add|paint|include)?\s*(\d+)\s+[a-z\s'-]+/i)
+
+    if (matchedDef.unit === "items") {
+      let count = 0
+      if (countMatch && parseInt(countMatch[1], 10) > 0) {
+        count = parseInt(countMatch[1], 10)
+      } else if (/\b(?:a|an|one)\s+(?:garage|entry|front|exterior)?\s*door\b/i.test(lower)) {
+        count = 1
+      }
+
+      if (count > 0) {
+        return {
+          type: "ADD_SURFACE",
+          surfaceName: matchedDef.name,
+          rateId: matchedDef.rateId,
+          category: "Exterior",
+          count,
+          coatCount: 2,
+          requiresConfirmation: false,
+          summary: `Add ${count} ${matchedDef.name} to estimate.`,
+        }
+      }
+
+      // No count provided: ask
+      const prompt = `How many ${matchedDef.name.toLowerCase()} are we painting?`
+      return {
+        type: "CLARIFY",
+        prompt,
+        missingField: "itemCount",
+        requiresConfirmation: false,
+        summary: prompt,
+        context: {
+          entityKind: "exterior_surface",
+          name: matchedDef.name,
+          rateId: matchedDef.rateId,
+          step: 1,
+        },
+      }
+    }
+
+    if (matchedDef.unit === "lnft") {
+      let linearFt = lnFtMatch ? parseFloat(lnFtMatch[1]) : undefined
+      if (!linearFt && dimMatch) {
+        linearFt = parseFloat(dimMatch[1])
+      }
+
+      if (linearFt && linearFt > 0) {
+        // If it's eaves, check if width/depth was also spoken
+        if (matchedDef.askWidth) {
+          const widthMatch =
+            norm.match(/(\d+(?:\.\d+)?)\s*(?:feet|foot|ft|')?\s*(?:width|depth|deep|wide)\b/i) ||
+            (dimMatch ? { 1: dimMatch[2] } : null)
+          if (widthMatch) {
+            const widthFt = parseFloat(widthMatch[1])
+            const sqft = linearFt * widthFt
+            return {
+              type: "ADD_SURFACE",
+              surfaceName: `${matchedDef.name} (${linearFt}' × ${widthFt}' depth)`,
+              rateId: matchedDef.rateId,
+              category: "Exterior",
+              linearFt,
+              lengthFt: linearFt,
+              widthFt,
+              sqft,
+              coatCount: 2,
+              requiresConfirmation: false,
+              summary: `Add ${matchedDef.name} (${linearFt}' × ${widthFt}' depth, ${linearFt} linear ft) to estimate.`,
+            }
+          }
+
+          // Linear feet provided, but width/depth needed
+          const prompt = "What's the width or depth of the eaves?"
+          return {
+            type: "CLARIFY",
+            prompt,
+            missingField: "widthFt",
+            requiresConfirmation: false,
+            summary: prompt,
+            context: {
+              entityKind: "exterior_surface",
+              name: matchedDef.name,
+              rateId: matchedDef.rateId,
+              linearFt,
+              step: 2,
+            },
+          }
+        }
+
+        return {
+          type: "ADD_SURFACE",
+          surfaceName: `${matchedDef.name} (${linearFt} linear ft)`,
+          rateId: matchedDef.rateId,
+          category: "Exterior",
+          linearFt,
+          coatCount: 2,
+          requiresConfirmation: false,
+          summary: `Add ${matchedDef.name} (${linearFt} linear ft) to estimate.`,
+        }
+      }
+
+      // Linear feet not provided
+      const prompt =
+        matchedDef.id === "eaves"
+          ? "Got it. How many linear feet?"
+          : `Got it. How many linear feet of ${matchedDef.name.toLowerCase()}?`
+
+      return {
+        type: "CLARIFY",
+        prompt,
+        missingField: "linearFt",
+        requiresConfirmation: false,
+        summary: prompt,
+        context: {
+          entityKind: "exterior_surface",
+          name: matchedDef.name,
+          rateId: matchedDef.rateId,
+          step: 1,
+        },
+      }
+    }
+
+    if (matchedDef.unit === "sqft") {
+      let sqft = sqftMatch ? parseFloat(sqftMatch[1]) : undefined
+      if (!sqft && dimMatch) {
+        sqft = parseFloat(dimMatch[1]) * parseFloat(dimMatch[2])
+      }
+
+      if (sqft && sqft > 0) {
+        return {
+          type: "ADD_SURFACE",
+          surfaceName: `${matchedDef.name} (${sqft} sq ft)`,
+          rateId: matchedDef.rateId,
+          category: "Exterior",
+          sqft,
+          coatCount: 2,
+          requiresConfirmation: false,
+          summary: `Add ${matchedDef.name} (${sqft} sq ft) to estimate.`,
+        }
+      }
+
+      const prompt = `Got it. How many square feet of ${matchedDef.name.toLowerCase()}?`
+      return {
+        type: "CLARIFY",
+        prompt,
+        missingField: "dimensions",
+        requiresConfirmation: false,
+        summary: prompt,
+        context: {
+          entityKind: "exterior_surface",
+          name: matchedDef.name,
+          rateId: matchedDef.rateId,
+          step: 1,
+        },
+      }
+    }
+  }
+
+  // Check for unmodeled / custom painting surfaces:
+  // e.g. "Add pergola beams", "We need to paint the decorative columns", "Add corbels", "Add trellises"
+  const customIntentMatch = norm.match(
+    /\b(?:we\s+need\s+to\s+paint|we're\s+painting|we\s+are\s+painting|let's\s+paint|paint|add|include)\s+(?:the\s+)?([a-z0-9\s',.-]+)$/i
+  )
+
+  if (customIntentMatch) {
+    let candidate = customIntentMatch[1].trim()
+    candidate = candidate.replace(/[.,!?;:]+$/, "").trim()
+    const candLower = candidate.toLowerCase()
+
+    // Check if it's already a known room or generic prompt
+    const isRoom = KNOWN_ROOM_NAMES.some((r) => candLower === r || candLower.includes(r))
+    if (!isRoom && candidate.length > 2) {
+      // Check for count or measurements
+      const countMatch = candidate.match(/^(\d+)\s+([a-z0-9\s'-]+)$/i)
+      const lnFtMatch = candidate.match(
+        /([a-z0-9\s'-]+?),\s*(\d+(?:\.\d+)?)\s*(?:linear\s+feet|linear\s+ft|ln\s+ft|feet|foot|ft|')\b/i
+      )
+      const sqftMatch = candidate.match(
+        /([a-z0-9\s'-]+?),\s*(\d+(?:\.\d+)?)\s*(?:square\s+feet|square\s+ft|sq\s+ft|sqft)\b/i
+      )
+
+      if (countMatch) {
+        const count = parseInt(countMatch[1], 10)
+        const name = titleCase(countMatch[2].trim())
+        return {
+          type: "ADD_SURFACE",
+          surfaceName: name,
+          rateId: `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          category: "Custom",
+          count,
+          coatCount: 2,
+          isOneOff: true,
+          oneOffBasis: "hours_per_item",
+          oneOffSpeed: 1.5,
+          requiresConfirmation: false,
+          summary: `Add ${count} ${name} (custom line item) to estimate.`,
+        }
+      }
+
+      if (lnFtMatch) {
+        const name = titleCase(lnFtMatch[1].trim())
+        const linearFt = parseFloat(lnFtMatch[2])
+        return {
+          type: "ADD_SURFACE",
+          surfaceName: `${name} (${linearFt} ln ft)`,
+          rateId: `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          category: "Custom",
+          linearFt,
+          coatCount: 2,
+          isOneOff: true,
+          oneOffBasis: "lnft_per_hour",
+          oneOffSpeed: 25,
+          requiresConfirmation: false,
+          summary: `Add ${name} (${linearFt} linear ft, custom line item) to estimate.`,
+        }
+      }
+
+      if (sqftMatch) {
+        const name = titleCase(sqftMatch[1].trim())
+        const sqft = parseFloat(sqftMatch[2])
+        return {
+          type: "ADD_SURFACE",
+          surfaceName: `${name} (${sqft} sq ft)`,
+          rateId: `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          category: "Custom",
+          sqft,
+          coatCount: 2,
+          isOneOff: true,
+          oneOffBasis: "sqft_per_hour",
+          oneOffSpeed: 100,
+          requiresConfirmation: false,
+          summary: `Add ${name} (${sqft} sq ft, custom line item) to estimate.`,
+        }
+      }
+
+      // No measurement provided: ask short, relevant question
+      const name = titleCase(candidate)
+      const prompt = `Got it. How many linear feet or items for ${name}?`
+      return {
+        type: "CLARIFY",
+        prompt,
+        missingField: "customMeasurements",
+        requiresConfirmation: false,
+        summary: prompt,
+        context: {
+          entityKind: "custom_surface",
+          name,
+          step: 1,
+        },
+      }
+    }
+  }
+
+  return null
 }
 
 /**
@@ -1022,13 +1587,25 @@ export function parseVoiceCommand(rawTranscript: string): ParsedVoiceResult {
     return { action: jobNote, rawTranscript: cleaned, confidence: 0.95 }
   }
 
-  // 2. Follow-up Room Updates (doors, windows, surfaces, ceiling height)
+  // 2. Remove surface (e.g. "Don't include the trim", "No baseboards")
+  const removeSurface = parseRemoveSurfaceCommand(cleaned)
+  if (removeSurface) {
+    return { action: removeSurface, rawTranscript: cleaned, confidence: 0.95 }
+  }
+
+  // 3. Follow-up Room Updates (doors, windows, surfaces, dimensions, "change bedroom walls to 15 by 20")
   const updateRoom = parseUpdateRoomCommand(cleaned)
   if (updateRoom) {
     return { action: updateRoom, rawTranscript: cleaned, confidence: 0.95 }
   }
 
-  // 3. Walkthrough Estimating (Add Room)
+  // 4. Exterior & Custom Surfaces (e.g. "Exterior, we need to paint the eaves", "Add the fascia boards", "Add two garage doors", "Add pergola beams")
+  const extOrCustom = parseExteriorOrCustomSurfaceCommand(cleaned)
+  if (extOrCustom) {
+    return { action: extOrCustom, rawTranscript: cleaned, confidence: 0.95 }
+  }
+
+  // 5. Walkthrough Estimating (Add Room)
   const addRoom = parseAddRoomCommand(cleaned)
   if (addRoom) {
     return { action: addRoom, rawTranscript: cleaned, confidence: 0.95 }

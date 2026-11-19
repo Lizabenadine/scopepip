@@ -16,8 +16,18 @@ function surface(rateId: string, coatCount: number, itemCount = 0): SurfaceInput
 export function quickRoom(name: string, kind: EstimateKind): AreaInput | null {
   const trimmed = name.trim()
   if (!trimmed) return null
+  const lower = trimmed.toLowerCase()
   const known = AREA_TEMPLATES.find(
-    (template) => template.kind === kind && template.name.toLowerCase() === trimmed.toLowerCase(),
+    (template) =>
+      template.name.toLowerCase() === lower ||
+      template.id.toLowerCase() === lower ||
+      (lower === "soffits" && template.id === "soffit") ||
+      (lower === "garage door" && template.id === "garage-doors") ||
+      (lower === "gutter" && template.id === "gutters") ||
+      (lower === "railing" && template.id === "railings") ||
+      (lower === "fences" && template.id === "fence") ||
+      (lower === "porches" && template.id === "porch") ||
+      (lower === "entry door" && template.id === "entry-doors"),
   )
   if (known) return areaFromTemplate(known.id)
   if (kind === "exterior") {

@@ -3,12 +3,16 @@ import { describe, it } from "node:test"
 import {
   executeVoiceAction,
   buildAreaFromVoiceAction,
+  buildAreaFromSurfaceAction,
   applyRoomUpdateToAreas,
+  applyRemoveSurfaceFromAreas,
   type VoiceExecutionContext,
 } from "./voice-executor.ts"
 import type {
   AddRoomAction,
   UpdateRoomAction,
+  AddSurfaceAction,
+  RemoveSurfaceAction,
   AddJobNoteAction,
   CreateLeadAction,
   AddCustomerNoteAction,
@@ -300,5 +304,92 @@ describe("Voice Action Executor", () => {
     const result = executeVoiceAction(action, ctx)
     assert.equal(result.ok, true)
     assert.equal(noteAdded, "Customer wants semi-gloss on trim")
+  })
+
+  it("builds surface area and executes ADD_SURFACE via ctx.onAddRoom", () => {
+    let roomAdded: AreaInput | null = null
+    const ctx: VoiceExecutionContext = {
+      clients: mockClients,
+      estimates: mockEstimates,
+      createLead: () => ({ ok: true }),
+      navigate: () => {},
+      onAddRoom: (room) => {
+        roomAdded = room
+      },
+    }
+
+    const action: AddSurfaceAction = {
+      type: "ADD_SURFACE",
+      surfaceName: "Exterior Eaves (180' × 2' depth)",
+      rateId: "eaves",
+      category: "Exterior",
+      linearFt: 180,
+      lengthFt: 180,
+      widthFt: 2,
+      sqft: 360,
+      coatCount: 2,
+      requiresConfirmation: false,
+      summary: "Add Exterior Eaves (180' × 2' depth) to estimate.",
+    }
+
+    const result = executeVoiceAction(action, ctx)
+    assert.equal(result.ok, true)
+    assert.ok(roomAdded)
+    assert.equal((roomAdded as AreaInput | null)?.name, "Exterior Eaves (180' × 2' depth)")
+    assert.equal((roomAdded as AreaInput | null)?.surfaces[0]?.rateId, "eaves")
+    assert.equal((roomAdded as AreaInput | null)?.surfaces[0]?.quantityOverride, 360)
+  })
+
+  it("creates one-off rate for custom unmodeled surfaces", () => {
+    const action: AddSurfaceAction = {
+      type: "ADD_SURFACE",
+      surfaceName: "Pergola Beams",
+      rateId: "custom-pergola-beams",
+      category: "Custom",
+      linearFt: 60,
+      coatCount: 2,
+      isOneOff: true,
+      oneOffBasis: "lnft_per_hour",
+      oneOffSpeed: 25,
+      requiresConfirmation: false,
+      summary: "Add Pergola Beams (60 linear ft, custom line item) to estimate.",
+    }
+
+    const { area, rateToAdd } = buildAreaFromSurfaceAction(action)
+    assert.ok(area)
+    assert.ok(rateToAdd)
+    assert.equal(rateToAdd?.oneOff, true)
+    assert.equal(rateToAdd?.basis, "lnft_per_hour")
+    assert.equal(rateToAdd?.internalLabel, "Pergola Beams")
+  })
+
+  it("removes surface from areas using applyRemoveSurfaceFromAreas", () => {
+    const existingAreas: AreaInput[] = [
+      {
+        id: "room-1",
+        name: "Living Room",
+        areaType: "room",
+        lengthFt: 15,
+        widthFt: 20,
+        heightFt: 8,
+        crewNote: "",
+        surfaces: [
+          { id: "s-1", rateId: "walls", coatCount: 2, itemCount: 0, quantityOverride: null, crewNote: "" },
+          { id: "s-2", rateId: "trim", coatCount: 2, itemCount: 0, quantityOverride: null, crewNote: "" },
+        ],
+      },
+    ]
+
+    const removeAction: RemoveSurfaceAction = {
+      type: "REMOVE_SURFACE",
+      surfaceKeyword: "trim",
+      requiresConfirmation: false,
+      summary: "Exclude trim from current estimate.",
+    }
+
+    const res = applyRemoveSurfaceFromAreas(existingAreas, removeAction)
+    assert.equal(res.updated, true)
+    assert.equal(res.areas[0].surfaces.length, 1)
+    assert.equal(res.areas[0].surfaces[0].rateId, "walls")
   })
 })

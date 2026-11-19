@@ -37,11 +37,13 @@ import {
   type VoiceAction,
   type AddRoomAction,
   type UpdateRoomAction,
+  type AddSurfaceAction,
+  type RemoveSurfaceAction,
   type AddJobNoteAction,
   type ClarifyAction,
 } from "@/lib/voice/voice-parser"
 import { executeVoiceAction, type VoiceExecutionContext } from "@/lib/voice/voice-executor"
-import type { AreaInput } from "@/lib/types"
+import type { AreaInput, ProductionRate, RateBasis } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 interface SpeechRecognitionAlternative {
@@ -97,8 +99,9 @@ function getSpeechRecognitionConstructor(): { new (): SpeechRecognitionInstance 
 export interface VoiceAssistantModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddRoom?: (room: AreaInput) => void
+  onAddRoom?: (room: AreaInput, rateToAdd?: ProductionRate) => void
   onUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+  onRemoveSurface?: (action: RemoveSurfaceAction) => { updated: boolean; message?: string }
   onAddJobNote?: (note: AddJobNoteAction) => { ok: boolean; message?: string }
   initialMode?: "general" | "estimator"
 }
@@ -108,6 +111,7 @@ export function VoiceAssistantModal({
   onOpenChange,
   onAddRoom,
   onUpdateRoom,
+  onRemoveSurface,
   onAddJobNote,
   initialMode = "general",
 }: VoiceAssistantModalProps) {
@@ -297,7 +301,6 @@ export function VoiceAssistantModal({
 
   function handleVoiceProcessed(spokenText: string) {
     const activeClarification = pendingClarificationRef.current
-
     // If waiting for clarification, attempt to merge with pending partial room
     if (activeClarification && activeClarification.partialRoom) {
       const normalizedSpoken = normalizeSpokenNumbers(spokenText).trim()
@@ -369,14 +372,171 @@ export function VoiceAssistantModal({
       }
     }
 
+    // If waiting for clarification with context (exterior surfaces or custom items)
+    if (activeClarification && activeClarification.context) {
+      const normalizedSpoken = normalizeSpokenNumbers(spokenText).trim()
+      const ctx = activeClarification.context
+
+      // Extract number(s) from spoken reply
+      const numMatch = normalizedSpoken.match(/(\d+(?:\.\d+)?)/)
+      const spokenNum = numMatch ? parseFloat(numMatch[1]) : 0
+
+      if (ctx.entityKind === "exterior_surface") {
+        if (ctx.rateId === "eaves") {
+          // Turn 1 -> linear feet -> ask width/depth
+          if (ctx.step === 1 && spokenNum > 0) {
+            const prompt = "What's the width or depth of the eaves?"
+            const nextClarify: ClarifyAction = {
+              type: "CLARIFY",
+              prompt,
+              missingField: "widthFt",
+              requiresConfirmation: false,
+              summary: prompt,
+              context: {
+                ...ctx,
+                linearFt: spokenNum,
+                step: 2,
+              },
+            }
+            setPendingClarification(nextClarify)
+            pendingClarificationRef.current = nextClarify
+            setParsedResult({ action: nextClarify, rawTranscript: spokenText, confidence: 0.95 })
+            setCommandInput("")
+            setErrorMessage(null)
+            setSuccessMessage(null)
+            isProcessedRef.current = false
+            return
+          }
+          // Turn 2 -> width/depth -> create eaves item
+          if (ctx.step === 2 && spokenNum > 0) {
+            const linearFt = ctx.linearFt ?? 180
+            const widthFt = spokenNum
+            const sqft = linearFt * widthFt
+            const completeAction: AddSurfaceAction = {
+              type: "ADD_SURFACE",
+              surfaceName: `${ctx.name} (${linearFt}' × ${widthFt}' depth)`,
+              rateId: ctx.rateId,
+              category: "Exterior",
+              linearFt,
+              lengthFt: linearFt,
+              widthFt,
+              sqft,
+              coatCount: 2,
+              requiresConfirmation: false,
+              summary: `Add ${ctx.name} (${linearFt}' × ${widthFt}' depth, ${linearFt} linear ft) to estimate.`,
+            }
+            setPendingClarification(null)
+            pendingClarificationRef.current = null
+            setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+            executeAction(completeAction)
+            return
+          }
+        }
+
+        // For item counts (garage doors, entry doors)
+        if (activeClarification.missingField === "itemCount" && spokenNum > 0) {
+          const completeAction: AddSurfaceAction = {
+            type: "ADD_SURFACE",
+            surfaceName: ctx.name,
+            rateId: ctx.rateId || "garage-doors",
+            category: "Exterior",
+            count: spokenNum,
+            coatCount: 2,
+            requiresConfirmation: false,
+            summary: `Add ${spokenNum} ${ctx.name} to estimate.`,
+          }
+          setPendingClarification(null)
+          pendingClarificationRef.current = null
+          setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+          executeAction(completeAction)
+          return
+        }
+
+        // For linear ft (fascia, gutters, railings)
+        if (activeClarification.missingField === "linearFt" && spokenNum > 0) {
+          const completeAction: AddSurfaceAction = {
+            type: "ADD_SURFACE",
+            surfaceName: `${ctx.name} (${spokenNum} linear ft)`,
+            rateId: ctx.rateId || "fascia",
+            category: "Exterior",
+            linearFt: spokenNum,
+            coatCount: 2,
+            requiresConfirmation: false,
+            summary: `Add ${ctx.name} (${spokenNum} linear ft) to estimate.`,
+          }
+          setPendingClarification(null)
+          pendingClarificationRef.current = null
+          setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+          executeAction(completeAction)
+          return
+        }
+
+        // For sqft (siding, stucco, deck, porch)
+        if (activeClarification.missingField === "dimensions" && spokenNum > 0) {
+          const completeAction: AddSurfaceAction = {
+            type: "ADD_SURFACE",
+            surfaceName: `${ctx.name} (${spokenNum} sq ft)`,
+            rateId: ctx.rateId || "siding",
+            category: "Exterior",
+            sqft: spokenNum,
+            coatCount: 2,
+            requiresConfirmation: false,
+            summary: `Add ${ctx.name} (${spokenNum} sq ft) to estimate.`,
+          }
+          setPendingClarification(null)
+          pendingClarificationRef.current = null
+          setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+          executeAction(completeAction)
+          return
+        }
+      }
+
+      if (ctx.entityKind === "custom_surface") {
+        if (spokenNum > 0) {
+          const isLnft = /\b(linear|ln|feet|foot|ft|')\b/i.test(normalizedSpoken)
+          const isSqft = /\b(sq|square)\b/i.test(normalizedSpoken)
+          const isItem =
+            /\b(item|items|column|columns|beam|beams|piece|pieces|door|doors)\b/i.test(normalizedSpoken) ||
+            (!isLnft && !isSqft)
+
+          const oneOffBasis: RateBasis = isLnft ? "lnft_per_hour" : isSqft ? "sqft_per_hour" : "hours_per_item"
+          const speed = isItem ? 1.5 : isLnft ? 25 : 100
+
+          const completeAction: AddSurfaceAction = {
+            type: "ADD_SURFACE",
+            surfaceName: ctx.name,
+            rateId: `custom-${ctx.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            category: "Custom",
+            count: isItem ? spokenNum : undefined,
+            linearFt: isLnft ? spokenNum : undefined,
+            sqft: isSqft ? spokenNum : undefined,
+            coatCount: 2,
+            isOneOff: true,
+            oneOffBasis,
+            oneOffSpeed: speed,
+            requiresConfirmation: false,
+            summary: `Add ${spokenNum} ${isItem ? "items" : isLnft ? "linear ft" : "sq ft"} of ${ctx.name} (custom line item) to estimate.`,
+          }
+          setPendingClarification(null)
+          pendingClarificationRef.current = null
+          setParsedResult({ action: completeAction, rawTranscript: spokenText, confidence: 0.95 })
+          executeAction(completeAction)
+          return
+        }
+      }
+    }
+
     const parsed = parseVoiceCommand(spokenText)
     setParsedResult(parsed)
 
     if (parsed.action.type === "CLARIFY") {
       setPendingClarification(parsed.action)
+      pendingClarificationRef.current = parsed.action
+      setCommandInput("")
       setErrorMessage(null)
       setSuccessMessage(null)
       setIsConfirming(false)
+      isProcessedRef.current = false
       return
     }
 
@@ -416,6 +576,7 @@ export function VoiceAssistantModal({
       },
       onAddRoom,
       onUpdateRoom,
+      onRemoveSurface,
       onAddJobNote,
     }
 
@@ -797,6 +958,7 @@ export function VoiceAssistantButton({
   initialMode = "general",
   onAddRoom,
   onUpdateRoom,
+  onRemoveSurface,
   onAddJobNote,
   testId = "voice-assistant-button",
 }: {
@@ -805,8 +967,9 @@ export function VoiceAssistantButton({
   size?: "sm" | "default" | "lg"
   label?: string
   initialMode?: "general" | "estimator"
-  onAddRoom?: (room: AreaInput) => void
+  onAddRoom?: (room: AreaInput, rateToAdd?: ProductionRate) => void
   onUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+  onRemoveSurface?: (action: RemoveSurfaceAction) => { updated: boolean; message?: string }
   onAddJobNote?: (note: AddJobNoteAction) => { ok: boolean; message?: string }
   testId?: string
 }) {
@@ -836,6 +999,7 @@ export function VoiceAssistantButton({
         onOpenChange={setOpen}
         onAddRoom={onAddRoom}
         onUpdateRoom={onUpdateRoom}
+        onRemoveSurface={onRemoveSurface}
         onAddJobNote={onAddJobNote}
         initialMode={initialMode}
       />

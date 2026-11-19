@@ -32,7 +32,7 @@ import { PAINT_BRANDS, PAINT_SHEENS, type AreaGroup, type AreaInput, type AreaOp
 import { RoomSketchpad } from "@/components/estimator/room-sketchpad"
 import { VoiceAssistantButton } from "@/components/voice/voice-assistant-modal"
 import { parseVoiceCommand } from "@/lib/voice/voice-parser"
-import { buildAreaFromVoiceAction, applyRoomUpdateToAreas } from "@/lib/voice/voice-executor"
+import { buildAreaFromVoiceAction, applyRoomUpdateToAreas, applyRemoveSurfaceFromAreas } from "@/lib/voice/voice-executor"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 function withBlankDimensions(room: AreaInput): AreaInput {
@@ -160,8 +160,12 @@ const group = createAreaGroup(groupDraft)
           <VoiceAssistantButton
             label="Voice Walkthrough"
             initialMode="estimator"
-            onAddRoom={(room) => {
-              onChange([...areas, room])
+            onAddRoom={(room, rateToAdd) => {
+              if (rateToAdd) {
+                onChange([...areas, room], undefined, undefined, [...rates, rateToAdd])
+              } else {
+                onChange([...areas, room])
+              }
             }}
             onUpdateRoom={(update) => {
               const res = applyRoomUpdateToAreas(areas, update)
@@ -172,6 +176,13 @@ const group = createAreaGroup(groupDraft)
                   ? `Added ${res.matchedRoomName} to current estimate.`
                   : `Updated ${res.matchedRoomName}: added ${update.summary}`,
               }
+            }}
+            onRemoveSurface={(action) => {
+              const res = applyRemoveSurfaceFromAreas(areas, action)
+              if (res.updated) {
+                onChange(res.areas)
+              }
+              return res
             }}
             testId="estimator-voice-assistant"
             className="h-7 text-xs font-semibold rounded-md bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
@@ -207,8 +218,12 @@ const group = createAreaGroup(groupDraft)
           <VoiceAssistantButton
             label="Walkthrough Mic"
             initialMode="estimator"
-            onAddRoom={(room) => {
-              onChange([...areas, room])
+            onAddRoom={(room, rateToAdd) => {
+              if (rateToAdd) {
+                onChange([...areas, room], undefined, undefined, [...rates, rateToAdd])
+              } else {
+                onChange([...areas, room])
+              }
             }}
             onUpdateRoom={(update) => {
               const res = applyRoomUpdateToAreas(areas, update)
@@ -219,6 +234,13 @@ const group = createAreaGroup(groupDraft)
                   ? `Added ${res.matchedRoomName} to current estimate.`
                   : `Updated ${res.matchedRoomName}: added ${update.summary}`,
               }
+            }}
+            onRemoveSurface={(action) => {
+              const res = applyRemoveSurfaceFromAreas(areas, action)
+              if (res.updated) {
+                onChange(res.areas)
+              }
+              return res
             }}
             testId="estimator-walkthrough-mic"
             className="h-11 rounded-lg border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-3 text-sm shrink-0"

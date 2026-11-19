@@ -1,9 +1,12 @@
-import type { AreaInput, Client, Estimate, ProductionRate } from "@/lib/types"
-import { quickRoom } from "@/lib/estimate/quick-room"
-import type { LeadReach } from "@/lib/leads/office-lead"
+import type { AreaInput, Client, Estimate, ProductionRate, RateBasis } from "../types.ts"
+import { quickRoom } from "../estimate/quick-room.ts"
+import { createOneOffRate } from "../estimate/one-off.ts"
+import type { LeadReach } from "../leads/office-lead.ts"
 import type {
   AddRoomAction,
   UpdateRoomAction,
+  AddSurfaceAction,
+  RemoveSurfaceAction,
   AddJobNoteAction,
   CreateLeadAction,
   AddCustomerNoteAction,
@@ -32,8 +35,9 @@ export interface VoiceExecutionContext {
   scheduleSalesVisit?: (id: string, date: string, time: string, address?: string) => void
   advanceSalesStage?: (id: string) => void
   navigate: (href: string) => void
-  onAddRoom?: (room: AreaInput) => void
+  onAddRoom?: (room: AreaInput, rateToAdd?: ProductionRate) => void
   onUpdateRoom?: (update: UpdateRoomAction) => { updated: boolean; message?: string }
+  onRemoveSurface?: (action: RemoveSurfaceAction) => { updated: boolean; message?: string }
   onAddJobNote?: (note: AddJobNoteAction) => { ok: boolean; message?: string }
 }
 
@@ -42,8 +46,127 @@ export interface VoiceExecutionResult {
   message: string
   redirect?: string
   roomAdded?: AreaInput
+  rateAdded?: ProductionRate
   needsClarification?: boolean
   clarificationPrompt?: string
+}
+
+/**
+ * Creates an AreaInput surface object and optional one-off ProductionRate from a parsed AddSurfaceAction.
+ */
+export function buildAreaFromSurfaceAction(
+  action: AddSurfaceAction,
+): { area: AreaInput; rateToAdd?: ProductionRate } {
+  let rateToAdd: ProductionRate | undefined
+
+  if (action.isOneOff) {
+    const basis: RateBasis =
+      action.oneOffBasis || (action.linearFt ? "lnft_per_hour" : action.count ? "hours_per_item" : "sqft_per_hour")
+    const speed = action.oneOffSpeed || (basis === "hours_per_item" ? 1.5 : basis === "lnft_per_hour" ? 25 : 100)
+    const newRate = createOneOffRate({
+      label: action.surfaceName,
+      basis,
+      speed,
+      kind: action.category === "Exterior" ? "exterior" : "interior",
+    })
+    if (newRate) {
+      rateToAdd = newRate
+      action.rateId = newRate.id
+    }
+  }
+
+  const surfaceId = crypto.randomUUID()
+  const areaId = crypto.randomUUID()
+
+  const area: AreaInput = {
+    id: areaId,
+    name: action.surfaceName,
+    areaType: "surface",
+    lengthFt: action.lengthFt ?? action.linearFt ?? 0,
+    widthFt: action.widthFt ?? 0,
+    heightFt: 0,
+    crewNote: "",
+    surfaces: [
+      {
+        id: surfaceId,
+        rateId: action.rateId,
+        coatCount: action.coatCount || 2,
+        itemCount: action.count ?? 0,
+        quantityOverride: action.sqft ?? action.linearFt ?? null,
+        crewNote: "",
+      },
+    ],
+  }
+
+  return { area, rateToAdd }
+}
+
+/**
+ * Removes specified surface keyword from one or all areas in estimate.
+ */
+export function applyRemoveSurfaceFromAreas(
+  areas: AreaInput[],
+  action: RemoveSurfaceAction,
+): { updated: boolean; areas: AreaInput[]; message: string } {
+  const keyword = action.surfaceKeyword.toLowerCase()
+  let removedCount = 0
+
+  const targetAreas = action.roomName
+    ? areas.filter((a) => a.name.toLowerCase().includes(action.roomName!.toLowerCase()))
+    : areas
+
+  if (targetAreas.length === 0) {
+    return {
+      updated: false,
+      areas,
+      message: action.roomName ? `Could not find room "${action.roomName}".` : "No areas in current estimate.",
+    }
+  }
+
+  const updatedAreas = areas.map((area) => {
+    if (action.roomName && !area.name.toLowerCase().includes(action.roomName.toLowerCase())) {
+      return area
+    }
+
+    const nextSurfaces = area.surfaces.filter((surface) => {
+      const match =
+        (keyword === "trim" && (surface.rateId === "trim" || surface.rateId === "baseboards" || surface.rateId.includes("trim"))) ||
+        (keyword === "baseboards" && surface.rateId === "baseboards") ||
+        (keyword === "ceiling" && (surface.rateId === "ceiling" || surface.rateId.includes("ceiling"))) ||
+        (keyword === "walls" && (surface.rateId === "walls" || surface.rateId.includes("wall"))) ||
+        (keyword === "crown" && (surface.rateId === "crown" || surface.rateId.includes("crown"))) ||
+        (keyword === "doors" && (surface.rateId.includes("door") || surface.rateId === "doors")) ||
+        (keyword === "windows" && (surface.rateId.includes("window") || surface.rateId === "windows")) ||
+        surface.rateId.toLowerCase().includes(keyword)
+
+      if (match) {
+        removedCount++
+        return false
+      }
+      return true
+    })
+
+    return {
+      ...area,
+      surfaces: nextSurfaces,
+    }
+  })
+
+  if (removedCount > 0) {
+    return {
+      updated: true,
+      areas: updatedAreas,
+      message: action.roomName
+        ? `Removed ${action.surfaceKeyword} from ${action.roomName}.`
+        : `Removed ${action.surfaceKeyword} from current estimate.`,
+    }
+  }
+
+  return {
+    updated: false,
+    areas,
+    message: `No ${action.surfaceKeyword} surfaces found to remove.`,
+  }
 }
 
 /**
@@ -147,7 +270,16 @@ export function applyRoomUpdateToAreas(
     }
 
     // Apply surfaces
-    if (update.surfacesToAdd && update.surfacesToAdd.length > 0) {
+    if (update.surfacesToSet && update.surfacesToSet.length > 0) {
+      updatedRoom.surfaces = update.surfacesToSet.map((surface) => ({
+        id: crypto.randomUUID(),
+        rateId: surface.rateId,
+        coatCount: surface.coatCount,
+        itemCount: surface.itemCount ?? (surface.rateId.includes("door") || surface.rateId.includes("window") ? 1 : 0),
+        quantityOverride: null,
+        crewNote: "",
+      }))
+    } else if (update.surfacesToAdd && update.surfacesToAdd.length > 0) {
       for (const surface of update.surfacesToAdd) {
         const existingSurface = updatedRoom.surfaces.find((s) => s.rateId === surface.rateId)
         if (!existingSurface) {
@@ -316,6 +448,87 @@ export function executeVoiceAction(action: VoiceAction, ctx: VoiceExecutionConte
         ok: true,
         message: `Opening Estimator to update ${action.roomName}.`,
         redirect: "/estimate",
+      }
+    }
+
+    case "ADD_SURFACE": {
+      const { area, rateToAdd } = buildAreaFromSurfaceAction(action)
+      console.log("[VoiceExecutor] ADD_SURFACE:", area.name, "has ctx.onAddRoom:", Boolean(ctx.onAddRoom))
+
+      // 1. If currently inside Estimator with onAddRoom callback
+      if (ctx.onAddRoom) {
+        ctx.onAddRoom(area, rateToAdd)
+        return {
+          ok: true,
+          message: `${action.surfaceName} added to current estimate.`,
+          roomAdded: area,
+          rateAdded: rateToAdd,
+        }
+      }
+
+      // 2. If on dashboard or another route, check window.__scopepipeAddRoom
+      if (typeof window !== "undefined") {
+        const win = window as unknown as {
+          __scopepipeAddRoom?: (room: AreaInput, rate?: ProductionRate) => void
+        }
+        if (typeof win.__scopepipeAddRoom === "function") {
+          win.__scopepipeAddRoom(area, rateToAdd)
+          return {
+            ok: true,
+            message: `${action.surfaceName} added to current estimate.`,
+            roomAdded: area,
+            rateAdded: rateToAdd,
+          }
+        }
+      }
+
+      // 3. Otherwise store in sessionStorage and navigate to /estimate
+      if (typeof window !== "undefined" && typeof sessionStorage !== "undefined") {
+        try {
+          sessionStorage.setItem("scopepipe:pending-voice-room", JSON.stringify(area))
+          if (rateToAdd) {
+            sessionStorage.setItem("scopepipe:pending-voice-rate", JSON.stringify(rateToAdd))
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      ctx.navigate("/estimate")
+      return {
+        ok: true,
+        message: `${action.surfaceName} created. Opening Estimator.`,
+        redirect: "/estimate",
+        roomAdded: area,
+        rateAdded: rateToAdd,
+      }
+    }
+
+    case "REMOVE_SURFACE": {
+      if (ctx.onRemoveSurface) {
+        const res = ctx.onRemoveSurface(action)
+        return {
+          ok: res.updated,
+          message: res.message || (res.updated ? action.summary : "No matching surfaces found."),
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        const win = window as unknown as {
+          __scopepipeRemoveSurface?: (action: RemoveSurfaceAction) => { updated: boolean; message?: string }
+        }
+        if (typeof win.__scopepipeRemoveSurface === "function") {
+          const res = win.__scopepipeRemoveSurface(action)
+          return {
+            ok: res.updated,
+            message: res.message || (res.updated ? action.summary : "No matching surfaces found."),
+          }
+        }
+      }
+
+      return {
+        ok: false,
+        message: "No active estimate open to remove surfaces from. Open an estimate first.",
       }
     }
 
