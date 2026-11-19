@@ -158,4 +158,51 @@ describe("custom columns", () => {
     assert.equal(nextEstimates.some((e) => e.id === "est-lena"), true)
     assert.equal(nextEstimates.some((e) => e.id === "est-rosa"), true)
   })
+
+  it("edits/renames a lead including client name, job title, and contact info, updating the pipeline card immediately", () => {
+    const state = createSeedState()
+    const targetEstimate = state.estimates.find((e) => e.id === "est-maya")!
+    const targetClient = state.clients.find((c) => c.id === targetEstimate.clientId)!
+
+    // Simulate updateLead logic
+    const now = new Date().toISOString()
+    const updatedEstimate = {
+      ...targetEstimate,
+      title: "Updated Living Room & Hallway",
+      jobAddress: "789 Pine Ave, Portland, OR",
+      updatedAt: now,
+    }
+    const updatedClients = state.clients.map((c) =>
+      c.id === targetClient.id
+        ? {
+            ...c,
+            name: "Maya Lin Renovated",
+            phone: "(503) 555-8899",
+            email: "maya.new@example.com",
+            address: "789 Pine Ave, Portland, OR",
+            updatedAt: now,
+          }
+        : c,
+    )
+    const updatedState = {
+      ...state,
+      estimates: state.estimates.map((e) => (e.id === targetEstimate.id ? updatedEstimate : e)),
+      clients: updatedClients,
+    }
+
+    const pipeline = buildPipeline(updatedState, "sales", OPEN_FILTERS, TODAY)
+    const allCards = pipeline.flatMap((col) => col.cards)
+    const card = allCards.find((c) => c.estimateId === "est-maya")
+    assert.ok(card)
+    assert.equal(card.clientName, "Maya Lin Renovated")
+
+    const client = updatedState.clients.find((c) => c.id === targetEstimate.clientId)
+    assert.equal(client?.phone, "(503) 555-8899")
+    assert.equal(client?.email, "maya.new@example.com")
+    assert.equal(client?.address, "789 Pine Ave, Portland, OR")
+
+    const est = updatedState.estimates.find((e) => e.id === "est-maya")
+    assert.equal(est?.title, "Updated Living Room & Hallway")
+    assert.equal(est?.jobAddress, "789 Pine Ave, Portland, OR")
+  })
 })

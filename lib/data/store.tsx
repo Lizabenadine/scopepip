@@ -738,6 +738,16 @@ export interface ScopeApi {
   ) => { ok: true } | { ok: false; reason: string }
   markJobPaid: (estimateId: string) => void
   updateClient: (id: string, patch: Partial<Client>) => void
+  updateLead: (
+    estimateId: string,
+    data: {
+      name?: string
+      title?: string
+      phone?: string
+      email?: string
+      address?: string
+    },
+  ) => void
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
   updateEstimateSettings: (settings: EstimateSettings) => void
   setCoatRate: (rateId: string, coats: number, value: number) => void
@@ -1394,6 +1404,42 @@ function buildApi(snapshot: Snapshot): ScopeApi {
             : client,
         ),
       })
+    },
+    updateLead: (estimateId, data) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return
+      const now = new Date().toISOString()
+      const client = latest.clients.find((c) => c.id === estimate.clientId)
+
+      const updatedEstimate: Estimate = {
+        ...estimate,
+        ...(data.title !== undefined ? { title: data.title.trim() } : {}),
+        ...(data.address !== undefined ? { jobAddress: data.address.trim() } : {}),
+        updatedAt: now,
+      }
+
+      const updatedClients = client
+        ? latest.clients.map((c) =>
+            c.id === client.id
+              ? {
+                  ...c,
+                  ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+                  ...(data.phone !== undefined ? { phone: data.phone.trim() } : {}),
+                  ...(data.email !== undefined ? { email: data.email.trim() } : {}),
+                  ...(data.address !== undefined ? { address: data.address.trim() } : {}),
+                  updatedAt: now,
+                }
+              : c,
+          )
+        : latest.clients
+
+      commit({
+        ...latest,
+        estimates: latest.estimates.map((e) => (e.id === estimateId ? updatedEstimate : e)),
+        clients: updatedClients,
+      })
+      void flushBook()
     },
     deleteClient: (id) => {
       const latest = getSnapshot().state
