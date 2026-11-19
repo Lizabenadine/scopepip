@@ -91,6 +91,7 @@ let bootstrapped = false
 let officeSession: OfficeSession | null = null
 let bookRevision = 0
 let lastSyncedState: ScopeState | null = null
+const pendingDeletedEstimateIds = new Set<string>()
 let saving = false
 let dirty = false
 let activePump: Promise<void> | null = null
@@ -427,6 +428,37 @@ async function pumpBook() {
         const state = getSnapshot().state
         const revision = bookRevision
         if (officeSession) saveBrowserBook(officeSession.companyId, revision, state)
+        if (pendingDeletedEstimateIds.size > 0) {
+          for (const delId of Array.from(pendingDeletedEstimateIds)) {
+            try {
+              const delResponse = await fetch(`/api/account/book/estimate?id=${encodeURIComponent(delId)}`, {
+                method: "DELETE",
+              })
+              if (delResponse.ok) {
+                const saved = (await delResponse.json().catch(() => null)) as { revision?: number } | null
+                if (typeof saved?.revision === "number") bookRevision = saved.revision
+                pendingDeletedEstimateIds.delete(delId)
+                if (lastSyncedState) {
+                  lastSyncedState = {
+                    ...lastSyncedState,
+                    estimates: lastSyncedState.estimates.filter((e) => e.id !== delId),
+                    workOrders: lastSyncedState.workOrders.filter((o) => o.estimateId !== delId),
+                  }
+                }
+              } else if (delResponse.status === 404) {
+                pendingDeletedEstimateIds.delete(delId)
+              }
+            } catch {
+              // retry on next pump
+            }
+          }
+          if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, state)
+          if (pendingDeletedEstimateIds.size === 0) {
+            dirty = false
+            lastSyncResult = { ok: true }
+            break
+          }
+        }
         try {
           const single = singleChangedEstimate(lastSyncedState, state)
           const singleDeleted = singleDeletedEstimate(lastSyncedState, state)
@@ -1011,6 +1043,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       return { ...restored, estimate: next }
     },
     deleteEstimate: (id) => {
+      pendingDeletedEstimateIds.add(id)
       const latest = getSnapshot().state
       commit({
         ...latest,
@@ -1156,6 +1189,12 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           nextLabels = { ...stored, ...nextLabels }
         } catch {}
       }
+      if (lastSyncedState) {
+        lastSyncedState = {
+          ...lastSyncedState,
+          columnLabels: nextLabels,
+        }
+      }
       const custom = (latest.customColumns ?? []).find((column) => column.id === id)
       if (custom) {
         commit({
@@ -1163,11 +1202,9 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           customColumns: (latest.customColumns ?? []).map((column) => (column.id === id ? { ...column, label: name } : column)),
           columnLabels: nextLabels,
         })
-        void flushBook()
         return
       }
       commit({ ...latest, columnLabels: nextLabels })
-      void flushBook()
     },
     removeCustomColumn: (id) => {
       const latest = getSnapshot().state
