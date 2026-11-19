@@ -517,22 +517,47 @@ function JobsPipelineBoard({ kind }: { kind: "sales" | "jobs" }) {
                 <header className="flex items-baseline justify-between gap-2 px-1">
                   {renaming === column.id ? (
                     <form
-                      className="flex min-w-0 flex-1 gap-1"
+                      className="flex min-w-0 flex-1 items-center gap-1.5"
                       onSubmit={(event) => {
                         event.preventDefault()
-                        if (!renameValue.trim()) return
-                        scope.renameBoardColumn(column.id, renameValue)
+                        const trimmed = renameValue.trim()
+                        if (!trimmed) return
+                        scope.renameBoardColumn(column.id, trimmed)
                         setRenaming(null)
                       }}
                     >
                       <Input
                         value={renameValue}
                         aria-label={`Rename ${column.label}`}
-                        className="h-8"
+                        data-testid={`rename-input-${column.id}`}
+                        className="h-8 text-xs font-medium bg-background"
+                        autoFocus
                         onValueChange={setRenameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            e.preventDefault()
+                            setRenaming(null)
+                          }
+                        }}
                       />
-                      <Button type="submit" className="h-8 px-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="h-8 px-2.5 text-xs font-semibold"
+                        data-testid={`save-column-${column.id}`}
+                      >
                         Save
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        data-testid={`cancel-rename-${column.id}`}
+                        onClick={() => setRenaming(null)}
+                      >
+                        Cancel
                       </Button>
                     </form>
                   ) : (

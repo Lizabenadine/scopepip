@@ -179,8 +179,19 @@ async function pushEstimateChanges(previous: ScopeState, next: ScopeState) {
 
 function withBookSubstrates(state: ScopeState): ScopeState {
   const productionRates = ensureSubstrateRates(state.productionRates)
-  if (productionRates === state.productionRates) return state
-  return { ...state, productionRates }
+  let columnLabels = state.columnLabels ?? {}
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("scopepipe:column-labels")
+      if (raw) {
+        const stored = JSON.parse(raw)
+        if (stored && typeof stored === "object") {
+          columnLabels = { ...stored, ...columnLabels }
+        }
+      }
+    } catch {}
+  }
+  return { ...state, productionRates, columnLabels }
 }
 
 export function flushBook(): Promise<{ ok: true } | { ok: false; reason: string }> {
@@ -993,6 +1004,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         estimates: latest.estimates.filter((estimate) => estimate.id !== id),
         workOrders: latest.workOrders.filter((order) => order.estimateId !== id),
       })
+      void flushBook()
     },
     acceptEstimate: (id) => {
       const latest = getSnapshot().state
@@ -1120,15 +1132,28 @@ function buildApi(snapshot: Snapshot): ScopeApi {
       const name = label.trim().slice(0, 40)
       if (!name) return
       const latest = getSnapshot().state
+      let nextLabels = { ...(latest.columnLabels ?? {}), [id]: name }
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("scopepipe:column-labels")
+          const stored = raw ? JSON.parse(raw) : {}
+          stored[id] = name
+          localStorage.setItem("scopepipe:column-labels", JSON.stringify(stored))
+          nextLabels = { ...stored, ...nextLabels }
+        } catch {}
+      }
       const custom = (latest.customColumns ?? []).find((column) => column.id === id)
       if (custom) {
         commit({
           ...latest,
           customColumns: (latest.customColumns ?? []).map((column) => (column.id === id ? { ...column, label: name } : column)),
+          columnLabels: nextLabels,
         })
+        void flushBook()
         return
       }
-      commit({ ...latest, columnLabels: { ...latest.columnLabels, [id]: name } })
+      commit({ ...latest, columnLabels: nextLabels })
+      void flushBook()
     },
     removeCustomColumn: (id) => {
       const latest = getSnapshot().state

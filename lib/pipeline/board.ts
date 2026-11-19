@@ -89,7 +89,14 @@ export function boardColumns(
   kind: "sales" | "jobs",
 ): { id: string; label: string; empty: string; custom: boolean }[] {
   const builtIn = kind === "sales" ? SALES_COLUMNS : JOB_COLUMNS
-  const labels = state.columnLabels ?? {}
+  let localLabels: Record<string, string> = {}
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("scopepipe:column-labels")
+      if (raw) localLabels = JSON.parse(raw) || {}
+    } catch {}
+  }
+  const labels = { ...localLabels, ...(state.columnLabels ?? {}) }
   const columns: { id: string; label: string; empty: string; custom: boolean }[] = builtIn.map((column) => ({
     id: column.id,
     label: labels[column.id]?.trim() || column.label,
@@ -98,7 +105,7 @@ export function boardColumns(
   }))
   const custom = (state.customColumns ?? []).filter((column) => column.kind === kind)
   custom.forEach((column, index) => {
-    const entry = { id: column.id, label: column.label, empty: "Nothing in this column.", custom: true }
+    const entry = { id: column.id, label: labels[column.id]?.trim() || column.label, empty: "Nothing in this column.", custom: true }
     const anchor = columns.findIndex((item) => item.id === column.after)
     if (anchor < 0) {
       columns.push(entry)

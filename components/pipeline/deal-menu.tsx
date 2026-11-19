@@ -18,6 +18,7 @@ import { localVisitClock } from "@/lib/appointments/visit"
 import { useScope } from "@/lib/data/store"
 import { boardColumns, jobStageOf, nextSalesStage, SALES_COLUMNS, salesStageOf } from "@/lib/pipeline/board"
 import type { Estimate } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 export function DealMenu({
   estimate,
@@ -28,7 +29,7 @@ export function DealMenu({
   clientName: string
   mode: "sales" | "jobs"
 }) {
-  const { session, stages, crews, addEstimateNote, scheduleSalesVisit, advanceSalesStage, archiveEstimate, assignWorkOrder, workOrders, markCustomerReply, placeOnColumn, customColumns, columnLabels } =
+  const { session, stages, crews, addEstimateNote, scheduleSalesVisit, advanceSalesStage, archiveEstimate, deleteEstimate, assignWorkOrder, workOrders, markCustomerReply, placeOnColumn, customColumns, columnLabels } =
     useScope()
   const noteEntries = cardNoteEntries(estimate)
   const limited = session?.role === "project_manager"
@@ -37,9 +38,10 @@ export function DealMenu({
   const [appointments, setAppointments] = useState(false)
   const [schedule, setSchedule] = useState<"visit" | "job" | null>(null)
   const [noteOpen, setNoteOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [note, setNote] = useState("")
-  const [point, setPoint] = useState<{ top: number; left: number } | null>(null)
+  const [point, setPoint] = useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null)
   const order = workOrders.find((item) => item.estimateId === estimate.id)
   const salesStage = salesStageOf(estimate)
   const nextSales = salesStage ? nextSalesStage(salesStage) : null
@@ -87,7 +89,23 @@ export function DealMenu({
         className="text-xs font-medium text-muted-foreground hover:text-foreground"
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect()
-          setPoint({ top: rect.bottom + 6, left: Math.max(8, rect.right - 240) })
+          const spaceBelow = window.innerHeight - rect.bottom
+          const spaceAbove = rect.top
+          const openUpward = spaceBelow < 380 && spaceAbove > spaceBelow
+          const maxHeight = Math.max(160, Math.min(500, (openUpward ? spaceAbove : spaceBelow) - 16))
+          if (openUpward) {
+            setPoint({
+              bottom: window.innerHeight - rect.top + 6,
+              left: Math.max(8, rect.right - 240),
+              maxHeight,
+            })
+          } else {
+            setPoint({
+              top: rect.bottom + 6,
+              left: Math.max(8, rect.right - 240),
+              maxHeight,
+            })
+          }
           setAppointments(false)
           setOpen((current) => !current)
         }}
@@ -101,8 +119,13 @@ export function DealMenu({
             role="menu"
             data-testid={`deal-actions-${estimate.id}`}
             ref={menuRef}
-            className="fixed z-50 max-h-[70vh] w-60 overflow-y-auto rounded-2xl border border-border bg-popover py-1 text-sm text-popover-foreground shadow-md"
-            style={{ top: point.top, left: point.left }}
+            className="fixed z-50 w-60 overflow-y-auto rounded-2xl border border-border bg-popover py-1 text-sm text-popover-foreground shadow-md"
+            style={{
+              top: point.top,
+              bottom: point.bottom,
+              left: point.left,
+              maxHeight: point.maxHeight,
+            }}
           >
             {limited ? (
               <>
@@ -129,6 +152,16 @@ export function DealMenu({
                   }}
                 >
                   Notes
+                </MenuButton>
+                <MenuButton
+                  testId={`delete-job-${estimate.id}`}
+                  className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
+                  onClick={() => {
+                    setOpen(false)
+                    setConfirmDelete(true)
+                  }}
+                >
+                  Delete
                 </MenuButton>
               </>
             ) : null}
@@ -278,6 +311,16 @@ export function DealMenu({
             >
               Archive
             </MenuButton>
+            <MenuButton
+              testId={`delete-job-${estimate.id}`}
+              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
+              onClick={() => {
+                setOpen(false)
+                setConfirmDelete(true)
+              }}
+            >
+              Delete
+            </MenuButton>
             </>
             )}
           </div>
@@ -315,6 +358,37 @@ export function DealMenu({
           }}
         />
       ) : null}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent data-testid={`delete-dialog-${estimate.id}`}>
+          <DialogHeader>
+            <DialogTitle>Delete Job</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the job for <strong>{clientName}</strong>? This action cannot be undone and will delete only this job.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              data-testid={`cancel-delete-${estimate.id}`}
+              onClick={() => setConfirmDelete(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              data-testid={`confirm-delete-${estimate.id}`}
+              onClick={() => {
+                deleteEstimate(estimate.id)
+                setConfirmDelete(false)
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={messagesOpen} onOpenChange={setMessagesOpen}>
         <DialogContent>
           <DialogHeader>
@@ -409,11 +483,13 @@ function MenuButton({
   disabled,
   children,
   testId,
+  className,
 }: {
   onClick: () => void
   disabled?: boolean
   children: string
   testId?: string
+  className?: string
 }) {
   return (
     <button
@@ -422,7 +498,10 @@ function MenuButton({
       data-testid={testId}
       disabled={disabled}
       onClick={onClick}
-      className="block w-full px-3 py-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:text-muted-foreground"
+      className={cn(
+        "block w-full px-3 py-2 text-left hover:bg-muted disabled:cursor-not-allowed disabled:text-muted-foreground",
+        className,
+      )}
     >
       {children}
     </button>

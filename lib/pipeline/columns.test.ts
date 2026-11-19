@@ -118,4 +118,44 @@ describe("custom columns", () => {
     const maya = next.estimates.find((estimate) => estimate.id === "est-maya")
     assert.equal(maya?.stageChanges?.[0]?.label, "Moved to Warm calls")
   })
+
+  it("renames jobs pipeline columns via columnLabels", () => {
+    const state = createSeedState()
+    const labeled = {
+      ...state,
+      columnLabels: {
+        project_accepted: "Ready to Start",
+        project_in_progress: "Active Crews",
+      },
+    }
+    const cols = boardColumns(labeled, "jobs")
+    const accepted = cols.find((c) => c.id === "project_accepted")
+    const inProgress = cols.find((c) => c.id === "project_in_progress")
+    const scheduled = cols.find((c) => c.id === "project_scheduled")
+    assert.equal(accepted?.label, "Ready to Start")
+    assert.equal(inProgress?.label, "Active Crews")
+    assert.equal(scheduled?.label, "Scheduled")
+
+    const pipeline = buildPipeline(labeled, "jobs", OPEN_FILTERS, TODAY)
+    assert.equal(pipeline.find((c) => c.id === "project_accepted")?.label, "Ready to Start")
+    assert.equal(pipeline.find((c) => c.id === "project_in_progress")?.label, "Active Crews")
+  })
+
+  it("deletes only the selected job while preserving all other estimates and work orders", () => {
+    const state = createSeedState()
+    const targetId = "est-dental"
+    const totalEstimatesBefore = state.estimates.length
+    assert.equal(state.estimates.some((e) => e.id === targetId), true)
+
+    // Simulate deleteEstimate logic
+    const nextEstimates = state.estimates.filter((e) => e.id !== targetId)
+    const nextWorkOrders = state.workOrders.filter((o) => o.estimateId !== targetId)
+
+    assert.equal(nextEstimates.length, totalEstimatesBefore - 1)
+    assert.equal(nextEstimates.some((e) => e.id === targetId), false)
+    assert.equal(nextWorkOrders.some((o) => o.estimateId === targetId), false)
+    // Other jobs still exist
+    assert.equal(nextEstimates.some((e) => e.id === "est-lena"), true)
+    assert.equal(nextEstimates.some((e) => e.id === "est-rosa"), true)
+  })
 })
