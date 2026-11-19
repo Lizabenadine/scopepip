@@ -1061,6 +1061,12 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         workOrders: latest.workOrders.filter((order) => order.estimateId !== id),
       })
       if (officeSession) void deleteSyncedEstimate(officeSession.companyId, id)
+      try {
+        void fetch(`/api/account/book/estimate?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          keepalive: true,
+        }).catch(() => {})
+      } catch {}
       void flushBook()
     },
     acceptEstimate: (id) => {
@@ -1419,19 +1425,19 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         updatedAt: now,
       }
 
+      const updatedClient: Client | undefined = client
+        ? {
+            ...client,
+            ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+            ...(data.phone !== undefined ? { phone: data.phone.trim() } : {}),
+            ...(data.email !== undefined ? { email: data.email.trim() } : {}),
+            ...(data.address !== undefined ? { address: data.address.trim() } : {}),
+            updatedAt: now,
+          }
+        : undefined
+
       const updatedClients = client
-        ? latest.clients.map((c) =>
-            c.id === client.id
-              ? {
-                  ...c,
-                  ...(data.name !== undefined ? { name: data.name.trim() } : {}),
-                  ...(data.phone !== undefined ? { phone: data.phone.trim() } : {}),
-                  ...(data.email !== undefined ? { email: data.email.trim() } : {}),
-                  ...(data.address !== undefined ? { address: data.address.trim() } : {}),
-                  updatedAt: now,
-                }
-              : c,
-          )
+        ? latest.clients.map((c) => (c.id === client.id ? updatedClient! : c))
         : latest.clients
 
       commit({
@@ -1439,6 +1445,38 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         estimates: latest.estimates.map((e) => (e.id === estimateId ? updatedEstimate : e)),
         clients: updatedClients,
       })
+
+      void (async () => {
+        try {
+          const encoded = await encodeBookBody({
+            revision: bookRevision,
+            estimate: updatedEstimate,
+            ...(updatedClient ? { client: updatedClient } : {}),
+          })
+          const res = await fetch("/api/account/book/estimate", {
+            method: "PATCH",
+            headers: encoded.headers,
+            body: encoded.body,
+            keepalive: true,
+          })
+          if (res.ok) {
+            const saved = (await res.json().catch(() => null)) as { revision?: number } | null
+            if (typeof saved?.revision === "number") bookRevision = saved.revision
+            if (lastSyncedState) {
+              lastSyncedState = {
+                ...lastSyncedState,
+                estimates: lastSyncedState.estimates.map((e) => (e.id === estimateId ? updatedEstimate : e)),
+                clients: updatedClient
+                  ? lastSyncedState.clients.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+                  : lastSyncedState.clients,
+              }
+            }
+            if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, getSnapshot().state)
+          }
+        } catch {
+          // ignore
+        }
+      })()
       void flushBook()
     },
     deleteClient: (id) => {

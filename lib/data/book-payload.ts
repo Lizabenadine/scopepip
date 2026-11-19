@@ -66,24 +66,6 @@ export function singleChangedEstimate(
   next: ScopeState,
 ): SingleEstimatePatch | null {
   if (!previous) return null
-  if (
-    previous.version !== next.version ||
-    !sameJson(previous.stages, next.stages) ||
-    !sameJson(previous.crews, next.crews) ||
-    !sameJson(previous.productionRates, next.productionRates) ||
-    !sameJson(previous.estimateSettings, next.estimateSettings) ||
-    !sameJson(previous.paymentMethods, next.paymentMethods) ||
-    !sameJson(previous.customColumns, next.customColumns) ||
-    !sameJson(previous.columnLabels, next.columnLabels) ||
-    !sameJson(previous.savedTemplates, next.savedTemplates) ||
-    !sameJson(previous.areaNames, next.areaNames) ||
-    !sameJson(previous.learnedPaces, next.learnedPaces) ||
-    !sameJson(previous.followUpSequences, next.followUpSequences) ||
-    !sameJson(previous.unmatchedTexts, next.unmatchedTexts) ||
-    !sameJson(previous.zapierDelivered, next.zapierDelivered)
-  ) {
-    return null
-  }
 
   const estDiff = changedItemsById(previous.estimates, next.estimates, (item) => item.id)
   if (estDiff.removed || estDiff.changed.length !== 1) return null

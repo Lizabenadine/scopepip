@@ -44,9 +44,6 @@ export async function PATCH(request: Request) {
     return Response.json({ reason: "The estimate save payload could not be read." }, { status: 400 })
   }
 
-  const current = await readCompanyBook(session.companyId)
-  if (!current) return Response.json({ reason: "This company has no book." }, { status: 404 })
-
   const client =
     body.client && typeof body.client === "object" && "id" in body.client
       ? (body.client as Client)
@@ -56,26 +53,34 @@ export async function PATCH(request: Request) {
       ? (body.workOrder as WorkOrder)
       : undefined
 
-  const patched = applySingleEstimatePatch(current.state, {
-    estimate: body.estimate,
-    client,
-    workOrder,
-  })
-  const state = session.role === "estimator" ? bookForEstimator(current.state, patched, session.id) : patched
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const current = await readCompanyBook(session.companyId)
+    if (!current) return Response.json({ reason: "This company has no book." }, { status: 404 })
 
-  try {
-    const saved = await writeCompanyBook(session.companyId, body.revision, state)
-    if (!saved.ok && "state" in saved) {
-      return Response.json({ reason: "conflict", revision: saved.revision, state: saved.state }, { status: 409 })
+    const patched = applySingleEstimatePatch(current.state, {
+      estimate: body.estimate,
+      client,
+      workOrder,
+    })
+    const state = session.role === "estimator" ? bookForEstimator(current.state, patched, session.id) : patched
+
+    try {
+      const saved = await writeCompanyBook(session.companyId, current.revision, state)
+      if (saved.ok) {
+        return Response.json({ ok: true, revision: saved.revision })
+      }
+      if ("state" in saved) {
+        continue
+      }
+      return Response.json({ reason: saved.reason }, { status: 404 })
+    } catch (error) {
+      const reason = error instanceof Error && error.message.trim()
+        ? `Could not save this estimate: ${error.message}`
+        : "Could not save this estimate to your account. Your edits are still on screen."
+      return Response.json({ reason }, { status: 500 })
     }
-    if (!saved.ok) return Response.json({ reason: saved.reason }, { status: 404 })
-    return Response.json({ ok: true, revision: saved.revision })
-  } catch (error) {
-    const reason = error instanceof Error && error.message.trim()
-      ? `Could not save this estimate: ${error.message}`
-      : "Could not save this estimate to your account. Your edits are still on screen."
-    return Response.json({ reason }, { status: 500 })
   }
+  return Response.json({ reason: "conflict" }, { status: 409 })
 }
 
 export async function DELETE(request: Request) {
