@@ -10,7 +10,7 @@ import { readBrowserBook, saveBrowserBook } from "@/lib/auth/browser-book"
 import type { OfficeSession } from "@/lib/auth/session"
 import { writeFieldLanguage } from "@/lib/field/language"
 import { createBlankState, createCompanyBook } from "@/lib/data/company-book"
-import { singleChangedEstimate } from "@/lib/data/book-payload"
+import { singleChangedEstimate, singleDeletedEstimate } from "@/lib/data/book-payload"
 import { isScopeState, type ScopeState } from "@/lib/data/seed"
 import { ensureSubstrateRates, quoteRates } from "@/lib/estimate/substrate"
 import { applyAssignment, workOrderForStage } from "@/lib/dispatch/assign"
@@ -429,14 +429,27 @@ async function pumpBook() {
         if (officeSession) saveBrowserBook(officeSession.companyId, revision, state)
         try {
           const single = singleChangedEstimate(lastSyncedState, state)
-          const encoded = single
-            ? await encodeBookBody({ revision, ...single })
-            : await encodeBookBody({ revision, state })
-          const response = await fetch(single ? "/api/account/book/estimate" : "/api/account/book", {
-            method: single ? "PATCH" : "PUT",
-            headers: encoded.headers,
-            body: encoded.body,
-          })
+          const singleDeleted = singleDeletedEstimate(lastSyncedState, state)
+          let response: Response
+          if (single) {
+            const encoded = await encodeBookBody({ revision, ...single })
+            response = await fetch("/api/account/book/estimate", {
+              method: "PATCH",
+              headers: encoded.headers,
+              body: encoded.body,
+            })
+          } else if (singleDeleted) {
+            response = await fetch(`/api/account/book/estimate?id=${encodeURIComponent(singleDeleted.id)}`, {
+              method: "DELETE",
+            })
+          } else {
+            const encoded = await encodeBookBody({ revision, state })
+            response = await fetch("/api/account/book", {
+              method: "PUT",
+              headers: encoded.headers,
+              body: encoded.body,
+            })
+          }
           if (response.status === 409) {
             const fresh = (await response.json()) as { revision?: number; state?: unknown }
             if (typeof fresh.revision === "number" && isScopeState(fresh.state)) {
@@ -1004,6 +1017,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         estimates: latest.estimates.filter((estimate) => estimate.id !== id),
         workOrders: latest.workOrders.filter((order) => order.estimateId !== id),
       })
+      if (officeSession) void deleteSyncedEstimate(officeSession.companyId, id)
       void flushBook()
     },
     acceptEstimate: (id) => {

@@ -77,3 +77,33 @@ export async function PATCH(request: Request) {
     return Response.json({ reason }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  const session = await sessionFromRequest(request)
+  if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
+  const id = new URL(request.url).searchParams.get("id")?.trim() ?? ""
+  if (!id) return Response.json({ reason: "Estimate id is required." }, { status: 400 })
+
+  const current = await readCompanyBook(session.companyId)
+  if (!current) return Response.json({ reason: "This company has no book." }, { status: 404 })
+
+  const state = {
+    ...current.state,
+    estimates: current.state.estimates.filter((estimate) => estimate.id !== id),
+    workOrders: current.state.workOrders.filter((order) => order.estimateId !== id),
+  }
+
+  try {
+    const saved = await writeCompanyBook(session.companyId, current.revision, state)
+    if (!saved.ok && "state" in saved) {
+      return Response.json({ reason: "conflict", revision: saved.revision, state: saved.state }, { status: 409 })
+    }
+    if (!saved.ok) return Response.json({ reason: saved.reason }, { status: 404 })
+    return Response.json({ ok: true, revision: saved.revision })
+  } catch (error) {
+    const reason = error instanceof Error && error.message.trim()
+      ? `Could not delete this estimate: ${error.message}`
+      : "Could not delete this estimate from your account."
+    return Response.json({ reason }, { status: 500 })
+  }
+}

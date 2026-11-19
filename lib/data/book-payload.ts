@@ -106,6 +106,55 @@ export function singleChangedEstimate(
   }
 }
 
+export function singleDeletedEstimate(
+  previous: ScopeState | null,
+  next: ScopeState,
+): { id: string } | null {
+  if (!previous) return null
+  if (
+    previous.version !== next.version ||
+    !sameJson(previous.stages, next.stages) ||
+    !sameJson(previous.crews, next.crews) ||
+    !sameJson(previous.productionRates, next.productionRates) ||
+    !sameJson(previous.estimateSettings, next.estimateSettings) ||
+    !sameJson(previous.paymentMethods, next.paymentMethods) ||
+    !sameJson(previous.customColumns, next.customColumns) ||
+    !sameJson(previous.columnLabels, next.columnLabels) ||
+    !sameJson(previous.savedTemplates, next.savedTemplates) ||
+    !sameJson(previous.areaNames, next.areaNames) ||
+    !sameJson(previous.learnedPaces, next.learnedPaces) ||
+    !sameJson(previous.followUpSequences, next.followUpSequences) ||
+    !sameJson(previous.unmatchedTexts, next.unmatchedTexts) ||
+    !sameJson(previous.zapierDelivered, next.zapierDelivered)
+  ) {
+    return null
+  }
+
+  // Exactly one estimate removed, none added, none changed
+  const nextEstimateIds = new Set(next.estimates.map((e) => e.id))
+  const removedEstimates = previous.estimates.filter((e) => !nextEstimateIds.has(e.id))
+  if (removedEstimates.length !== 1) return null
+  if (next.estimates.length !== previous.estimates.length - 1) return null
+
+  // Ensure remaining estimates are identical
+  const prevMap = new Map(previous.estimates.map((e) => [e.id, e]))
+  for (const item of next.estimates) {
+    if (!sameJson(prevMap.get(item.id), item)) return null
+  }
+
+  // Clients must not have changed
+  if (!sameJson(previous.clients, next.clients)) return null
+
+  // Work orders: at most one removed (matching the deleted estimateId)
+  const deletedEstimateId = removedEstimates[0]!.id
+  const nextWorkOrderIds = new Set(next.workOrders.map((o) => o.estimateId))
+  const removedOrders = previous.workOrders.filter((o) => !nextWorkOrderIds.has(o.estimateId))
+  if (removedOrders.length > 1) return null
+  if (removedOrders.length === 1 && removedOrders[0]!.estimateId !== deletedEstimateId) return null
+
+  return { id: deletedEstimateId }
+}
+
 function upsertByKey<T>(items: T[], nextItem: T, keyOf: (item: T) => string, prepend = true): T[] {
   const key = keyOf(nextItem)
   if (items.some((item) => keyOf(item) === key)) {

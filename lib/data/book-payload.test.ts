@@ -6,6 +6,7 @@ import {
   isSingleEstimatePayload,
   parseBookPayload,
   singleChangedEstimate,
+  singleDeletedEstimate,
 } from "./book-payload.ts"
 import { createSeedState } from "./seed.ts"
 
@@ -101,6 +102,25 @@ test("singleChangedEstimate returns null when global settings or multiple estima
     ),
   }
   assert.equal(singleChangedEstimate(previous, changedTwo), null)
+})
+
+test("singleDeletedEstimate detects single deleted estimate and work order cleanly", () => {
+  const previous = createSeedState()
+  const targetId = previous.estimates[0]!.id
+  const next = {
+    ...previous,
+    estimates: previous.estimates.filter((e) => e.id !== targetId),
+    workOrders: previous.workOrders.filter((o) => o.estimateId !== targetId),
+  }
+  const deleted = singleDeletedEstimate(previous, next)
+  assert.deepEqual(deleted, { id: targetId })
+
+  // Returns null if multiple estimates removed or global settings changed
+  const multipleRemoved = {
+    ...previous,
+    estimates: previous.estimates.slice(2),
+  }
+  assert.equal(singleDeletedEstimate(previous, multipleRemoved), null)
 })
 
 test("applySingleEstimatePatch prepends new estimate without touching existing estimate dimensions", () => {
