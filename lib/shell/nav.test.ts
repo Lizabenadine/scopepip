@@ -35,6 +35,7 @@ describe("office nav data", () => {
     ])
     assert.deepEqual(owner.find((section) => section.name === "Documents")?.links.map((link) => link.name), [
       "Proposals",
+      "Signed Proposals",
       "Invoices & Payments",
     ])
     assert.deepEqual(

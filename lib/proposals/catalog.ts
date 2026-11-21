@@ -3,25 +3,54 @@ import type { Client, ClientStatus, Estimate } from "../types.ts"
 export interface ProposalListing {
   id: string
   clientName: string
+  clientId?: string
   title: string
   status: ClientStatus
   updatedAt: string
+  isSigned: boolean
+  signedName?: string | null
+  signedAt?: string | null
+  publicToken: string
 }
 
-export function listProposals(estimates: Estimate[], clients: Client[]): ProposalListing[] {
+export function isSignedProposal(estimate: Estimate): boolean {
+  return Boolean(
+    estimate.signature ||
+    estimate.acceptedAt ||
+    estimate.clientStatus === "accepted" ||
+    estimate.paymentStatus === "deposit_paid" ||
+    estimate.paymentStatus === "paid" ||
+    estimate.versions?.some((v) => v.approved)
+  )
+}
+
+export function listProposals(estimates: Estimate[], clients: Client[] = []): ProposalListing[] {
   return estimates
     .filter(
       (estimate) =>
         estimate.clientStatus === "sent" ||
         estimate.clientStatus === "accepted" ||
-        estimate.clientStatus === "declined",
+        estimate.clientStatus === "declined" ||
+        isSignedProposal(estimate),
     )
-    .map((estimate) => ({
-      id: estimate.id,
-      clientName: clients.find((client) => client.id === estimate.clientId)?.name ?? "Client",
-      title: estimate.title || "Estimate",
-      status: estimate.clientStatus,
-      updatedAt: estimate.updatedAt,
-    }))
+    .map((estimate) => {
+      const signed = isSignedProposal(estimate)
+      const effectiveStatus: ClientStatus = signed ? "accepted" : estimate.clientStatus
+      const signedName = estimate.signature?.signedName || null
+      const signedAt = estimate.signature?.signedAt || estimate.acceptedAt || null
+      const client = clients?.find((c) => c.id === estimate.clientId)
+      return {
+        id: estimate.id,
+        clientName: client?.name ?? "Client",
+        clientId: estimate.clientId,
+        title: estimate.title || "Estimate",
+        status: effectiveStatus,
+        updatedAt: estimate.updatedAt,
+        isSigned: signed,
+        signedName,
+        signedAt,
+        publicToken: estimate.publicToken,
+      }
+    })
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }

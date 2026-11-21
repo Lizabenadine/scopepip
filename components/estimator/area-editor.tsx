@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTypedNumber } from "@/hooks/use-typed-number"
 import { AreaNamesDialog } from "@/components/estimator/area-names-dialog"
 import { OneOffRateForm } from "@/components/estimator/one-off-rate"
@@ -500,9 +500,29 @@ onToggleOneOff,
     document.getElementById(`${area.id}-length`)?.focus()
     onFocused()
   }, [focusLength, area.id, onFocused])
-const measures = measureArea(area)
-const roomGallons = roomGallonsEstimate(area, rates, materialRounding)
-const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
+  const measures = measureArea(area)
+  const roomGallons = roomGallonsEstimate(area, rates, materialRounding)
+
+  const quickSurfaces = useMemo(() => {
+    const heads = surfaceHeads(rates)
+    const priorityKeywords =
+      kind === "exterior"
+        ? ["siding", "stucco", "eave", "soffit", "fascia", "trim", "gutter", "door", "deck", "fence"]
+        : ["wall", "ceiling", "baseboard", "trim", "door", "window", "casing", "closet", "cabinet"]
+
+    const sorted = [...heads].sort((a, b) => {
+      const aLabel = a.internalLabel.toLowerCase()
+      const bLabel = b.internalLabel.toLowerCase()
+      const aIndex = priorityKeywords.findIndex((k) => aLabel.includes(k))
+      const bIndex = priorityKeywords.findIndex((k) => bLabel.includes(k))
+      const aScore = aIndex === -1 ? 999 : aIndex
+      const bScore = bIndex === -1 ? 999 : bIndex
+      return aScore - bScore
+    })
+    return sorted.slice(0, 8)
+  }, [rates, kind])
+
+  const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
     onChange({
       ...area,
       surfaces: area.surfaces.map((item) =>
@@ -510,13 +530,14 @@ const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
       ),
     })
   }
-const toggle = (rate: ProductionRate) => {
+
+  const toggle = (rate: ProductionRate) => {
     if (rate.oneOff) {
       onToggleOneOff(rate)
       return
     }
-const existing = area.surfaces.find((surface) => sameSubstrateGroup(rates, surface, rate))
-const surfaces = existing
+    const existing = area.surfaces.find((surface) => sameSubstrateGroup(rates, surface, rate))
+    const surfaces = existing
       ? area.surfaces.filter((surface) => !sameSubstrateGroup(rates, surface, rate))
       : [
           ...area.surfaces,
@@ -524,7 +545,7 @@ const surfaces = existing
             id: crypto.randomUUID(),
             rateId: rate.id,
             coatCount: rate.coatRates[rate.coatRates.length - 1]?.coats ?? 2,
-            itemCount: 0,
+            itemCount: rate.measure === "items" || rate.measure === "shutters" ? 1 : 0,
             quantityOverride: null,
             hoursOverride: null,
             crewNote: "",
@@ -629,12 +650,65 @@ area.areaType === areaType
           onChange={(heightFt) => onChange({ ...area, heightFt })}
         />
       </div>
+      {/* Quick ceiling height pills for fast mobile entry */}
+      <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <span className="text-[11px] font-medium text-slate-500">Ceiling:</span>
+        {[8, 9, 10, 12].map((h) => (
+          <button
+            key={h}
+            type="button"
+            onClick={() => onChange({ ...area, heightFt: h })}
+            className={`rounded-md px-2 py-0.5 text-xs font-medium border transition-colors ${
+              area.heightFt === h
+                ? "border-primary bg-primary/10 text-primary font-semibold"
+                : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            {h}&apos;
+          </button>
+        ))}
+      </div>
       <p className="mt-2 text-xs text-muted-foreground" data-testid="area-measures">
         {measures.wallSqFt} sq ft walls
         {openingSqFt(area.openings) > 0 ? ` after leaving out ${openingSqFt(area.openings)} sq ft of doors and windows` : ""}
         {" · "}
         {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft trim · <span className="font-semibold text-foreground">{roomGallons} gal</span>
       </p>
+
+      {/* Quick Surface Toggles (1-tap for fast mobile walkthroughs) */}
+      <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-slate-800">Quick Surfaces (1-tap toggle)</span>
+          <span className="text-[11px] text-muted-foreground">{area.surfaces.length} active</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {quickSurfaces.map((rate) => {
+            const surface = area.surfaces.find((item) => sameSubstrateGroup(rates, item, rate))
+            const isSelected = Boolean(surface)
+            return (
+              <button
+                key={rate.id}
+                type="button"
+                data-testid={`quick-surface-${rate.id}`}
+                onClick={() => toggle(rate)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground shadow-2xs font-semibold"
+                    : "border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <span>{isSelected ? "✓" : "+"}</span>
+                <span>{rate.internalLabel}</span>
+                {isSelected && (rate.measure === "items" || rate.measure === "shutters") && surface?.itemCount ? (
+                  <span className="rounded-full bg-white/20 px-1 text-[10px]">
+                    {surface.itemCount}
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      </div>
       {kind === "interior" && area.areaType === "room" ? (
         <details className="mt-3 rounded-xl border border-border p-3" open={undefined}>
           <summary className="cursor-pointer text-sm font-medium">Doors & windows {area.openings?.length ? `(${area.openings.length})` : "(optional)"}</summary>

@@ -195,4 +195,43 @@ test("super_admin can log in seamlessly through standard login flow", async () =
   }
 })
 
+test("sessionFromRequest and billingRedirect upgrade and recognize founder master admin even from stale owner cookies", async () => {
+  const { sessionFromRequest } = await import("./request.ts")
+  const { billingRedirect } = await import("../billing/guard.ts")
+  const { NextRequest } = await import("next/server.js")
+  const { signOfficeSession } = await import("./session-token.ts")
+  const { authSecret } = await import("./directory.ts")
+  const { sessionCookie } = await import("./session.ts")
+
+  // Simulate an old cookie where role was "owner" and trial expired
+  const staleCookie = {
+    id: "374258f7-136a-4431-a6af-f81c3a01b48c",
+    name: "Founder",
+    email: "nadieshda@aol.com",
+    role: "owner" as const,
+    companyId: "6121f9b9-59df-4190-b4ff-289a062f4c20",
+    companyName: "Scopepipe",
+    companySlug: "scopepipe",
+    subscriptionStatus: "trialing" as const,
+    trialEndsAt: "2026-11-19T00:00:00Z", // expired!
+    authUserId: "52618110-8404-4795-b6de-5758a78270fd",
+  }
+  const token = signOfficeSession(staleCookie, authSecret())
+  const req = new NextRequest("http://localhost:3000/dashboard", {
+    headers: { cookie: sessionCookie(token) },
+  })
+
+  // 1. sessionFromRequest must upgrade stale cookie to super_admin and lifetime
+  const session = await sessionFromRequest(req)
+  assert.ok(session)
+  assert.equal(session.role, "super_admin")
+  assert.equal(session.subscriptionStatus, "lifetime")
+  assert.equal(session.companyId, "6121f9b9-59df-4190-b4ff-289a062f4c20")
+
+  // 2. billingRedirect must NOT redirect to /billing
+  const redirectRes = await billingRedirect(req)
+  assert.equal(redirectRes, null, "Founder must never be redirected to billing even with expired trial date in cookie")
+})
+
+
 

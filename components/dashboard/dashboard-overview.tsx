@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import {
   ArrowRight,
   Briefcase,
@@ -46,6 +46,7 @@ export function DashboardOverview() {
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const today = todayIso()
+  const [activityFilter, setActivityFilter] = useState<"all" | "leads" | "estimates" | "signed" | "jobs">("all")
 
   const completedStageId = useMemo(
     () => stages.find((s) => s.slug === "completed")?.id,
@@ -132,12 +133,40 @@ export function DashboardOverview() {
       .slice(0, 5)
   }, [activeEstimates, today, completedStageId])
 
-  // Recent Won & Recent Leads summary
-  const recentProposals = useMemo(() => {
-    return [...activeEstimates]
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .slice(0, 6)
-  }, [activeEstimates])
+  // Filtered recent activity based on active pill
+  const filteredActivity = useMemo(() => {
+    let list = activeEstimates
+    if (activityFilter === "leads") {
+      list = list.filter((e) => {
+        const isWon =
+          e.clientStatus === "accepted" ||
+          e.paymentStatus === "deposit_paid" ||
+          e.paymentStatus === "paid" ||
+          Boolean(e.signature)
+        return !isWon && e.clientStatus !== "sent"
+      })
+    } else if (activityFilter === "estimates") {
+      list = list.filter((e) => e.clientStatus === "sent")
+    } else if (activityFilter === "signed") {
+      list = list.filter((e) =>
+        e.clientStatus === "accepted" ||
+        e.paymentStatus === "deposit_paid" ||
+        e.paymentStatus === "paid" ||
+        Boolean(e.signature) ||
+        Boolean(e.acceptedAt)
+      )
+    } else if (activityFilter === "jobs") {
+      list = list.filter((e) =>
+        Boolean(e.scheduledOn) ||
+        e.stageId === scheduledStageId ||
+        e.stageId === completedStageId ||
+        workOrders.some((w) => w.estimateId === e.id)
+      )
+    }
+    return [...list]
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+      .slice(0, 8)
+  }, [activeEstimates, activityFilter, scheduledStageId, completedStageId, workOrders])
 
   if (session?.role === "estimator") return <EstimatorPerformance />
 
@@ -248,111 +277,123 @@ export function DashboardOverview() {
         </div>
       </div>
 
-      {/* Main CRM Shortcuts: Sales Pipeline & Jobs Pipeline */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Sales Pipeline Card */}
-        {(() => {
-          const salesCardBody = (
-            <>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
-                    <TrendingUp className="size-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
-                      {say("Sales Pipeline")}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      {metrics.newLeadsCount + metrics.estimatesSentCount} {say("active leads")} ·{" "}
-                      <span className="font-semibold text-slate-700">{money(metrics.salesPipelineValue)}</span> {say("potential")}
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight className="size-5 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-600 transition-all" />
+      {/* 4 Core CRM Pillars: Leads, Estimates, Signed Contracts, Jobs */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 1. Leads Pillar */}
+        <Link
+          href="/sales-pipeline"
+          data-testid="summary-card-leads"
+          className="group relative flex flex-col justify-between rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/70 via-white to-white p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-sky-600 text-white shadow-xs">
+                <Users className="size-5" />
               </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-blue-50/80 pt-3 text-xs">
-                <span className="text-slate-600 font-medium">
-                  {metrics.estimatesSentCount} {say("proposals awaiting customer review")}
-                </span>
-                <span className="font-semibold text-blue-600 group-hover:underline">
-                  {say("Open Board")} →
-                </span>
-              </div>
-            </>
-          )
-          const salesClass =
-            "group relative flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-5 shadow-xs transition-all"
-          return salesPermitted ? (
-            <Link
-              href="/sales-pipeline"
-              data-testid="summary-card-sales-pipeline"
-              className={cn(
-                salesClass,
-                "cursor-pointer hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2",
-              )}
-            >
-              {salesCardBody}
-            </Link>
-          ) : (
-            <div data-testid="summary-card-sales-pipeline" className={salesClass}>
-              {salesCardBody}
+              <ArrowRight className="size-4 text-slate-400 group-hover:translate-x-1 group-hover:text-sky-600 transition-all" />
             </div>
-          )
-        })()}
+            <h2 className="mt-3 text-base font-semibold text-slate-900 group-hover:text-sky-700 transition-colors">
+              {say("Leads")}
+            </h2>
+            <p className="text-2xl font-bold font-display text-slate-900 mt-1">
+              {metrics.newLeadsCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {say("Inquiries & warm leads")}
+            </p>
+          </div>
+          <div className="mt-4 border-t border-sky-100/80 pt-2.5 text-xs font-semibold text-sky-700 flex items-center justify-between">
+            <span>{say("Sales Pipeline")}</span>
+            <span>→</span>
+          </div>
+        </Link>
 
-        {/* Jobs Pipeline Card */}
-        {(() => {
-          const jobsCardBody = (
-            <>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
-                    <Briefcase className="size-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                      {say("Jobs Pipeline")}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      {metrics.acceptedCount} {say("won jobs")} ·{" "}
-                      <span className="font-semibold text-emerald-700">{money(metrics.totalRevenue)}</span> {say("revenue")}
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight className="size-5 text-slate-400 group-hover:translate-x-1 group-hover:text-emerald-600 transition-all" />
+        {/* 2. Estimates Pillar */}
+        <Link
+          href="/estimate"
+          data-testid="summary-card-estimates"
+          className="group relative flex flex-col justify-between rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                <Send className="size-5" />
               </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-emerald-50/80 pt-3 text-xs">
-                <span className="text-slate-600 font-medium">
-                  {metrics.scheduledJobsCount} {say("jobs scheduled on calendar")}
-                </span>
-                <span className="font-semibold text-emerald-600 group-hover:underline">
-                  {say("Open Jobs")} →
-                </span>
-              </div>
-            </>
-          )
-          const jobsClass =
-            "group relative flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 shadow-xs transition-all"
-          return jobsPermitted ? (
-            <Link
-              href="/dispatch"
-              data-testid="summary-card-jobs-pipeline"
-              className={cn(
-                jobsClass,
-                "cursor-pointer hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2",
-              )}
-            >
-              {jobsCardBody}
-            </Link>
-          ) : (
-            <div data-testid="summary-card-jobs-pipeline" className={jobsClass}>
-              {jobsCardBody}
+              <ArrowRight className="size-4 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-600 transition-all" />
             </div>
-          )
-        })()}
+            <h2 className="mt-3 text-base font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
+              {say("Estimates")}
+            </h2>
+            <p className="text-2xl font-bold font-display text-slate-900 mt-1">
+              {metrics.estimatesSentCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {say("Proposals sent & review")}
+            </p>
+          </div>
+          <div className="mt-4 border-t border-blue-100/80 pt-2.5 text-xs font-semibold text-blue-700 flex items-center justify-between">
+            <span>{say("Open Estimator")}</span>
+            <span>→</span>
+          </div>
+        </Link>
+
+        {/* 3. Signed Contracts Pillar */}
+        <Link
+          href="/proposal?tab=signed"
+          data-testid="summary-card-signed-contracts"
+          className="group relative flex flex-col justify-between rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                <FileCheck2 className="size-5" />
+              </div>
+              <ArrowRight className="size-4 text-slate-400 group-hover:translate-x-1 group-hover:text-emerald-600 transition-all" />
+            </div>
+            <h2 className="mt-3 text-base font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
+              {say("Signed Contracts")}
+            </h2>
+            <p className="text-2xl font-bold font-display text-emerald-700 mt-1">
+              {metrics.acceptedCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              <span className="font-semibold text-emerald-800">{money(metrics.totalRevenue)}</span> {say("won revenue")}
+            </p>
+          </div>
+          <div className="mt-4 border-t border-emerald-100/80 pt-2.5 text-xs font-semibold text-emerald-700 flex items-center justify-between">
+            <span>{say("View Contracts")}</span>
+            <span>→</span>
+          </div>
+        </Link>
+
+        {/* 4. Jobs Pillar */}
+        <Link
+          href="/dispatch"
+          data-testid="summary-card-jobs"
+          className="group relative flex flex-col justify-between rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/70 via-white to-white p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-amber-600 text-white shadow-xs">
+                <Briefcase className="size-5" />
+              </div>
+              <ArrowRight className="size-4 text-slate-400 group-hover:translate-x-1 group-hover:text-amber-600 transition-all" />
+            </div>
+            <h2 className="mt-3 text-base font-semibold text-slate-900 group-hover:text-amber-700 transition-colors">
+              {say("Jobs & Dispatch")}
+            </h2>
+            <p className="text-2xl font-bold font-display text-slate-900 mt-1">
+              {metrics.scheduledJobsCount}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {say("Scheduled on calendar")}
+            </p>
+          </div>
+          <div className="mt-4 border-t border-amber-100/80 pt-2.5 text-xs font-semibold text-amber-800 flex items-center justify-between">
+            <span>{say("Jobs Dispatch")}</span>
+            <span>→</span>
+          </div>
+        </Link>
       </div>
 
       {/* KPI Business Overview Grid */}
@@ -504,27 +545,50 @@ export function DashboardOverview() {
         </section>
       </div>
 
-      {/* Recent Business Activity Summary (Clean table, not full duplicate cards) */}
+      {/* Recent Business Activity Summary (Clean table with filter tabs) */}
       <section className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">{say("Recent Project Activity")}</h2>
-            <p className="text-xs text-muted-foreground">{say("Latest proposals and ongoing work across the CRM")}</p>
+            <p className="text-xs text-muted-foreground">{say("Quick access across leads, proposals, signed contracts, and jobs")}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/sales-pipeline" className="text-xs font-medium text-primary hover:underline">
-              {say("Sales Pipeline")} →
-            </Link>
-            <span className="text-slate-300">|</span>
-            <Link href="/dispatch" className="text-xs font-medium text-primary hover:underline">
-              {say("Jobs Pipeline")} →
-            </Link>
+          <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs">
+            {(
+              [
+                { id: "all", label: say("All") },
+                { id: "leads", label: say("Leads") },
+                { id: "estimates", label: say("Estimates") },
+                { id: "signed", label: say("Signed Contracts") },
+                { id: "jobs", label: say("Jobs") },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActivityFilter(tab.id)}
+                className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
+                  activityFilter === tab.id
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {recentProposals.length === 0 ? (
+        {filteredActivity.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-muted-foreground">
-            {say("No recent proposals. Create a new lead or proposal to get started.")}
+            {activityFilter === "signed"
+              ? say("No signed contracts found. Once a client accepts a proposal, it appears here.")
+              : activityFilter === "jobs"
+                ? say("No scheduled jobs found.")
+                : activityFilter === "estimates"
+                  ? say("No sent estimates found.")
+                  : activityFilter === "leads"
+                    ? say("No open leads found.")
+                    : say("No recent activity found. Create a new lead or proposal to get started.")}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -539,13 +603,14 @@ export function DashboardOverview() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentProposals.map((estimate) => {
+                {filteredActivity.map((estimate) => {
                   const client = clients.find((c) => c.id === estimate.clientId)
                   const quote = quoteEstimate(estimate)
                   const isWon =
                     estimate.clientStatus === "accepted" ||
                     estimate.paymentStatus === "deposit_paid" ||
-                    estimate.paymentStatus === "paid"
+                    estimate.paymentStatus === "paid" ||
+                    Boolean(estimate.signature)
 
                   return (
                     <tr key={estimate.id} className="hover:bg-slate-50/70 transition-colors">
@@ -583,12 +648,22 @@ export function DashboardOverview() {
                         {quote.total > 0 ? money(quote.total) : "—"}
                       </td>
                       <td className="py-3 text-right">
-                        <Link
-                          href={isWon ? `/work-orders/${estimate.id}` : `/estimates/${estimate.id}`}
-                          className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
-                        >
-                          {isWon ? say("Work order") : say("Open")}
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isWon && (
+                            <Link
+                              href={`/proposal/${estimate.id}`}
+                              className="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50/60 px-2 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"
+                            >
+                              {say("Contract")}
+                            </Link>
+                          )}
+                          <Link
+                            href={isWon ? `/work-orders/${estimate.id}` : `/estimates/${estimate.id}`}
+                            className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
+                          >
+                            {isWon ? say("Work order") : say("Open")}
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   )

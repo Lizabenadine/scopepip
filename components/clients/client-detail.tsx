@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, CheckCircle2, FileCheck2, ExternalLink, Briefcase } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,6 +37,15 @@ export function ClientDetail({ id }: { id: string }) {
   }
 
   const jobs = scope.estimates.filter((estimate) => estimate.clientId === client.id)
+  const signedContracts = jobs.filter((estimate) =>
+    Boolean(
+      estimate.signature ||
+      estimate.acceptedAt ||
+      estimate.clientStatus === "accepted" ||
+      estimate.paymentStatus === "deposit_paid" ||
+      estimate.paymentStatus === "paid"
+    )
+  )
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -106,6 +115,77 @@ export function ClientDetail({ id }: { id: string }) {
         </Button>
       </form>
       <History clientId={client.id} />
+      <section className="flex flex-col gap-2" data-testid="client-signed-contracts">
+        <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase flex items-center gap-1.5">
+          <FileCheck2 className="size-3.5 text-emerald-600" />
+          Signed Contracts & Proposals ({signedContracts.length})
+        </h2>
+        {signedContracts.length === 0 ? (
+          <p className="text-sm text-muted-foreground rounded-xl border border-dashed border-slate-200 p-4 text-center">
+            No signed contracts yet. When {client.name} signs a proposal, the agreement appears here.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {signedContracts.map((estimate) => {
+              const quote = scope.quoteEstimate(estimate)
+              const signedName = estimate.signature?.signedName
+              const signedAt = estimate.signature?.signedAt || estimate.acceptedAt
+              return (
+                <li key={`signed-${estimate.id}`} className="rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={`/proposal/${estimate.id}`} className="font-semibold text-slate-900 hover:text-emerald-700 hover:underline">
+                          {estimate.title || "Painting Contract"}
+                        </Link>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                          <CheckCircle2 className="size-3" /> Signed & Accepted
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {signedName ? `Signed by ${signedName}` : "Accepted"}
+                        {signedAt ? ` on ${new Date(signedAt).toLocaleDateString()}` : ""}
+                        {" · "}
+                        {scopeSummary(estimate)}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                      <span className="font-display text-lg font-bold text-slate-900 tabular-nums">
+                        {money(quote.total)}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/proposal/${estimate.id}`}
+                          className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
+                        >
+                          Proposal
+                        </Link>
+                        <Link
+                          href={`/work-orders/${estimate.id}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 shadow-2xs"
+                        >
+                          <Briefcase className="size-3" /> Work Order
+                        </Link>
+                        {estimate.publicToken && (
+                          <Link
+                            href={`/p/${estimate.publicToken}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open Customer Proposal Link"
+                            className="inline-flex items-center p-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-2xs"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
       <section className="flex flex-col gap-2">
         <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
           Jobs

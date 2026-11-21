@@ -50,7 +50,10 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       {
         name: "Documents",
         short: "Docs",
-        links: [{ name: "Proposals", href: "/proposal" }],
+        links: [
+          { name: "Proposals", href: "/proposal" },
+          { name: "Signed Proposals", href: "/proposal?tab=signed" },
+        ],
       },
     ]
   }
@@ -113,6 +116,7 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       short: "Docs",
       links: [
         { name: "Proposals", href: "/proposal" },
+        { name: "Signed Proposals", href: "/proposal?tab=signed" },
         { name: "Invoices & Payments", href: "/payments" },
       ],
     },

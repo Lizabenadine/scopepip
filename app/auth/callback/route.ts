@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import type { EmailOtpType } from "@supabase/supabase-js"
-import { authSecret, sessionByEmail } from "@/lib/auth/directory"
+import { authSecret, isMasterAdmin, sessionByEmail } from "@/lib/auth/directory"
 import { sessionCookie } from "@/lib/auth/session"
 import { signOfficeSession } from "@/lib/auth/session-token"
 import { canonicalResetPasswordUrl } from "@/lib/auth/forgot-password-auth"
@@ -173,6 +173,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (office && (isMasterAdmin(office) || (data.user && isMasterAdmin({ email: data.user.email, authUserId: data.user.id, id: data.user.id })))) {
+    office.role = "super_admin"
+    office.subscriptionStatus = "lifetime"
+    office.trialEndsAt = ""
+    office.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
+  }
+
   if (!office) {
     const login = canonicalTargetUrl("/login?confirmed=1", request.url)
     return attachAuthCookies(NextResponse.redirect(login), pending.pending, pending.cacheHeaders)
@@ -229,6 +236,13 @@ export async function POST(request: NextRequest) {
       trialEndsAt: trialEndsAt(new Date()),
       authUserId: data.user.id,
     }
+  }
+
+  if (office && (isMasterAdmin(office) || (data.user && isMasterAdmin({ email: data.user.email, authUserId: data.user.id, id: data.user.id })))) {
+    office.role = "super_admin"
+    office.subscriptionStatus = "lifetime"
+    office.trialEndsAt = ""
+    office.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
   }
 
   if (!office) {

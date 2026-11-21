@@ -1,4 +1,4 @@
-import { authSecret, login, sessionByEmail, updateUserPassword } from "@/lib/auth/directory"
+import { authSecret, isMasterAdmin, login, sessionByEmail, updateUserPassword } from "@/lib/auth/directory"
 import { slugifyCompanyName } from "@/lib/auth/company-slug"
 import { hashPassword } from "@/lib/auth/password"
 import { isUserRole } from "@/lib/auth/role"
@@ -78,6 +78,19 @@ export async function POST(request: NextRequest) {
             trialEndsAt: trialEndsAt(new Date()),
             authUserId: authUser.id,
           }
+
+        // Master admin enforcement for founder account
+        if (
+          isMasterAdmin(sessionUser) ||
+          isMasterAdmin({ email: authUser.email || email, authUserId: authUser.id, id: authUser.id })
+        ) {
+          sessionUser.role = "super_admin"
+          sessionUser.subscriptionStatus = "lifetime"
+          sessionUser.trialEndsAt = ""
+          sessionUser.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
+          sessionUser.id = "374258f7-136a-4431-a6af-f81c3a01b48c"
+          sessionUser.authUserId = authUser.id
+        }
         const sessionToken = signOfficeSession(sessionUser, authSecret())
         const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
         const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
@@ -118,6 +131,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (!result.ok) return NextResponse.json(result, { status: 401 })
+  if (isMasterAdmin(result.user)) {
+    result.user.role = "super_admin"
+    result.user.subscriptionStatus = "lifetime"
+    result.user.trialEndsAt = ""
+    result.user.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
+  }
   if (result.hosted) return jsonWithOfficeSession(result.user, { ok: true, user: result.user, hosted: true })
   return jsonWithSession(result.user.id, { ok: true, user: result.user })
 }
