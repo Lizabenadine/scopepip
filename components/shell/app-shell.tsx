@@ -40,6 +40,7 @@ function navIsActive(pathname: string, href: string): boolean {
 }
 
 function roleLabel(role: UserRole, language: FieldLanguage): string {
+  if (role === "super_admin") return "Master Admin"
   if (role === "project_manager") return officeLabel("Project manager", language)
   if (role === "estimator") return officeLabel("Estimator", language)
   return officeLabel("Owner", language)

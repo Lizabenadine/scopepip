@@ -117,5 +117,8 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       ],
     },
     { name: "Settings", short: "Settings", href: "/settings", links: [] },
+    ...(userRole === "super_admin"
+      ? [{ name: "Master Admin", short: "Admin", href: "/admin", links: [] }]
+      : []),
   ]
 }

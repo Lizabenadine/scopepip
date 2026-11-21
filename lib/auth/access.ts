@@ -31,7 +31,7 @@ export function estimatorCanOpen(pathname: string): boolean {
 }
 
 export function roleCanOpen(role: UserRole, pathname: string): boolean {
-  if (role === "owner") return true
+  if (role === "owner" || role === "super_admin") return true
   if (role === "project_manager") return managerCanOpen(pathname)
   return estimatorCanOpen(pathname)
 }

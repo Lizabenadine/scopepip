@@ -1,6 +1,6 @@
 export const TRIAL_DAYS = 14
 
-export const SUBSCRIPTION_STATUSES = ["trialing", "active", "canceled"] as const
+export const SUBSCRIPTION_STATUSES = ["trialing", "active", "canceled", "lifetime"] as const
 
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
 
@@ -17,9 +17,9 @@ export function isSubscriptionStatus(value: string): value is SubscriptionStatus
   return (SUBSCRIPTION_STATUSES as readonly string[]).includes(value)
 }
 
-/** Estimator and dashboard stay open during the trial or an active subscription. */
+/** Estimator and dashboard stay open during the trial, an active subscription, or lifetime access. */
 export function subscriptionAllows(access: SubscriptionAccess, nowMs: number): boolean {
-  if (access.status === "active") return true
+  if (access.status === "active" || access.status === "lifetime") return true
   if (access.status !== "trialing") return false
   const ends = access.trialEndsAt ? Date.parse(access.trialEndsAt) : NaN
   return Number.isFinite(ends) && ends > nowMs

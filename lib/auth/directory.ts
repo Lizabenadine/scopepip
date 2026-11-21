@@ -169,21 +169,52 @@ async function eachBook(): Promise<{ companyId: string; book: BookFile }[]> {
   return rows
 }
 
+function masterAdminEmails(): string[] {
+  const envEmails = process.env.MASTER_ADMIN_EMAILS || process.env.MASTER_ADMIN_EMAIL || ""
+  return envEmails
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function masterAdminUserIds(): string[] {
+  const envIds = process.env.MASTER_ADMIN_USER_IDS || process.env.MASTER_ADMIN_USER_ID || ""
+  return envIds
+    .split(",")
+    .map((id) => id.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+export function isMasterAdmin(user?: { email?: string; authUserId?: string; id?: string } | null): boolean {
+  if (!user) return false
+  if (user.authUserId && masterAdminUserIds().includes(user.authUserId.trim().toLowerCase())) return true
+  if (user.id && masterAdminUserIds().includes(user.id.trim().toLowerCase())) return true
+  if (user.email && masterAdminEmails().includes(user.email.trim().toLowerCase())) return true
+  return false
+}
+
+export function isMasterAdminEmail(email: string): boolean {
+  return isMasterAdmin({ email })
+}
+
 function toSession(user: StoredUser, company: StoredCompany): OfficeSession {
   const planTier = company.planTier || user.planTier || "pro"
   const extraSeats = company.extraSeats || user.extraSeats || 0
+  const isSuper = user.role === "super_admin" || isMasterAdmin(user)
+  const role: UserRole = isSuper ? "super_admin" : user.role
+  const subscriptionStatus = isSuper ? "lifetime" : user.subscriptionStatus
   return {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role,
+    role,
     companyId: company.id,
     companyName: company.name,
     companySlug: company.slug,
     planTier,
     extraSeats,
     ...(user.language === "es" || user.language === "en" ? { language: user.language } : {}),
-    ...(user.subscriptionStatus ? { subscriptionStatus: user.subscriptionStatus } : {}),
+    ...(subscriptionStatus ? { subscriptionStatus } : {}),
     ...(user.trialEndsAt ? { trialEndsAt: user.trialEndsAt } : {}),
     ...(user.authUserId ? { authUserId: user.authUserId } : {}),
   }
@@ -199,10 +230,28 @@ export async function billingAccessForUser(userId: string): Promise<{
   const accounts = await readAccounts()
   const user = accounts.users.find((item) => item.id === userId)
   if (!user) return null
+  if (user.role === "super_admin" || isMasterAdmin(user) || user.subscriptionStatus === "lifetime") {
+    return {
+      status: "lifetime",
+      trialEndsAt: "",
+      userId: user.id,
+      email: user.email,
+      ...(user.authUserId ? { authUserId: user.authUserId } : {}),
+    }
+  }
   const owner =
     user.role === "owner"
       ? user
-      : accounts.users.find((item) => item.companyId === user.companyId && item.role === "owner") ?? user
+      : accounts.users.find((item) => item.companyId === user.companyId && (item.role === "owner" || item.role === "super_admin")) ?? user
+  if (owner.role === "super_admin" || isMasterAdmin(owner) || owner.subscriptionStatus === "lifetime") {
+    return {
+      status: "lifetime",
+      trialEndsAt: "",
+      userId: owner.id,
+      email: owner.email,
+      ...(owner.authUserId ? { authUserId: owner.authUserId } : {}),
+    }
+  }
   const next = owner.subscriptionStatus && owner.trialEndsAt ? owner : openTrial(owner)
   if (next !== owner) {
     await writeAccounts({
@@ -240,13 +289,26 @@ export async function saveBillingStatus(input: {
     if (!match) return user
     account = true
     matchedCompanyId = user.companyId
-    return {
+
+    // Protect super_admin and lifetime users from being downgraded by Paddle webhooks!
+    if ((user.role === "super_admin" || isMasterAdmin(user) || user.subscriptionStatus === "lifetime") && input.status !== "lifetime") {
+      const protectedUser: StoredUser = {
+        ...user,
+        subscriptionStatus: "lifetime",
+        ...(input.planTier ? { planTier: input.planTier } : {}),
+        ...(typeof input.extraSeats === "number" ? { extraSeats: input.extraSeats } : {}),
+      }
+      return protectedUser
+    }
+
+    const updatedUser: StoredUser = {
       ...user,
       subscriptionStatus: input.status,
       trialEndsAt: input.trialEndsAt || user.trialEndsAt || trialEndsAt(new Date()),
       ...(input.planTier ? { planTier: input.planTier } : {}),
       ...(typeof input.extraSeats === "number" ? { extraSeats: input.extraSeats } : {}),
     }
+    return updatedUser
   })
   const companies = accounts.companies.map((c) => {
     if (matchedCompanyId && c.id === matchedCompanyId) {
@@ -414,14 +476,20 @@ export async function login(input: {
       normalizeEmail(hosted.email) === email &&
       verifyPassword(input.password, input.passwordHash)
     ) {
-      if (input.role && input.role !== hosted.role) return { ok: false, reason: roleSignInReason(hosted.role) }
+      const isHostedSuper = hosted.role === "super_admin" || isMasterAdmin(hosted)
+      if (input.role && input.role !== hosted.role && !(isHostedSuper && input.role === "owner")) {
+        return { ok: false, reason: roleSignInReason(hosted.role) }
+      }
       return { ok: true, hosted: true, user: hosted }
     }
     return { ok: false, reason: "That email and password do not match." }
   }
   const company = accounts.companies.find((item) => item.id === user.companyId)
   if (!company) return { ok: false, reason: "That email and password do not match." }
-  if (input.role && input.role !== user.role) return { ok: false, reason: roleSignInReason(user.role) }
+  const isUserSuper = user.role === "super_admin" || isMasterAdmin(user)
+  if (input.role && input.role !== user.role && !(isUserSuper && input.role === "owner")) {
+    return { ok: false, reason: roleSignInReason(user.role) }
+  }
   return { ok: true, user: toSession(user, company) }
 }
 
@@ -977,5 +1045,88 @@ export async function publicBooking(token: string): Promise<PublicBookingView | 
     companyName: found.book.state.estimateSettings.companyName?.trim() || "ScopePipe",
     clientName: client?.name ?? "",
     jobAddress: found.estimate.jobAddress || client?.address || "",
+  }
+}
+
+export interface AdminUserView {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  companyId: string
+  companyName: string
+  subscriptionStatus: SubscriptionStatus
+  trialEndsAt: string
+  createdAt: string
+  authUserId?: string
+}
+
+export async function listAllAccountsForAdmin(callerUserId: string): Promise<AdminUserView[] | null> {
+  const accounts = await readAccounts()
+  const caller = accounts.users.find((u) => u.id === callerUserId)
+  if (!caller || (caller.role !== "super_admin" && !isMasterAdmin(caller))) {
+    return null
+  }
+  const companiesMap = new Map(accounts.companies.map((c) => [c.id, c.name]))
+  return accounts.users.map((u) => {
+    const isSuper = u.role === "super_admin" || isMasterAdmin(u)
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: isSuper ? "super_admin" : u.role,
+      companyId: u.companyId,
+      companyName: companiesMap.get(u.companyId) || "ScopePipe",
+      subscriptionStatus: isSuper ? "lifetime" : (u.subscriptionStatus ?? "trialing"),
+      trialEndsAt: u.trialEndsAt ?? "",
+      createdAt: u.createdAt,
+      ...(u.authUserId ? { authUserId: u.authUserId } : {}),
+    }
+  })
+}
+
+export async function setLifetimeAccess(
+  callerUserId: string,
+  targetUserId: string,
+  action: "grant" | "revoke"
+): Promise<{ ok: boolean; reason?: string; user?: AdminUserView }> {
+  const accounts = await readAccounts()
+  const caller = accounts.users.find((u) => u.id === callerUserId)
+  if (!caller || (caller.role !== "super_admin" && !isMasterAdmin(caller))) {
+    return { ok: false, reason: "Unauthorized: only a master admin can manage lifetime access." }
+  }
+  const targetIndex = accounts.users.findIndex((u) => u.id === targetUserId)
+  if (targetIndex < 0) {
+    return { ok: false, reason: "User not found." }
+  }
+  const target = accounts.users[targetIndex]
+  const newStatus: SubscriptionStatus = action === "grant" ? "lifetime" : "canceled"
+  const updatedUser: StoredUser = {
+    ...target,
+    subscriptionStatus: newStatus,
+  }
+  const users = accounts.users.slice()
+  users[targetIndex] = updatedUser
+  await writeAccounts({ ...accounts, users })
+  try {
+    await saveProfileSubscription({ userId: target.authUserId || target.id, status: newStatus })
+  } catch {
+    // Non-fatal if Supabase sync is deferred
+  }
+  const company = accounts.companies.find((c) => c.id === target.companyId)
+  return {
+    ok: true,
+    user: {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      companyId: updatedUser.companyId,
+      companyName: company?.name || "ScopePipe",
+      subscriptionStatus: updatedUser.subscriptionStatus ?? newStatus,
+      trialEndsAt: updatedUser.trialEndsAt ?? "",
+      createdAt: updatedUser.createdAt,
+      ...(updatedUser.authUserId ? { authUserId: updatedUser.authUserId } : {}),
+    },
   }
 }

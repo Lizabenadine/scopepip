@@ -1,4 +1,4 @@
-export const USER_ROLES = ["owner", "project_manager", "estimator"] as const
+export const USER_ROLES = ["super_admin", "owner", "project_manager", "estimator"] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
 
@@ -23,6 +23,7 @@ export function homeForRole(role: UserRole): string {
 }
 
 export function roleSignInReason(role: UserRole): string {
+  if (role === "super_admin") return "That login is the master administrator."
   if (role === "project_manager") return "That login is a project manager."
   if (role === "estimator") return "That login is an estimator."
   return "That login is the owner."

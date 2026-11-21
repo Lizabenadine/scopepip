@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CompanyLogoField } from "@/components/settings/company-logo"
+import { MasterAdminPanel } from "@/components/settings/master-admin-panel"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
@@ -40,25 +41,29 @@ const TABS = [
   { id: "add-ons", label: "Add-ons" },
 ] as const
 
-type SettingsTab = (typeof TABS)[number]["id"]
+type SettingsTab = (typeof TABS)[number]["id"] | "admin"
 
-function tabFrom(value: string | null): SettingsTab {
+function tabFrom(value: string | null, isSuperAdmin: boolean): SettingsTab {
+  if (value === "admin" && isSuperAdmin) return "admin"
   return TABS.some((tab) => tab.id === value) ? (value as SettingsTab) : "company"
 }
 
 export function SettingsScreen() {
   const scope = useScope()
+  const isSuperAdmin = scope.session?.role === "super_admin"
   const { language } = useFieldLanguage()
   const say = (text: string) => officeLabel(text, language)
   const router = useRouter()
   const params = useSearchParams()
-  const active = tabFrom(params.get("tab"))
+  const active = tabFrom(params.get("tab"), isSuperAdmin)
 
   function openTab(id: SettingsTab) {
     const next = new URLSearchParams(params.toString())
     next.set("tab", id)
     router.replace(`/settings?${next.toString()}`, { scroll: false })
   }
+
+  const visibleTabs = isSuperAdmin ? [...TABS, { id: "admin" as const, label: "Master Admin" }] : TABS
 
   if (!scope.ready) return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
 
@@ -83,7 +88,7 @@ export function SettingsScreen() {
         </Link>
       </div>
       <div role="tablist" aria-label="Settings" className="flex gap-1 overflow-x-auto border-b border-border">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const selected = tab.id === active
           return (
             <button
@@ -103,7 +108,8 @@ export function SettingsScreen() {
           )
         })}
       </div>
-      <div role="tabpanel" data-testid={`settings-panel-${active}`} className={cn("mx-auto flex w-full flex-col gap-6", active === "integrations" ? "max-w-5xl" : "max-w-3xl")}>
+      <div role="tabpanel" data-testid={`settings-panel-${active}`} className={cn("mx-auto flex w-full flex-col gap-6", active === "integrations" || active === "admin" ? "max-w-5xl" : "max-w-3xl")}>
+        {isSuperAdmin && active === "admin" ? <MasterAdminPanel /> : null}
         {active === "company" ? (
           <>
             <CompanyFields />
