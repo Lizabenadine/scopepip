@@ -102,24 +102,54 @@ function roundQuantity(value: number): number {
 }
 
 function colorSpecs(sheet: CrewSheet): PaintColorSpec[] {
-  const groups = new Map<string, string[]>()
+  const specs: PaintColorSpec[] = []
+  let index = 1
+
   for (const area of sheet.areas) {
     for (const surface of area.surfaces) {
       if (!surface.productName || surface.productName === "Prep") continue
-      const place = `${area.name} ${surface.internalLabel.toLowerCase()} (${surface.quantityLabel})`
-      const places = groups.get(surface.productName) ?? []
-      places.push(place)
-      groups.set(surface.productName, places)
+      const colorParts = [surface.colorCode, surface.colorName].filter(Boolean)
+      const colorDisplay = colorParts.length > 0 ? colorParts.join(" · ") : "Not specified"
+      const sheenDisplay = surface.sheen || "Not specified"
+      const brandDisplay = surface.paintBrand || ""
+
+      specs.push({
+        id: `color-${index++}`,
+        area: `${area.name} ${surface.internalLabel.toLowerCase()}`,
+        brand: brandDisplay,
+        product: surface.productName,
+        colorNameCode: colorDisplay,
+        sheen: sheenDisplay,
+      })
     }
   }
-  return [...groups.entries()].map(([product, places], index) => ({
-    id: `color-${index + 1}`,
-    area: places.join(", "),
-    brand: "",
-    product,
-    colorNameCode: "Not specified",
-    sheen: "Not specified",
-  }))
+
+  const hasAnyColor = specs.some(
+    (s) => s.colorNameCode !== "Not specified" || s.sheen !== "Not specified" || Boolean(s.brand),
+  )
+
+  if (!hasAnyColor) {
+    const groups = new Map<string, string[]>()
+    for (const area of sheet.areas) {
+      for (const surface of area.surfaces) {
+        if (!surface.productName || surface.productName === "Prep") continue
+        const place = `${area.name} ${surface.internalLabel.toLowerCase()} (${surface.quantityLabel})`
+        const places = groups.get(surface.productName) ?? []
+        places.push(place)
+        groups.set(surface.productName, places)
+      }
+    }
+    return [...groups.entries()].map(([product, places], idx) => ({
+      id: `color-${idx + 1}`,
+      area: places.join(", "),
+      brand: "",
+      product,
+      colorNameCode: "Not specified",
+      sheen: "Not specified",
+    }))
+  }
+
+  return specs
 }
 
 function safeHttpUrl(value: string | undefined): string | undefined {

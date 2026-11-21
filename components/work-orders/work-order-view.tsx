@@ -12,6 +12,7 @@ import { SendSubcontractor } from "@/components/work-orders/send-subcontractor"
 import { SubcontractorWorkOrder } from "@/components/work-orders/subcontractor-work-order"
 import { CompanyCamSync } from "@/components/work-orders/companycam-sync"
 import { ModernWorkOrder } from "@/components/work-orders/modern-work-order"
+import { PaintColorsSection } from "@/components/work-orders/paint-colors-section"
 import { PhotoCapture } from "@/components/photos/photo-capture"
 import { displayCompanyName } from "@/lib/brand/company"
 import { useScope } from "@/lib/data/store"
@@ -22,7 +23,8 @@ import type { WorkOrder } from "@/lib/types"
 
 export function WorkOrderView({ id }: { id: string }) {
   const crew = useWorkOrders(id)
-  const { estimateSettings, session } = useScope()
+  const { estimateSettings, session, estimates } = useScope()
+  const estimate = estimates.find((item) => item.id === id)
   const { copy, language } = useFieldLanguage()
   const limited = session?.role === "project_manager"
   const estimator = session?.role === "estimator"
@@ -123,6 +125,9 @@ export function WorkOrderView({ id }: { id: string }) {
           </button>
         ))}
       </div>
+      {estimate ? (
+        <PaintColorsSection estimate={estimate} readOnly={estimator} />
+      ) : null}
       <ModernWorkOrder
         sheet={sheet}
         orderNumber={orderNumber}

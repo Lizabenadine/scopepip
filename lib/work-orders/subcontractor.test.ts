@@ -112,4 +112,38 @@ describe("toSubcontractorOrder", () => {
       subSignedDate: "2026-10-18",
     })
   })
+
+  it("populates paint brands, color codes, names, and sheens with room defaults and surface overrides", () => {
+    const bedroom = documentedBedroom()
+    // Set room default color
+    bedroom.paintBrand = "Sherwin-Williams"
+    bedroom.colorName = "Agreeable Gray"
+    bedroom.colorCode = "SW 7028"
+    bedroom.sheen = "Eggshell"
+
+    // Set specific override on baseboards surface
+    const baseboardSurface = bedroom.surfaces.find((s) => s.rateId.includes("baseboard"))
+    if (baseboardSurface) {
+      baseboardSurface.paintBrand = "Benjamin Moore"
+      baseboardSurface.colorName = "Chantilly Lace"
+      baseboardSurface.colorCode = "OC-65"
+      baseboardSurface.sheen = "Semi-Gloss"
+    }
+
+    const order = orderFrom({ ...estimate, areas: [bedroom] })
+
+    // Baseboard surface should have its specific override
+    const baseboardSpec = order.colorSpecs.find((s) => s.area.includes("baseboard"))
+    assert.ok(baseboardSpec)
+    assert.equal(baseboardSpec.brand, "Benjamin Moore")
+    assert.equal(baseboardSpec.colorNameCode, "OC-65 · Chantilly Lace")
+    assert.equal(baseboardSpec.sheen, "Semi-Gloss")
+
+    // Wall surface should have the room defaults
+    const wallSpec = order.colorSpecs.find((s) => s.area.includes("walls"))
+    assert.ok(wallSpec)
+    assert.equal(wallSpec.brand, "Sherwin-Williams")
+    assert.equal(wallSpec.colorNameCode, "SW 7028 · Agreeable Gray")
+    assert.equal(wallSpec.sheen, "Eggshell")
+  })
 })

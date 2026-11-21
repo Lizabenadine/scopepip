@@ -15,6 +15,10 @@ export interface CrewSurface {
   paintGallons: number
   productName: string
   crewNote: string
+  paintBrand?: string
+  colorCode?: string
+  colorName?: string
+  sheen?: string
 }
 
 export interface CrewArea {
@@ -93,6 +97,10 @@ function surfaceRow(surface: PricedSurface): CrewSurface {
     paintGallons: surface.paintGallons,
     productName: surface.productName,
     crewNote: surface.crewNote,
+    paintBrand: surface.paintBrand,
+    colorCode: surface.colorCode,
+    colorName: surface.colorName,
+    sheen: surface.sheen,
   }
 }
 
