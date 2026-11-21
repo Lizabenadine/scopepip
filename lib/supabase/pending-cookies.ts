@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
-import { NextResponse, type NextRequest } from "next/server"
-import { supabaseBrowserUrl, supabasePublishableKey } from "./env"
+import { NextResponse, type NextRequest } from "next/server.js"
+import { supabaseBrowserUrl, supabasePublishableKey } from "./env.ts"
 
 export type PendingAuthCookie = { name: string; value: string; options: CookieOptions }
 

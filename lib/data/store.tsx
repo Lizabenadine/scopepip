@@ -608,8 +608,9 @@ async function loadOfficeBook() {
       if (merged.changed) state = merged.state
     }
     saveBrowserBook(officeSession.companyId, bookRevision, state)
+    lastSyncedState = state
     current = { state, notice: null, ready: true, session: officeSession }
-    if (state !== payload.state) persist(state)
+    if (JSON.stringify(state) !== JSON.stringify(payload.state)) persist(state)
     emit()
   } catch {
     const cached = readBrowserBook(officeSession.companyId)

@@ -178,6 +178,17 @@ test("Admin functions enforce super_admin role check", async () => {
   const revokeRes = await setLifetimeAccess(superAdminId, targetUser.id, "revoke")
   assert.equal(revokeRes.ok, true)
   assert.equal(revokeRes.user?.subscriptionStatus, "canceled")
+
+  // Verify listAllAccountsForAdmin works with founder's Supabase authUserId as caller
+  const authUserIdCaller = "52618110-8404-4795-b6de-5758a78270fd"
+  const authUserIdList = await listAllAccountsForAdmin(authUserIdCaller)
+  assert.notEqual(authUserIdList, null, "Founder's authUserId must be allowed to list accounts")
+  assert.ok(Array.isArray(authUserIdList) && authUserIdList.length > 0)
+
+  // Verify setLifetimeAccess works with founder's authUserId as caller
+  const authUserIdGrant = await setLifetimeAccess(authUserIdCaller, targetUser.id, "grant")
+  assert.equal(authUserIdGrant.ok, true, "Founder's authUserId must be allowed to grant lifetime access")
+  assert.equal(authUserIdGrant.user?.subscriptionStatus, "lifetime")
 })
 
 test("super_admin can log in seamlessly through standard login flow", async () => {

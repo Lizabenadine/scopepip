@@ -398,7 +398,7 @@ export async function sessionById(userId: string): Promise<OfficeSession | null>
   const accounts = await readAccounts()
   const user = accounts.users.find((item) => item.id === userId || (item.authUserId && item.authUserId.toLowerCase() === normId))
   if (user) {
-    const company = accounts.companies.find((item) => item.id === user.companyId)
+    const company = accounts.companies.find((item) => item.id === user.companyId) || (isMasterAdmin(user) ? { id: "6121f9b9-59df-4190-b4ff-289a062f4c20", name: "Scopepipe", slug: "scopepipe", createdAt: "" } : null)
     if (company) return toSession(user, company)
   }
   if (masterAdminUserIds().includes(normId)) {
@@ -425,7 +425,7 @@ export async function sessionByEmail(email: string): Promise<OfficeSession | nul
   const accounts = await readAccounts()
   const user = accounts.users.find((item) => item.email === normalized)
   if (user) {
-    const company = accounts.companies.find((item) => item.id === user.companyId)
+    const company = accounts.companies.find((item) => item.id === user.companyId) || (isMasterAdmin(user) ? { id: "6121f9b9-59df-4190-b4ff-289a062f4c20", name: "Scopepipe", slug: "scopepipe", createdAt: "" } : null)
     if (company) return toSession(user, company)
   }
   if (masterAdminEmails().includes(normalized)) {
@@ -1137,22 +1137,30 @@ export interface AdminUserView {
 
 export async function listAllAccountsForAdmin(callerUserId: string): Promise<AdminUserView[] | null> {
   const accounts = await readAccounts()
-  const caller = accounts.users.find((u) => u.id === callerUserId)
-  if (!caller || (caller.role !== "super_admin" && !isMasterAdmin(caller))) {
+  const normCaller = callerUserId.trim().toLowerCase()
+  const caller = accounts.users.find(
+    (u) => u.id === callerUserId || (u.authUserId && u.authUserId.toLowerCase() === normCaller)
+  )
+  const isSuper =
+    (caller && (caller.role === "super_admin" || isMasterAdmin(caller))) ||
+    masterAdminUserIds().includes(normCaller) ||
+    isMasterAdmin({ id: callerUserId, authUserId: callerUserId })
+
+  if (!isSuper) {
     return null
   }
   const companiesMap = new Map(accounts.companies.map((c) => [c.id, c.name]))
   return accounts.users.map((u) => {
-    const isSuper = u.role === "super_admin" || isMasterAdmin(u)
+    const isSuperUser = u.role === "super_admin" || isMasterAdmin(u)
     return {
       id: u.id,
       name: u.name,
       email: u.email,
-      role: isSuper ? "super_admin" : u.role,
+      role: isSuperUser ? "super_admin" : u.role,
       companyId: u.companyId,
       companyName: companiesMap.get(u.companyId) || "ScopePipe",
-      subscriptionStatus: isSuper ? "lifetime" : (u.subscriptionStatus ?? "trialing"),
-      trialEndsAt: u.trialEndsAt ?? "",
+      subscriptionStatus: isSuperUser ? "lifetime" : (u.subscriptionStatus ?? "trialing"),
+      trialEndsAt: isSuperUser ? "" : (u.trialEndsAt ?? ""),
       createdAt: u.createdAt,
       ...(u.authUserId ? { authUserId: u.authUserId } : {}),
     }
@@ -1165,11 +1173,22 @@ export async function setLifetimeAccess(
   action: "grant" | "revoke"
 ): Promise<{ ok: boolean; reason?: string; user?: AdminUserView }> {
   const accounts = await readAccounts()
-  const caller = accounts.users.find((u) => u.id === callerUserId)
-  if (!caller || (caller.role !== "super_admin" && !isMasterAdmin(caller))) {
+  const normCaller = callerUserId.trim().toLowerCase()
+  const caller = accounts.users.find(
+    (u) => u.id === callerUserId || (u.authUserId && u.authUserId.toLowerCase() === normCaller)
+  )
+  const isSuper =
+    (caller && (caller.role === "super_admin" || isMasterAdmin(caller))) ||
+    masterAdminUserIds().includes(normCaller) ||
+    isMasterAdmin({ id: callerUserId, authUserId: callerUserId })
+
+  if (!isSuper) {
     return { ok: false, reason: "Unauthorized: only a master admin can manage lifetime access." }
   }
-  const targetIndex = accounts.users.findIndex((u) => u.id === targetUserId)
+  const normTarget = targetUserId.trim().toLowerCase()
+  const targetIndex = accounts.users.findIndex(
+    (u) => u.id === targetUserId || (u.authUserId && u.authUserId.toLowerCase() === normTarget)
+  )
   if (targetIndex < 0) {
     return { ok: false, reason: "User not found." }
   }
@@ -1181,7 +1200,11 @@ export async function setLifetimeAccess(
   }
   const users = accounts.users.slice()
   users[targetIndex] = updatedUser
-  await writeAccounts({ ...accounts, users })
+  try {
+    await writeAccounts({ ...accounts, users })
+  } catch (err) {
+    console.warn("Could not write accounts file:", err)
+  }
   try {
     await saveProfileSubscription({ userId: target.authUserId || target.id, status: newStatus })
   } catch {
