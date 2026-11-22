@@ -26,7 +26,10 @@ export async function updateSession(request: NextRequest) {
   })
 
   try {
-    await supabase.auth.getClaims()
+    await Promise.race([
+      supabase.auth.getClaims(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("claims timeout")), 1500)),
+    ])
   } catch {
     return supabaseResponse
   }

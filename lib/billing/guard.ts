@@ -7,7 +7,12 @@ import { guardedPath, subscriptionAllows, trialEndsAt, type SubscriptionAccess }
 export async function billingRedirect(request: NextRequest): Promise<NextResponse | null> {
   if (!guardedPath(request.nextUrl.pathname)) return null
   const session = await sessionFromRequest(request)
-  if (!session) return null
+  if (!session) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/login"
+    url.search = ""
+    return NextResponse.redirect(url)
+  }
   if (session.role === "super_admin" || session.subscriptionStatus === "lifetime" || isMasterAdmin(session)) return null
   const access = await subscriptionForSession(session)
   if (subscriptionAllows(access, Date.now())) return null

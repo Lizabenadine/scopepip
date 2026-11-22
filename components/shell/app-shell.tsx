@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Pencil, Plus, Receipt, Settings, X } from "lucide-react"
+import { CalendarDays, ChevronDown, ClipboardList, FileText, Funnel, LayoutDashboard, Pencil, Plus, Receipt, Settings, ShieldCheck, X } from "lucide-react"
 import { AuthForm } from "@/components/auth/auth-form"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { FollowUpRunner } from "@/components/follow-ups/follow-up-runner"
@@ -30,6 +30,7 @@ const SECTION_ICONS = {
   Documents: FileText,
   Invoices: Receipt,
   Settings: Settings,
+  "Master Admin": ShieldCheck,
 } as const
 
 function navIsActive(pathname: string, href: string): boolean {
@@ -308,7 +309,9 @@ function SectionControl({
 }) {
   const say = (text: string) => officeLabel(text, language)
   const active = sectionIsActive(pathname, section)
-  const Icon = SECTION_ICONS[section.name as keyof typeof SECTION_ICONS]
+  const Icon = (section.name in SECTION_ICONS)
+    ? SECTION_ICONS[section.name as keyof typeof SECTION_ICONS]
+    : Settings
   if (!section.links.length && section.href) {
     const className =
       placement === "bar"
@@ -327,7 +330,7 @@ function SectionControl({
         data-testid={linkTestId(section.href)}
         className={className}
       >
-        {placement === "dock" ? <Icon className="size-5" /> : null}
+        {placement === "dock" && Icon ? <Icon className="size-5" /> : null}
         {placement === "dock" ? say(section.short) : say(section.name)}
       </Link>
     )
@@ -355,7 +358,7 @@ function SectionControl({
               : "text-muted-foreground",
         )}
       >
-        {placement === "dock" ? <Icon className="size-5" /> : null}
+        {placement === "dock" && Icon ? <Icon className="size-5" /> : null}
         {placement === "dock" ? say(section.short) : say(section.name)}
         {placement === "bar" ? <ChevronDown className="size-3.5" /> : null}
       </button>
