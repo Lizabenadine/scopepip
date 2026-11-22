@@ -6,7 +6,7 @@ import { OneOffRateForm } from "@/components/estimator/one-off-rate"
 import { TemplatePicker } from "@/components/estimator/template-picker"
 import { addAreaName, type AreaName } from "@/lib/estimate/area-names"
 import { copyArea, insertAfter } from "@/lib/estimate/copy"
-import { measureArea, measuredQuantity, openingSqFt, quantityUnit, roomGallonsEstimate, surfaceGallonsEstimate } from "@/lib/estimate/calculate"
+import { doorDeductionLnFt, measureArea, measuredQuantity, openingSqFt, quantityUnit, roomGallonsEstimate, surfaceGallonsEstimate } from "@/lib/estimate/calculate"
 import {
   createAreaGroup,
   moveAreaGroup,
@@ -508,18 +508,32 @@ onToggleOneOff,
     const priorityKeywords =
       kind === "exterior"
         ? ["siding", "stucco", "eave", "soffit", "fascia", "trim", "gutter", "door", "deck", "fence"]
-        : ["wall", "ceiling", "baseboard", "trim", "door", "window", "casing", "closet", "cabinet"]
+        : [
+            "wall",
+            "ceiling",
+            "baseboard",
+            "crown",
+            "door-casing",
+            "window-casing",
+            "door",
+            "window",
+            "chair-rail",
+            "decorative",
+            "cabinet",
+          ]
 
     const sorted = [...heads].sort((a, b) => {
       const aLabel = a.internalLabel.toLowerCase()
       const bLabel = b.internalLabel.toLowerCase()
-      const aIndex = priorityKeywords.findIndex((k) => aLabel.includes(k))
-      const bIndex = priorityKeywords.findIndex((k) => bLabel.includes(k))
+      const aId = a.id.toLowerCase()
+      const bId = b.id.toLowerCase()
+      const aIndex = priorityKeywords.findIndex((k) => aLabel.includes(k) || aId.includes(k))
+      const bIndex = priorityKeywords.findIndex((k) => bLabel.includes(k) || bId.includes(k))
       const aScore = aIndex === -1 ? 999 : aIndex
       const bScore = bIndex === -1 ? 999 : bIndex
       return aScore - bScore
     })
-    return sorted.slice(0, 8)
+    return sorted.slice(0, 11)
   }, [rates, kind])
 
   const updateSurface = (surface: SurfaceInput, patch: Partial<SurfaceInput>) => {
@@ -537,21 +551,40 @@ onToggleOneOff,
       return
     }
     const existing = area.surfaces.find((surface) => sameSubstrateGroup(rates, surface, rate))
-    const surfaces = existing
-      ? area.surfaces.filter((surface) => !sameSubstrateGroup(rates, surface, rate))
-      : [
-          ...area.surfaces,
-          {
-            id: crypto.randomUUID(),
-            rateId: rate.id,
-            coatCount: rate.coatRates[rate.coatRates.length - 1]?.coats ?? 2,
-            itemCount: rate.measure === "items" || rate.measure === "shutters" ? 1 : 0,
-            quantityOverride: null,
-            hoursOverride: null,
-            crewNote: "",
-            substrate: "drywall",
-          } satisfies SurfaceInput,
-        ]
+    if (existing) {
+      onChange({
+        ...area,
+        surfaces: area.surfaces.filter((surface) => !sameSubstrateGroup(rates, surface, rate)),
+      })
+      return
+    }
+
+    // Mutual exclusion to prevent duplicate charges when switching casing pricing methods:
+    let filtered = area.surfaces
+    if (rate.id === "door-casing") {
+      filtered = filtered.filter((s) => s.rateId !== "door-frame")
+    } else if (rate.id === "door-frame") {
+      filtered = filtered.filter((s) => s.rateId !== "door-casing")
+    } else if (rate.id === "window-casing") {
+      filtered = filtered.filter((s) => s.rateId !== "window-frames")
+    } else if (rate.id === "window-frames") {
+      filtered = filtered.filter((s) => s.rateId !== "window-casing")
+    }
+
+    const surfaces = [
+      ...filtered,
+      {
+        id: crypto.randomUUID(),
+        rateId: rate.id,
+        coatCount: rate.coatRates[rate.coatRates.length - 1]?.coats ?? 2,
+        itemCount: rate.measure === "items" || rate.measure === "shutters" ? 1 : 0,
+        quantityOverride: null,
+        hoursOverride: null,
+        crewNote: "",
+        substrate: "drywall",
+        trimWidthInches: rate.trimWidthInches,
+      } satisfies SurfaceInput,
+    ]
     onChange({ ...area, surfaces })
   }
   return (
@@ -668,12 +701,30 @@ area.areaType === areaType
           </button>
         ))}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground" data-testid="area-measures">
-        {measures.wallSqFt} sq ft walls
-        {openingSqFt(area.openings) > 0 ? ` after leaving out ${openingSqFt(area.openings)} sq ft of doors and windows` : ""}
-        {" · "}
-        {measures.ceilingSqFt} sq ft ceiling · {measures.perimeterLnFt} ln ft trim · <span className="font-semibold text-foreground">{roomGallons} gal</span>
-      </p>
+      <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground" data-testid="area-measures">
+        <div>
+          {measures.wallSqFt} sq ft walls
+          {openingSqFt(area.openings) > 0 ? ` after leaving out ${openingSqFt(area.openings)} sq ft of doors and windows` : ""}
+          {" · "}
+          {measures.ceilingSqFt} sq ft ceiling · {area.deductOpeningsFromBaseboards !== false ? Math.max(0, measures.perimeterLnFt - doorDeductionLnFt(area.openings)) : measures.perimeterLnFt} ln ft baseboards
+          {doorDeductionLnFt(area.openings) > 0 && area.deductOpeningsFromBaseboards !== false
+            ? ` (${measures.perimeterLnFt} ft perimeter - ${doorDeductionLnFt(area.openings)} ft doors)`
+            : ` (${measures.perimeterLnFt} ft perimeter)`}
+          {" · "}
+          <span className="font-semibold text-foreground">{roomGallons} gal</span>
+        </div>
+        {doorDeductionLnFt(area.openings) > 0 && (
+          <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer pt-0.5">
+            <input
+              type="checkbox"
+              checked={area.deductOpeningsFromBaseboards !== false}
+              onChange={(e) => onChange({ ...area, deductOpeningsFromBaseboards: e.target.checked })}
+              className="rounded text-primary size-3.5"
+            />
+            <span>Deduct {doorDeductionLnFt(area.openings)} ln ft door openings from baseboards</span>
+          </label>
+        )}
+      </div>
 
       {/* Quick Surface Toggles (1-tap for fast mobile walkthroughs) */}
       <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
@@ -708,6 +759,84 @@ area.areaType === areaType
             )
           })}
         </div>
+
+        {/* Casing Pricing Method Switcher (Per Unit vs Per Linear Foot) */}
+        {(area.surfaces.some((s) => s.rateId === "door-casing" || s.rateId === "door-frame") ||
+          area.surfaces.some((s) => s.rateId === "window-casing" || s.rateId === "window-frames")) && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-slate-200/60 pt-2 text-xs">
+            {area.surfaces.some((s) => s.rateId === "door-casing" || s.rateId === "door-frame") && (
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-600">Door Casing:</span>
+                <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const doorRate = rates.find((r) => r.id === "door-frame")
+                      if (doorRate && !area.surfaces.some((s) => s.rateId === "door-frame")) toggle(doorRate)
+                    }}
+                    className={`rounded-md px-2 py-0.5 transition-colors ${
+                      area.surfaces.some((s) => s.rateId === "door-frame")
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Per Unit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const casingRate = rates.find((r) => r.id === "door-casing")
+                      if (casingRate && !area.surfaces.some((s) => s.rateId === "door-casing")) toggle(casingRate)
+                    }}
+                    className={`rounded-md px-2 py-0.5 transition-colors ${
+                      area.surfaces.some((s) => s.rateId === "door-casing")
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Linear Foot
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {area.surfaces.some((s) => s.rateId === "window-casing" || s.rateId === "window-frames") && (
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-600">Window Casing:</span>
+                <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const winRate = rates.find((r) => r.id === "window-frames")
+                      if (winRate && !area.surfaces.some((s) => s.rateId === "window-frames")) toggle(winRate)
+                    }}
+                    className={`rounded-md px-2 py-0.5 transition-colors ${
+                      area.surfaces.some((s) => s.rateId === "window-frames")
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Per Unit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const casingRate = rates.find((r) => r.id === "window-casing")
+                      if (casingRate && !area.surfaces.some((s) => s.rateId === "window-casing")) toggle(casingRate)
+                    }}
+                    className={`rounded-md px-2 py-0.5 transition-colors ${
+                      area.surfaces.some((s) => s.rateId === "window-casing")
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Linear Foot
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {kind === "interior" && area.areaType === "room" ? (
         <details className="mt-3 rounded-xl border border-border p-3" open={undefined}>
@@ -992,6 +1121,25 @@ const substrate = event.target.value as Substrate
                         onChange={(coveragePerCoat) => updateSurface(surface, { coveragePerCoat })}
                       />
                     </div>
+                    {unit === "ln ft" && (
+                      <div className="mt-2 max-w-xs grid gap-1">
+                        <OverrideField
+                          id={`${surface.id}-trim-width`}
+                          label="Trim width (in)"
+                          ariaLabel={`${rate.internalLabel} trim width in inches`}
+                          testId={`surface-trim-width-${rate.id}`}
+                          value={surface.trimWidthInches ?? active.trimWidthInches ?? (active.id === "baseboards" ? 4.5 : active.id === "crown" ? 4.5 : 3.0)}
+                          onChange={(trimWidthInches) =>
+                            updateSurface(surface, {
+                              trimWidthInches: trimWidthInches && trimWidthInches > 0 ? trimWidthInches : undefined,
+                            })
+                          }
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Actual physical width used to calculate true surface square footage for paint coverage.
+                        </p>
+                      </div>
+                    )}
                     <div className={unit === "items" ? "grid max-w-xs gap-2" : "grid grid-cols-2 gap-2"}>
                       {unit === "items" ? null : (
                         <div className="grid gap-1">
@@ -1005,6 +1153,11 @@ const substrate = event.target.value as Substrate
                           />
                           <p className="text-xs text-muted-foreground">
                             Room math is {roomQuantity} {unit}
+                            {(active.id === "baseboards" || active.id === "chair-rail") &&
+                              doorDeductionLnFt(area.openings) > 0 &&
+                              area.deductOpeningsFromBaseboards !== false && (
+                                <span> (deducted {doorDeductionLnFt(area.openings)} ft for doors)</span>
+                              )}
                             {surface.quantityOverride !== null ? (
                               <>
                                 {" "}

@@ -77,6 +77,8 @@ export interface ProductionRate {
   substrate?: Substrate
   /** Other speeds for the same surface. Missing means this rate is its own group. */
   substrateGroup?: string
+  /** Physical trim width in inches (e.g. 4.5 for baseboards, 3.0 for casing) for accurate paint coverage calculation. */
+  trimWidthInches?: number
 }
 
 export interface PaymentMethod {
@@ -279,6 +281,8 @@ export interface SurfaceInput {
   colorName?: string
   /** Sheen for this surface (e.g. Satin). */
   sheen?: string
+  /** Physical trim width in inches for accurate paint coverage calculation. Blank uses rate or standard default. */
+  trimWidthInches?: number
 }
 
 /** A named section of rooms, such as Upstairs or Front of the house. */
@@ -356,6 +360,10 @@ export interface AreaInput {
   openings?: AreaOpening[]
   /** Room sketches and annotated photos with freehand markup */
   sketches?: RoomSketch[]
+  /** Automatically deduct door opening widths from baseboard linear footage (defaults to true). */
+  deductOpeningsFromBaseboards?: boolean
+  /** Casing pricing method preference: per unit (count) or linear foot. */
+  casingPricingMode?: "per_unit" | "linear_foot"
 }
 
 export interface AreaOpening {

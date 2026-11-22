@@ -272,6 +272,38 @@ export function openingSqFt(openings: AreaInput["openings"]): number {
   }, 0)
 }
 
+/** Total linear feet deducted from baseboard perimeter for door openings. */
+export function doorDeductionLnFt(openings: AreaInput["openings"]): number {
+  return (openings ?? []).reduce((sum, opening) => {
+    if (opening.kind !== "door") return sum
+    const count = Math.round(nonNegative(opening.count))
+    const width = nonNegative(opening.widthFt)
+    return sum + width * count
+  }, 0)
+}
+
+/** Linear feet of casing needed for door openings (2 vertical legs + 1 horizontal header per door). */
+export function doorCasingLnFt(openings: AreaInput["openings"]): number {
+  return (openings ?? []).reduce((sum, opening) => {
+    if (opening.kind !== "door") return sum
+    const count = Math.round(nonNegative(opening.count))
+    const width = nonNegative(opening.widthFt) || 3
+    const height = nonNegative(opening.heightFt) || 6.67
+    return sum + (2 * height + width) * count
+  }, 0)
+}
+
+/** Linear feet of casing needed for window openings (perimeter around window frame). */
+export function windowCasingLnFt(openings: AreaInput["openings"]): number {
+  return (openings ?? []).reduce((sum, opening) => {
+    if (opening.kind !== "window") return sum
+    const count = Math.round(nonNegative(opening.count))
+    const width = nonNegative(opening.widthFt) || 3
+    const height = nonNegative(opening.heightFt) || 5
+    return sum + 2 * (width + height) * count
+  }, 0)
+}
+
 /** Room or item math before a typed square-foot or linear-foot override. */
 export function measuredQuantity(rate: ProductionRate, area: AreaInput, itemCount: number): number {
   const measures = measureArea(area)
@@ -280,7 +312,43 @@ export function measuredQuantity(rate: ProductionRate, area: AreaInput, itemCoun
   }
   if (rate.measure === "ceiling") return measures.ceilingSqFt
   if (rate.measure === "deck") return nonNegative(area.lengthFt) * nonNegative(area.widthFt)
-  if (rate.measure === "trim" || rate.measure === "fascia" || rate.measure === "crown") return measures.perimeterLnFt
+  
+  // Baseboards: room perimeter deducting actual door opening widths (unless toggled off)
+  if (rate.id === "baseboards" || rate.internalLabel.toLowerCase().includes("baseboard")) {
+    const shouldDeduct = area.deductOpeningsFromBaseboards !== false
+    const deduction = shouldDeduct ? doorDeductionLnFt(area.openings) : 0
+    return Math.max(0, measures.perimeterLnFt - deduction)
+  }
+
+  // Chair rail: room perimeter deducting door openings (unless toggled off)
+  if (rate.id === "chair-rail" || rate.internalLabel.toLowerCase().includes("chair rail")) {
+    const shouldDeduct = area.deductOpeningsFromBaseboards !== false
+    const deduction = shouldDeduct ? doorDeductionLnFt(area.openings) : 0
+    return Math.max(0, measures.perimeterLnFt - deduction)
+  }
+
+  // Crown molding: ceiling perimeter (doors do not interrupt crown molding)
+  if (rate.id === "crown" || rate.measure === "crown") {
+    return measures.perimeterLnFt
+  }
+
+  // Door casing (linear feet)
+  if (rate.id === "door-casing" || rate.internalLabel.toLowerCase().includes("door casing")) {
+    const fromOpenings = doorCasingLnFt(area.openings)
+    if (fromOpenings > 0) return fromOpenings
+    if (itemCount > 0) return itemCount * 17
+    return 0
+  }
+
+  // Window casing (linear feet)
+  if (rate.id === "window-casing" || rate.internalLabel.toLowerCase().includes("window casing")) {
+    const fromOpenings = windowCasingLnFt(area.openings)
+    if (fromOpenings > 0) return fromOpenings
+    if (itemCount > 0) return itemCount * 16
+    return 0
+  }
+
+  if (rate.measure === "trim" || rate.measure === "fascia") return measures.perimeterLnFt
   return nonNegative(itemCount)
 }
 
@@ -611,18 +679,36 @@ export function calculateSurfaceGallons(
       ? nonNegative(surface.coveragePerCoat)
       : nonNegative(rate.coveragePerCoat)
   const itemGallons = rate.measure === "items" || rate.measure === "shutters"
+  const isTrim = rate.measure === "trim" || rate.measure === "crown" || rate.measure === "fascia"
+  const defaultWidth = rate.id === "baseboards" ? 4.5 : rate.id === "crown" ? 4.5 : rate.id.includes("casing") ? 3.0 : 3.5
+  const trimWidthInches = surface.trimWidthInches ?? rate.trimWidthInches ?? defaultWidth
+  const trimWidthFactor = isTrim ? Math.max(0.5, Math.min(24, trimWidthInches)) / 12 : 1
+
   let paintGallons = 0
   if (coverage > 0 && finishCoats > 0) {
-    paintGallons = itemGallons ? quantity * coverage * finishCoats : (quantity * finishCoats) / coverage
+    if (itemGallons) {
+      paintGallons = quantity * coverage * finishCoats
+    } else {
+      // If coverage is <= 500, it represents square feet per gallon. For trim, convert linear feet to actual square feet.
+      const finishQuantity = isTrim && coverage <= 500 ? quantity * trimWidthFactor : quantity
+      paintGallons = (finishQuantity * finishCoats) / coverage
+    }
   }
+
   const rawPrimerCoverage = Number.isFinite(rate.primerCoveragePerCoat)
     ? nonNegative(rate.primerCoveragePerCoat)
     : 0
   // Fall back to finish coverage when primer coverage is unconfigured (e.g. one-off or custom-coverage surfaces).
   const primerCoverage = rawPrimerCoverage > 0 ? rawPrimerCoverage : coverage
   if (primerCoverage > 0 && primerCoats > 0) {
-    paintGallons += itemGallons ? quantity * primerCoverage * primerCoats : (quantity * primerCoats) / primerCoverage
+    if (itemGallons) {
+      paintGallons += quantity * primerCoverage * primerCoats
+    } else {
+      const primerQuantity = isTrim && primerCoverage <= 500 ? quantity * trimWidthFactor : quantity
+      paintGallons += (primerQuantity * primerCoats) / primerCoverage
+    }
   }
+
   return roundGallons(paintGallons, materialRounding)
 }
 
