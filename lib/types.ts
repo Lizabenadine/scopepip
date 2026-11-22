@@ -690,6 +690,7 @@ export interface EstimateDraft {
   clientId: string | null
   clientName: string
   clientEmail: string
+  clientPhone?: string
   stageId: string
   title: string
   jobAddress: string

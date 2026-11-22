@@ -38,12 +38,13 @@ function readSession(id: string | null): EstimateDraft | null {
   }
 }
 
-function fromEstimate(estimate: Estimate, clientName: string, clientEmail: string): EstimateDraft {
+function fromEstimate(estimate: Estimate, clientName: string, clientEmail: string, clientPhone?: string): EstimateDraft {
   return {
     id: estimate.id,
     clientId: estimate.clientId,
     clientName,
     clientEmail,
+    clientPhone: clientPhone ?? "",
     stageId: estimate.stageId,
     title: estimate.title,
     jobAddress: estimate.jobAddress,
@@ -98,7 +99,7 @@ function buildInitialDraft(
           depositReceipt: estimate.depositReceipt,
           publicToken: estimate.publicToken,
         }
-      : fromEstimate(estimate, client?.name ?? "", client?.email ?? "")
+      : fromEstimate(estimate, client?.name ?? "", client?.email ?? "", client?.phone ?? "")
     return {
       missing: false,
       draft: withSubstrateRates(base, scope.productionRates),

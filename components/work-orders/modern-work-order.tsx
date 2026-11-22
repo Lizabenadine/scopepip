@@ -3,6 +3,12 @@
 import { CompanyMark } from "@/components/brand/company-mark"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { paintingText, translatePainting } from "@/lib/field/terms"
+import { useScope } from "@/lib/data/store"
+import { FLOORING_MATERIAL_LABELS } from "@/lib/flooring/defaults"
+import { DRYWALL_BOARD_LABELS, DRYWALL_BOARD_SIZE_SPECS, DRYWALL_FINISH_LEVEL_LABELS } from "@/lib/drywall/defaults"
+import { formatFeetInches } from "@/lib/estimate/dimensions"
+import { recomputeRoomGeometry } from "@/lib/flooring/calculate"
+import { recomputeDrywallRoomGeometry } from "@/lib/drywall/calculate"
 import type { CrewSheet } from "@/lib/work-orders/crew-sheet"
 
 export function ModernWorkOrder({
@@ -19,6 +25,8 @@ export function ModernWorkOrder({
   workerName?: string | null
 }) {
   const { copy, language } = useFieldLanguage()
+  const { estimates } = useScope()
+  const estimate = estimates.find((e) => e.id === sheet.estimateId)
   const say = (text: string) => translatePainting(text, language)
   const spanish = language === "es"
   const showTotal = sheet.hourDisplay !== "hide-all"
@@ -86,6 +94,119 @@ export function ModernWorkOrder({
       </div>
 
       <div className="space-y-6">
+        {/* Flooring Trade Scope */}
+        {estimate?.flooringScope?.rooms && estimate.flooringScope.rooms.length > 0 && (
+          <section className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/40 p-5" data-testid="crew-flooring-scope">
+            <div className="flex items-center justify-between border-b border-blue-200 pb-3">
+              <h4 className="text-base font-bold text-blue-900">
+                {spanish ? "Instrucciones de Pisos (Flooring)" : "Flooring Scope & Installation"}
+              </h4>
+              <span className="rounded-md bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">
+                {estimate.flooringScope.rooms.length} {spanish ? "habitaciones" : "room(s)"}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {estimate.flooringScope.rooms.map((rawRoom) => {
+                const room = recomputeRoomGeometry(rawRoom)
+                const matLabel = FLOORING_MATERIAL_LABELS[room.materialType] || room.materialName || "Flooring"
+                const dims = `${formatFeetInches(room.length)} × ${formatFeetInches(room.width)}`
+                const grossNeeded = Number((room.netSqFt * (1 + (room.wastePercent ?? 10) / 100)).toFixed(1))
+                const sqFtPerBox = room.sqFtPerBox > 0 ? room.sqFtPerBox : 20
+                const boxes = Math.ceil(grossNeeded / sqFtPerBox)
+
+                return (
+                  <div key={room.id} className="rounded-lg border border-slate-200 bg-white p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-sm">{room.name}</span>
+                      <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                        {boxes} {spanish ? "cajas" : "boxes"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {dims} · {room.netSqFt} sq ft net ({grossNeeded} gross sq ft)
+                    </p>
+                    <div className="text-xs text-slate-700 space-y-1 pt-1 border-t border-slate-100">
+                      <p>
+                        <strong>{spanish ? "Material:" : "Material:"}</strong> {matLabel}
+                      </p>
+                      <p>
+                        <strong>{spanish ? "Bajo-suelo (Underlayment):" : "Underlayment:"}</strong> {room.underlaymentType}
+                      </p>
+                      {room.subfloorPrepType !== "none" && (
+                        <p className="text-amber-800">
+                          <strong>{spanish ? "Prep de Subsuelo:" : "Subfloor Prep:"}</strong> {room.subfloorPrepType}
+                        </p>
+                      )}
+                      {(room.includeBaseboard || room.includeQuarterRound) && (
+                        <p className="text-slate-600">
+                          <strong>{spanish ? "Molduras:" : "Trim/Moulding:"}</strong>{" "}
+                          {[
+                            room.includeBaseboard && `${room.perimeterFt} LF ${spanish ? "Zócalo (Baseboard)" : "Baseboard"}`,
+                            room.includeQuarterRound && `${room.perimeterFt} LF ${spanish ? "Cuarto de bocel" : "Quarter Round"}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Drywall Trade Scope */}
+        {estimate?.drywallScope?.rooms && estimate.drywallScope.rooms.length > 0 && (
+          <section className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/40 p-5" data-testid="crew-drywall-scope">
+            <div className="flex items-center justify-between border-b border-amber-200 pb-3">
+              <h4 className="text-base font-bold text-amber-900">
+                {spanish ? "Instrucciones de Tablaroca (Drywall)" : "Drywall Hanging & Finishing Scope"}
+              </h4>
+              <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
+                {estimate.drywallScope.rooms.length} {spanish ? "habitaciones" : "room(s)"}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {estimate.drywallScope.rooms.map((rawRoom) => {
+                const room = recomputeDrywallRoomGeometry(rawRoom)
+                const dims = `${formatFeetInches(room.length)} × ${formatFeetInches(room.width)} × ${formatFeetInches(room.height)} H`
+                const boardLabel = DRYWALL_BOARD_LABELS[room.boardType] || "Drywall"
+                const finishLabel = DRYWALL_FINISH_LEVEL_LABELS[room.finishLevel]?.name || `Level ${room.finishLevel}`
+                const sheetSqFt = DRYWALL_BOARD_SIZE_SPECS[room.boardSize]?.sqFt || 32
+                const sheets = Math.ceil((room.totalNetSqFt * (1 + (room.wastePercent ?? 10) / 100)) / sheetSqFt)
+
+                return (
+                  <div key={room.id} className="rounded-lg border border-slate-200 bg-white p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-sm">{room.name}</span>
+                      <span className="text-xs font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded">
+                        {sheets} {spanish ? "hojas" : "sheets"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {dims} · {room.totalNetSqFt} sq ft ({spanish ? "Paredes:" : "Walls:"} {room.netWallSqFt} sf{room.includeCeiling ? `, ${spanish ? "Techo:" : "Ceiling:"} ${room.netCeilingSqFt} sf` : ""})
+                    </p>
+                    <div className="text-xs text-slate-700 space-y-1 pt-1 border-t border-slate-100">
+                      <p>
+                        <strong>{spanish ? "Tipo de Hoja:" : "Board Spec:"}</strong> {boardLabel} ({room.boardSize})
+                      </p>
+                      <p>
+                        <strong>{spanish ? "Nivel de Acabado:" : "Finish Level:"}</strong> {finishLabel}
+                      </p>
+                      {room.openings?.length > 0 && (
+                        <p className="text-slate-500">
+                          {room.openings.length} {spanish ? "apertura(s) deducida(s)" : "opening(s) deducted"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
         {sheet.areas.map((area, index) => {
           const showGroup = Boolean(area.groupName) && sheet.areas[index - 1]?.groupName !== area.groupName
           return (

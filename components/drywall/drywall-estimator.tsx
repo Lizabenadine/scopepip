@@ -19,8 +19,23 @@ import {
   Check,
   Printer,
   CopyCheck,
+  Send,
+  Share2,
+  Eye,
+  Save,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  ExternalLink,
+  AlertCircle,
+  Loader2,
 } from "lucide-react"
-import { useScope } from "@/lib/data/store"
+import { confirmEstimateSavedOnServer, flushBook, useScope } from "@/lib/data/store"
+import { runSendEstimateWorkflow } from "@/lib/proposals/send-workflow"
+import { ClientField } from "@/components/estimator/client-field"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { money, moneyExact } from "@/lib/format"
 import { formatFeetInches, toDecimalFeet } from "@/lib/estimate/dimensions"
 import type {
@@ -56,32 +71,52 @@ export function DrywallEstimator({
   onSaveScope?: (scope: DrywallScope) => void
 }) {
   const router = useRouter()
-  const { clients, stages, estimates, productionRates, estimateSettings, saveEstimate } = useScope()
+  const { clients, stages, estimates, productionRates, estimateSettings, saveEstimate, placeOnColumn, moveStage } = useScope()
 
+  const [currentEstimateId, setCurrentEstimateId] = useState<string | null>(estimateId || null)
   const [scope, setScope] = useState<DrywallScope>(() => initialScope || createBlankDrywallScope())
   const [activeTab, setActiveTab] = useState<"takeoff" | "buylist" | "templates">("takeoff")
   const [expandedRoomId, setExpandedRoomId] = useState<string | null>(
     () => scope.rooms[0]?.id || null
   )
-  const [selectedClientId, setSelectedClientId] = useState<string>("")
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [customerName, setCustomerName] = useState<string>(clientName || "")
+  const [customerEmail, setCustomerEmail] = useState<string>("")
+  const [customerPhone, setCustomerPhone] = useState<string>("")
   const [projectTitle, setProjectTitle] = useState<string>("Drywall Project")
   const [jobAddress, setJobAddress] = useState<string>("")
-  const [savedNotice, setSavedNotice] = useState<string | null>(null)
+  const [publicToken, setPublicToken] = useState<string>("")
+  const [saving, setSaving] = useState<boolean>(false)
+  const [sending, setSending] = useState<boolean>(false)
+  const [feedback, setFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null)
 
   const quote = useMemo(() => calculateDrywallQuote(scope), [scope])
 
   useEffect(() => {
-    if (!estimateId) return
+    if (!estimateId || estimates.length === 0) return
     const est = estimates.find((e) => e.id === estimateId)
     if (est) {
+      setCurrentEstimateId(est.id)
       if (est.drywallScope) {
         setScope(est.drywallScope)
+        if (est.drywallScope.rooms.length > 0) {
+          setExpandedRoomId(est.drywallScope.rooms[0].id)
+        }
       }
       if (est.title) setProjectTitle(est.title)
       if (est.jobAddress) setJobAddress(est.jobAddress)
-      if (est.clientId) setSelectedClientId(est.clientId)
+      if (est.publicToken) setPublicToken(est.publicToken)
+      if (est.clientId) {
+        setSelectedClientId(est.clientId)
+        const client = clients.find((c) => c.id === est.clientId)
+        if (client) {
+          setCustomerName(client.name || "")
+          setCustomerEmail(client.email || "")
+          setCustomerPhone(client.phone || "")
+        }
+      }
     }
-  }, [estimateId, estimates])
+  }, [estimateId, estimates, clients])
 
   useEffect(() => {
     if (onSaveScope) onSaveScope(scope)
@@ -179,66 +214,176 @@ export function DrywallEstimator({
     })
   }
 
-  function handleSaveProject() {
-    const existing = estimateId ? estimates.find((e) => e.id === estimateId) : null
-    if (existing) {
-      const client = clients.find((c) => c.id === existing.clientId)
-      saveEstimate({
-        ...existing,
-        clientName: client?.name || "",
-        clientEmail: client?.email || "",
-        title: projectTitle,
-        jobAddress,
-        trades: ["drywall"],
-        primaryTrade: "drywall",
-        drywallScope: scope,
+  function persistProject(targetStatus: "draft" | "sent" = "draft") {
+    const existing = currentEstimateId ? estimates.find((e) => e.id === currentEstimateId) : null
+    const client = clients.find((c) => c.id === selectedClientId)
+    const lead = stages.find((s) => s.slug === "lead") || stages[0]
+    const effectiveClientId = selectedClientId || (client ? client.id : null)
+
+    const saved = saveEstimate({
+      id: currentEstimateId,
+      clientId: effectiveClientId,
+      clientName: customerName.trim() || client?.name || "Customer",
+      clientEmail: customerEmail.trim() || client?.email || "",
+      clientPhone: customerPhone.trim() || client?.phone || "",
+      stageId: existing?.stageId || lead?.id || "",
+      title: projectTitle.trim() || "Drywall Installation & Finishing",
+      jobAddress: jobAddress.trim() || existing?.jobAddress || "",
+      trades: ["drywall"],
+      primaryTrade: "drywall",
+      drywallScope: scope,
+      estimateKind: "interior",
+      areas: existing?.areas || [],
+      lineItems: existing?.lineItems || [],
+      rates: existing?.rates || productionRates,
+      settings: existing?.settings || estimateSettings,
+      scheduledOn: existing?.scheduledOn ?? null,
+      notes: existing?.notes || "",
+      crewNote: existing?.crewNote || "",
+      acceptedAt: existing?.acceptedAt ?? null,
+      publicToken: existing?.publicToken || publicToken || "",
+      clientStatus: targetStatus === "sent" ? "sent" : (existing?.clientStatus || "draft"),
+      signature: existing?.signature || null,
+      paymentStatus: existing?.paymentStatus || "unpaid",
+      depositReceipt: existing?.depositReceipt || null,
+      createdAt: existing?.createdAt || null,
+    })
+
+    setCurrentEstimateId(saved.id)
+    setSelectedClientId(saved.clientId)
+    setPublicToken(saved.publicToken)
+    return saved
+  }
+
+  async function handleSaveDraft() {
+    if (saving || sending) return
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const saved = persistProject("draft")
+      const confirmed = await confirmEstimateSavedOnServer(saved.id)
+      if (!confirmed.ok) {
+        setFeedback({ tone: "error", text: confirmed.reason })
+        return
+      }
+      setFeedback({ tone: "success", text: "Drywall estimate draft saved to CRM!" })
+      if (!estimateId && typeof window !== "undefined") {
+        window.history.replaceState(null, "", `/estimates/${saved.id}`)
+      }
+    } catch {
+      setFeedback({ tone: "error", text: "Could not save estimate draft. Check your network." })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handlePreviewProposal() {
+    if (saving || sending) return
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const saved = persistProject()
+      await confirmEstimateSavedOnServer(saved.id)
+      router.push(`/proposal/${saved.id}`)
+    } catch {
+      if (currentEstimateId) router.push(`/proposal/${currentEstimateId}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSendProposal() {
+    if (sending || saving) return
+    const email = customerEmail.trim()
+    if (!email.includes("@") || /\s/.test(email)) {
+      setFeedback({
+        tone: "error",
+        text: "Please enter a valid customer email address before sending the proposal.",
       })
-      setSavedNotice("Drywall estimate updated!")
-      setTimeout(() => setSavedNotice(null), 3000)
-      router.push(`/proposal/${existing.id}`)
-    } else {
-      const client = clients.find((c) => c.id === selectedClientId) || clients[0]
-      const lead = stages.find((s) => s.slug === "lead") || stages[0]
-      const created = saveEstimate({
-        id: null,
-        clientId: client?.id || null,
-        clientName: client?.name || "",
-        clientEmail: client?.email || "",
-        stageId: lead?.id || "",
-        title: projectTitle || "Drywall Installation & Finishing",
-        jobAddress,
-        trades: ["drywall"],
-        primaryTrade: "drywall",
-        drywallScope: scope,
-        estimateKind: "interior",
-        areas: [],
-        lineItems: [],
-        rates: productionRates,
-        settings: estimateSettings,
-        scheduledOn: null,
-        notes: "",
-        crewNote: "",
-        acceptedAt: null,
-        publicToken: "",
-        clientStatus: "draft",
-        signature: null,
-        paymentStatus: "unpaid",
-        depositReceipt: null,
-        createdAt: null,
+      return
+    }
+
+    setSending(true)
+    setFeedback(null)
+    try {
+      const result = await runSendEstimateWorkflow({
+        persistLocal: () => persistProject("sent"),
+        confirmServerSave: confirmEstimateSavedOnServer,
+        onConfirmedSave: (saved) => {
+          if (!estimateId && typeof window !== "undefined") {
+            window.history.replaceState(null, "", `/estimates/${saved.id}`)
+          }
+        },
+        sendEmail: async (saved) => {
+          try {
+            const res = await fetch(`/api/proposals/${saved.id}/email`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                email,
+                clientName: customerName.trim() || "Customer",
+              }),
+            })
+            const body = (await res.json().catch(() => null)) as {
+              detail?: string
+              reason?: string
+              delivery?: string
+            } | null
+            if (!res.ok || body?.delivery !== "sent") {
+              return {
+                ok: false,
+                reason: body?.reason || body?.detail || "The proposal email could not be delivered.",
+              }
+            }
+            return {
+              ok: true,
+              message: "Proposal sent! The customer can review, sign, and accept online.",
+            }
+          } catch {
+            return { ok: false, reason: "The proposal could not be emailed." }
+          }
+        },
+        onSentSuccess: async (saved) => {
+          const sentStage = stages.find((item) => item.slug === "estimate_sent")
+          if (sentStage) {
+            moveStage(saved.id, sentStage.id)
+          }
+          placeOnColumn(saved.id, "proposal_sent")
+          await flushBook()
+        },
       })
-      setSavedNotice("Drywall estimate created!")
-      router.push(`/proposal/${created.id}`)
+
+      if (!result.ok) {
+        setFeedback({ tone: "error", text: result.reason })
+      } else {
+        setFeedback({ tone: "success", text: result.message })
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleCopyShareLink() {
+    try {
+      const saved = persistProject()
+      const token = saved.publicToken || publicToken
+      const link = `${window.location.origin}/p/${token}`
+      await navigator.clipboard.writeText(link)
+      setFeedback({ tone: "success", text: "Customer proposal link copied to clipboard!" })
+    } catch {
+      setFeedback({ tone: "error", text: "Could not copy link." })
     }
   }
 
   function handleDuplicateProject() {
-    const client = clients.find((c) => c.id === selectedClientId) || clients[0]
+    const client = clients.find((c) => c.id === selectedClientId)
     const lead = stages.find((s) => s.slug === "lead") || stages[0]
     const created = saveEstimate({
       id: null,
-      clientId: client?.id || null,
-      clientName: client?.name || "",
-      clientEmail: client?.email || "",
+      clientId: selectedClientId || null,
+      clientName: customerName.trim() || client?.name || "",
+      clientEmail: customerEmail.trim() || client?.email || "",
+      clientPhone: customerPhone.trim() || client?.phone || "",
       stageId: lead?.id || "",
       title: `${projectTitle} (Copy)`,
       jobAddress,
@@ -261,51 +406,220 @@ export function DrywallEstimator({
       depositReceipt: null,
       createdAt: null,
     })
-    setSavedNotice("Drywall estimate duplicated as new draft!")
+    setFeedback({ tone: "success", text: "Drywall estimate duplicated as a new draft!" })
     if (created?.id) {
       router.push(`/drywall?id=${created.id}`)
     }
-    setTimeout(() => setSavedNotice(null), 3500)
   }
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-16">
-      {/* Top Header */}
+      {/* Top Header & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
               <Layers className="size-3.5" /> Drywall Estimator
             </span>
-            {clientName && (
-              <span className="text-xs font-medium text-slate-500">Client: {clientName}</span>
-            )}
+            <Link href="/" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+              ← Jobs &amp; Estimates
+            </Link>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
             {projectTitle || "Drywall Takeoff, Hanging & Level 0–5 Finishing"}
           </h1>
           <p className="text-xs text-slate-500">
-            Sheet counts, fasteners, joint compound, corner beads, insulation, and Level 0–5 finishing labor.
+            Sheet counts, fasteners, joint compound, corner beads, insulation, proposals, and Level 0–5 finishing labor.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {savedNotice && (
-            <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-800 animate-in fade-in">
-              <CheckCircle2 className="size-3.5" /> {savedNotice}
-            </span>
-          )}
+        {/* Primary Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2" data-testid="drywall-top-actions">
           <button
             type="button"
-            onClick={handleSaveProject}
-            data-testid="save-drywall-estimate"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition-colors"
+            onClick={handleSaveDraft}
+            disabled={saving || sending}
+            data-testid="drywall-save-draft"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
-            <FileCheck2 className="size-3.5" />
-            <span>Save &amp; View Proposal</span>
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5 text-slate-500" />}
+            <span>Save Draft</span>
           </button>
+
+          <button
+            type="button"
+            onClick={handlePreviewProposal}
+            disabled={saving || sending}
+            data-testid="drywall-preview-proposal"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-slate-800 disabled:opacity-50 transition-colors"
+          >
+            <Eye className="size-3.5" />
+            <span>Preview Proposal</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSendProposal}
+            disabled={saving || sending}
+            data-testid="drywall-send-proposal"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50 transition-colors"
+          >
+            {sending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+            <span>Send to Customer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyShareLink}
+            data-testid="drywall-copy-link"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            title="Copy shareable customer proposal link"
+          >
+            <Share2 className="size-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Share Link</span>
+          </button>
+
+          {currentEstimateId && (
+            <Link
+              href={`/estimates/${currentEstimateId}/store-list`}
+              data-testid="drywall-store-list-link"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              title="View material buy-list"
+            >
+              <ShoppingBag className="size-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Store List</span>
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* Feedback Banner */}
+      {feedback && (
+        <div
+          data-testid="drywall-feedback-banner"
+          className={cn(
+            "flex items-center gap-2 rounded-xl p-3 text-xs font-semibold transition-all animate-in fade-in",
+            feedback.tone === "success"
+              ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+              : "bg-red-50 border border-red-200 text-red-900"
+          )}
+        >
+          {feedback.tone === "success" ? (
+            <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertCircle className="size-4 text-red-600 shrink-0" />
+          )}
+          <span className="flex-1">{feedback.text}</span>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            className="text-xs opacity-70 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Customer & Jobsite Details Card */}
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-4"
+        data-testid="drywall-customer-card"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-800">
+              <User className="size-4" />
+            </span>
+            <h2 className="text-sm font-bold text-slate-900">Customer &amp; Jobsite Details</h2>
+          </div>
+          <span className="text-xs text-slate-500">
+            {selectedClientId
+              ? "Saved Customer in CRM"
+              : customerName.trim()
+              ? "New Customer (auto-creates on save)"
+              : "Enter or select customer below"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <ClientField
+              clients={clients}
+              name={customerName}
+              clientId={selectedClientId}
+              onChange={(next) => {
+                setCustomerName(next.name)
+                setSelectedClientId(next.clientId)
+                const picked = clients.find((c) => c.id === next.clientId)
+                if (picked) {
+                  if (picked.email) setCustomerEmail(picked.email)
+                  if (picked.phone) setCustomerPhone(picked.phone)
+                  if (picked.address) setJobAddress(picked.address)
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="drywall-customer-email" className="text-xs font-semibold text-slate-700">
+              Customer Email
+            </Label>
+            <Input
+              id="drywall-customer-email"
+              type="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="client@example.com"
+              className="h-12 text-sm"
+            />
+            <p className="text-[11px] text-slate-400">Proposal link and contract sent here</p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="drywall-customer-phone" className="text-xs font-semibold text-slate-700">
+              Customer Phone
+            </Label>
+            <Input
+              id="drywall-customer-phone"
+              type="tel"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="(555) 123-4567"
+              className="h-12 text-sm"
+            />
+            <p className="text-[11px] text-slate-400">Contact number for crew &amp; updates</p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="drywall-job-address" className="text-xs font-semibold text-slate-700">
+              Jobsite Address
+            </Label>
+            <Input
+              id="drywall-job-address"
+              value={jobAddress}
+              onChange={(e) => setJobAddress(e.target.value)}
+              placeholder="123 Maple St, Seattle, WA"
+              className="h-12 text-sm"
+            />
+            <p className="text-[11px] text-slate-400">Printed on proposal and work order</p>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex-1 flex flex-col gap-1">
+            <Label htmlFor="drywall-project-title" className="text-xs font-semibold text-slate-700">
+              Project Title
+            </Label>
+            <Input
+              id="drywall-project-title"
+              value={projectTitle}
+              onChange={(e) => setProjectTitle(e.target.value)}
+              placeholder="e.g. Basement Framing & Level 4 Finish"
+              className="h-10 text-sm font-medium"
+            />
+          </div>
+        </div>
+      </section>
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
@@ -1117,18 +1431,53 @@ export function DrywallEstimator({
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                onClick={handleSaveProject}
+                onClick={handleSendProposal}
+                disabled={sending || saving}
                 data-testid="drywall-save-action"
-                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors text-center"
+                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
-                Save Drywall Estimate
+                {sending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                <span>Send Proposal to Customer</span>
               </button>
-              {estimateId && (
+
+              <button
+                type="button"
+                onClick={handlePreviewProposal}
+                disabled={sending || saving}
+                data-testid="drywall-rail-preview-action"
+                className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <Eye className="size-3.5" />
+                <span>Preview Customer Proposal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={sending || saving}
+                data-testid="drywall-rail-draft-action"
+                className="w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors text-center flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5 text-slate-500" />}
+                <span>Save Estimate Draft</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyShareLink}
+                data-testid="drywall-rail-share-action"
+                className="w-full py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors text-center flex items-center justify-center gap-1.5"
+              >
+                <Share2 className="size-3.5 text-slate-500" />
+                <span>Copy Shareable Link</span>
+              </button>
+
+              {currentEstimateId && (
                 <button
                   type="button"
                   onClick={handleDuplicateProject}
                   data-testid="drywall-duplicate-action"
-                  className="w-full py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors text-center flex items-center justify-center gap-1.5"
+                  className="w-full py-2 rounded-xl border border-dashed border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-medium transition-colors text-center flex items-center justify-center gap-1.5"
                 >
                   <CopyCheck className="size-3.5 text-slate-500" />
                   <span>Duplicate as New Estimate</span>

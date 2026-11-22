@@ -968,7 +968,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           {
             id: clientId,
             name: draft.clientName.trim(),
-            phone: "",
+            phone: draft.clientPhone?.trim() || "",
             email: draft.clientEmail.trim(),
             address: draft.jobAddress.trim(),
             notes: "",
@@ -981,9 +981,10 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         clients = clients.map((client) => {
           if (client.id !== clientId) return client
           const email = draft.clientEmail.trim() || client.email
+          const phone = draft.clientPhone?.trim() || client.phone
           const address = client.address || draft.jobAddress.trim()
-          if (email === client.email && address === client.address) return client
-          return { ...client, email, address, updatedAt: now }
+          if (email === client.email && address === client.address && phone === client.phone) return client
+          return { ...client, email, phone, address, updatedAt: now }
         })
       }
 
@@ -1013,8 +1014,18 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         id,
         clientId,
         stageId: draft.stageId,
-        title: draft.title.trim() || "Interior repaint",
+        title:
+          draft.title.trim() ||
+          (draft.primaryTrade === "flooring"
+            ? "Flooring Installation"
+            : draft.primaryTrade === "drywall"
+              ? "Drywall Installation & Finishing"
+              : "Interior repaint"),
         jobAddress: draft.jobAddress.trim(),
+        trades: draft.trades ?? previous?.trades ?? (draft.primaryTrade ? [draft.primaryTrade] : ["painting"]),
+        primaryTrade: draft.primaryTrade ?? previous?.primaryTrade ?? "painting",
+        flooringScope: draft.flooringScope ?? previous?.flooringScope,
+        drywallScope: draft.drywallScope ?? previous?.drywallScope,
         estimateKind: draft.estimateKind ?? previous?.estimateKind ?? "interior",
         areas: draft.areas,
         areaGroups: draft.areaGroups && draft.areaGroups.length > 0 ? draft.areaGroups : undefined,
