@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
-import { listJsonNames, readJsonFile, writeJsonFile } from "./account-store.ts"
+import { deleteJsonFile, listJsonNames, readJsonFile, writeJsonFile } from "./account-store.ts"
 import { supabaseAdmin, supabaseServerKey } from "../supabase/admin.ts"
 import { hookMoments } from "../webhooks/moments.ts"
 import { sendWebhook } from "../webhooks/send.ts"
@@ -1225,5 +1225,117 @@ export async function setLifetimeAccess(
       createdAt: updatedUser.createdAt,
       ...(updatedUser.authUserId ? { authUserId: updatedUser.authUserId } : {}),
     },
+  }
+}
+
+export async function deleteAccountsForAdmin(
+  callerUserId: string,
+  targetUserIds: string[],
+): Promise<{ ok: boolean; reason?: string; deletedCount?: number; deletedUserIds?: string[] }> {
+  const accounts = await readAccounts()
+  const normCaller = callerUserId.trim().toLowerCase()
+  const caller = accounts.users.find(
+    (u) => u.id === callerUserId || (u.authUserId && u.authUserId.toLowerCase() === normCaller),
+  )
+  const isSuper =
+    (caller && (caller.role === "super_admin" || isMasterAdmin(caller))) ||
+    masterAdminUserIds().includes(normCaller) ||
+    isMasterAdmin({ id: callerUserId, authUserId: callerUserId })
+
+  if (!isSuper) {
+    return { ok: false, reason: "Unauthorized: only a master admin can delete accounts." }
+  }
+
+  const targetsSet = new Set(targetUserIds.map((id) => id.trim().toLowerCase()))
+  const founderEmails = ["nadieshda@aol.com"]
+  const founderIds = ["374258f7-136a-4431-a6af-f81c3a01b48c", "52618110-8404-4795-b6de-5758a78270fd"]
+
+  const usersToDelete = accounts.users.filter((u) => {
+    const matchesId = targetsSet.has(u.id.toLowerCase()) || (u.authUserId && targetsSet.has(u.authUserId.toLowerCase()))
+    if (!matchesId) return false
+    // Strict founder protection
+    if (founderEmails.includes(u.email.toLowerCase())) return false
+    if (founderIds.includes(u.id.toLowerCase())) return false
+    if (u.authUserId && founderIds.includes(u.authUserId.toLowerCase())) return false
+    if (isMasterAdmin(u)) return false
+    return true
+  })
+
+  if (usersToDelete.length === 0) {
+    return { ok: true, deletedCount: 0, deletedUserIds: [] }
+  }
+
+  const deletedUserIds = usersToDelete.map((u) => u.id)
+  const deletedUserIdSet = new Set(deletedUserIds)
+  const remainingUsers = accounts.users.filter((u) => !deletedUserIdSet.has(u.id))
+
+  // Find companies that belonged exclusively to deleted users and have no remaining users
+  const companiesToDelete = accounts.companies.filter((c) => {
+    if (c.id === "6121f9b9-59df-4190-b4ff-289a062f4c20") return false // Always protect Scopepipe company
+    const hasOtherUsers = remainingUsers.some((u) => u.companyId === c.id)
+    return !hasOtherUsers
+  })
+  const deletedCompanyIds = new Set(companiesToDelete.map((c) => c.id))
+  const remainingCompanies = accounts.companies.filter((c) => !deletedCompanyIds.has(c.id))
+
+  // 1. Delete associated book files for removed companies
+  for (const c of companiesToDelete) {
+    try {
+      await deleteJsonFile(bookPath(c.id), `books/${c.id}.json`)
+    } catch (err) {
+      console.warn("Could not delete book file for company:", c.id, err)
+    }
+  }
+
+  // 2. Remove Supabase Auth identities and DB rows
+  const admin = supabaseAdmin()
+  if (admin) {
+    for (const u of usersToDelete) {
+      const authId = u.authUserId || (u.id.includes("-") ? u.id : null)
+      if (authId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authId)) {
+        try {
+          await admin.auth.admin.deleteUser(authId)
+        } catch {
+          // Ignore if user is not in Supabase auth
+        }
+        try {
+          await admin.from("profiles").delete().eq("user_id", authId)
+        } catch {
+          // Ignore table error
+        }
+        try {
+          await admin.from("subscriptions").delete().eq("user_id", authId)
+        } catch {
+          // Ignore table error
+        }
+      }
+      try {
+        await admin.from("profiles").delete().eq("id", u.id)
+      } catch {
+        // Ignore table error
+      }
+      try {
+        await admin.from("subscriptions").delete().eq("user_id", u.id)
+      } catch {
+        // Ignore table error
+      }
+    }
+  }
+
+  // 3. Write updated accounts.json
+  try {
+    await writeAccounts({
+      users: remainingUsers,
+      companies: remainingCompanies,
+    })
+  } catch (err) {
+    console.error("Failed to write accounts after deletion:", err)
+    return { ok: false, reason: "Failed to persist deleted accounts to storage." }
+  }
+
+  return {
+    ok: true,
+    deletedCount: usersToDelete.length,
+    deletedUserIds,
   }
 }

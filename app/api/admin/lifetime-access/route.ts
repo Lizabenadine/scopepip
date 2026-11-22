@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { sessionFromRequest } from "@/lib/auth/request"
-import { isMasterAdmin, listAllAccountsForAdmin, setLifetimeAccess } from "@/lib/auth/directory"
+import { isMasterAdmin, listAllAccountsForAdmin, setLifetimeAccess, deleteAccountsForAdmin } from "@/lib/auth/directory"
 
 export const dynamic = "force-dynamic"
 
@@ -37,6 +37,36 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true, user: result.user })
+  } catch {
+    return NextResponse.json({ error: "Invalid request payload." }, { status: 400 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  const session = await sessionFromRequest(request)
+  if (!session || (session.role !== "super_admin" && !isMasterAdmin(session))) {
+    return NextResponse.json({ error: "Forbidden: Master admin access required." }, { status: 403 })
+  }
+
+  try {
+    const body = (await request.json()) as { userIds?: string[] }
+    const userIds = Array.isArray(body?.userIds) ? body.userIds : []
+    if (userIds.length === 0) {
+      return NextResponse.json({ error: "No user IDs provided for deletion." }, { status: 400 })
+    }
+
+    const result = await deleteAccountsForAdmin(session.id, userIds)
+    if (!result.ok) {
+      return NextResponse.json({ error: result.reason || "Failed to delete accounts." }, { status: 400 })
+    }
+
+    const updatedUsers = await listAllAccountsForAdmin(session.id)
+    return NextResponse.json({
+      ok: true,
+      deletedCount: result.deletedCount,
+      deletedUserIds: result.deletedUserIds,
+      users: updatedUsers || [],
+    })
   } catch {
     return NextResponse.json({ error: "Invalid request payload." }, { status: 400 })
   }
