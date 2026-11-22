@@ -3,10 +3,11 @@
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useMemo } from "react"
-import { CheckCircle2, FileCheck2, Search, Send, Clock, ExternalLink, Briefcase } from "lucide-react"
+import { CheckCircle2, FileCheck2, Search, Send, Clock, ExternalLink, Briefcase, Download, XCircle, FileText } from "lucide-react"
 import { useScope } from "@/lib/data/store"
 import { moneyExact } from "@/lib/format"
 import { listProposals } from "@/lib/proposals/catalog"
+import { ProposalSendEmailButton } from "@/components/proposal/proposal-send-email-button"
 import { cn } from "@/lib/utils"
 
 const STATUS_LABEL = {
@@ -16,14 +17,25 @@ const STATUS_LABEL = {
   declined: "Declined",
 } as const
 
+type ProposalTab = "all" | "signed" | "sent" | "draft"
+
 export function ProposalList() {
   const { ready, estimates, clients, quoteEstimate } = useScope()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const activeTab = searchParams.get("tab") === "signed" ? "signed" : searchParams.get("tab") === "sent" ? "sent" : "all"
+  const tabParam = searchParams.get("tab")
+  const activeTab: ProposalTab =
+    tabParam === "signed" ? "signed" :
+    tabParam === "sent" ? "sent" :
+    tabParam === "draft" ? "draft" :
+    "all"
+
   const [search, setSearch] = useState("")
 
-  const allProposals = useMemo(() => listProposals(estimates, clients), [estimates, clients])
+  const allProposals = useMemo(
+    () => listProposals(estimates, clients, { includeDrafts: true }),
+    [estimates, clients]
+  )
 
   const signedProposals = useMemo(
     () => allProposals.filter((p) => p.isSigned || p.status === "accepted"),
@@ -33,21 +45,32 @@ export function ProposalList() {
     () => allProposals.filter((p) => p.status === "sent" && !p.isSigned),
     [allProposals]
   )
+  const draftProposals = useMemo(
+    () => allProposals.filter((p) => p.status === "draft" && !p.isSigned),
+    [allProposals]
+  )
 
   const displayedProposals = useMemo(() => {
-    let list = activeTab === "signed" ? signedProposals : activeTab === "sent" ? sentProposals : allProposals
+    let list =
+      activeTab === "signed"
+        ? signedProposals
+        : activeTab === "sent"
+        ? sentProposals
+        : activeTab === "draft"
+        ? draftProposals
+        : allProposals
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter((p) => p.clientName.toLowerCase().includes(q) || p.title.toLowerCase().includes(q))
     }
     return list
-  }, [activeTab, signedProposals, sentProposals, allProposals, search])
+  }, [activeTab, signedProposals, sentProposals, draftProposals, allProposals, search])
 
   if (!ready) {
     return <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-hidden />
   }
 
-  function setTab(tab: "all" | "signed" | "sent") {
+  function setTab(tab: ProposalTab) {
     const params = new URLSearchParams(searchParams.toString())
     if (tab === "all") params.delete("tab")
     else params.set("tab", tab)
@@ -59,17 +82,27 @@ export function ProposalList() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            {activeTab === "signed" ? "Signed Proposals & Contracts" : "Proposals"}
+            {activeTab === "signed"
+              ? "Signed Proposals & Contracts"
+              : activeTab === "sent"
+              ? "Sent Proposals"
+              : activeTab === "draft"
+              ? "Draft Proposals"
+              : "Documents & Proposals"}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {activeTab === "signed"
               ? "All signed client agreements, accepted contracts, and authorized scopes."
-              : "Review sent quotes, customer views, and signed client contracts."}
+              : activeTab === "sent"
+              ? "Proposals delivered to customers awaiting acceptance."
+              : activeTab === "draft"
+              ? "Working drafts being prepared before sending."
+              : "Review sent quotes, drafts, and signed client agreements."}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/estimates/new"
+            href="/estimate"
             className="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors"
           >
             + New Proposal
@@ -79,20 +112,7 @@ export function ProposalList() {
 
       {/* Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setTab("all")}
-            data-testid="tab-all-proposals"
-            className={cn(
-              "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-              activeTab === "all"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            )}
-          >
-            All Proposals ({allProposals.length})
-          </button>
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setTab("signed")}
@@ -105,7 +125,7 @@ export function ProposalList() {
             )}
           >
             <FileCheck2 className="size-3.5" />
-            Signed Contracts ({signedProposals.length})
+            Signed Proposals ({signedProposals.length})
           </button>
           <button
             type="button"
@@ -119,7 +139,34 @@ export function ProposalList() {
             )}
           >
             <Send className="size-3.5" />
-            Awaiting Review ({sentProposals.length})
+            Sent ({sentProposals.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("draft")}
+            data-testid="tab-draft-proposals"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+              activeTab === "draft"
+                ? "bg-slate-800 text-white shadow-xs"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60"
+            )}
+          >
+            <Clock className="size-3.5" />
+            Drafts ({draftProposals.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("all")}
+            data-testid="tab-all-proposals"
+            className={cn(
+              "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+              activeTab === "all"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            )}
+          >
+            All ({allProposals.length})
           </button>
         </div>
 
@@ -140,7 +187,11 @@ export function ProposalList() {
         <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center">
           <p className="text-sm font-medium text-slate-600">
             {activeTab === "signed"
-              ? "No signed contracts yet. When customers accept and sign a proposal, they will appear here."
+              ? "No signed proposals yet. When customers accept and sign a proposal, they appear here."
+              : activeTab === "sent"
+              ? "No sent proposals awaiting review."
+              : activeTab === "draft"
+              ? "No draft proposals."
               : "No proposals found."}
           </p>
         </div>
@@ -156,7 +207,7 @@ export function ProposalList() {
                 <div
                   data-testid={`proposal-card-${proposal.id}`}
                   className={cn(
-                    "flex flex-col gap-3 rounded-2xl border p-4 bg-white shadow-xs transition-all sm:flex-row sm:items-center sm:justify-between",
+                    "flex flex-col gap-4 rounded-2xl border p-4 bg-white shadow-xs transition-all lg:flex-row lg:items-center lg:justify-between",
                     isSigned ? "border-emerald-200 hover:border-emerald-300" : "border-slate-200 hover:border-slate-300"
                   )}
                 >
@@ -177,9 +228,13 @@ export function ProposalList() {
                         <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
                           <Send className="size-3" /> Sent
                         </span>
+                      ) : proposal.status === "draft" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          <Clock className="size-3" /> Draft
+                        </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                          {STATUS_LABEL[proposal.status]}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          <XCircle className="size-3" /> {STATUS_LABEL[proposal.status]}
                         </span>
                       )}
                     </div>
@@ -194,17 +249,34 @@ export function ProposalList() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4 sm:justify-end shrink-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end shrink-0">
                     <span className="text-base font-bold font-display text-slate-900 tabular-nums">
                       {moneyExact(total)}
                     </span>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <Link
                         href={`/proposal/${proposal.id}`}
                         className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
                       >
-                        View Proposal
+                        View
                       </Link>
+
+                      <a
+                        href={`/api/proposals/${proposal.id}/pdf`}
+                        download={`proposal-${proposal.id}.pdf`}
+                        data-testid={`download-pdf-${proposal.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-colors"
+                      >
+                        <Download className="size-3.5 text-slate-500" />
+                        <span>Download PDF</span>
+                      </a>
+
+                      <ProposalSendEmailButton
+                        estimateId={proposal.id}
+                        clientEmail={proposal.clientEmail}
+                        isSigned={isSigned}
+                      />
+
                       {isSigned && (
                         <Link
                           href={`/work-orders/${proposal.id}`}
@@ -213,6 +285,7 @@ export function ProposalList() {
                           <Briefcase className="size-3" /> Work Order
                         </Link>
                       )}
+
                       {proposal.publicToken && (
                         <Link
                           href={`/p/${proposal.publicToken}`}

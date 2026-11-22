@@ -156,13 +156,18 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
   const financing = financingTerms(effectiveSettings)
   const monthly = financing.enabled ? monthlyPayment(quote.total, financing.aprPercent, financing.months) : 0
 
-  const accepted = Boolean(
-    input.estimate.clientStatus === "accepted" &&
-      input.estimate.signature &&
+  const hasSignature = Boolean(
+    input.estimate.signature &&
       input.estimate.signature.signedName.trim().length > 0 &&
       input.estimate.signature.signaturePayload.trim().length > 0,
   )
-  const signerDisplay = accepted ? input.estimate.signature!.signedName : ""
+  const accepted = Boolean(
+    (input.estimate.clientStatus === "accepted" || Boolean(input.estimate.acceptedAt)) &&
+      (hasSignature || Boolean(input.estimate.signature?.signedName?.trim())),
+  )
+  const signerDisplay = accepted
+    ? (input.estimate.signature?.signedName || input.clientName || "Authorized Signer")
+    : ""
   const baseOrigin = (input.origin?.trim() || "https://www.scopepipe.com").replace(/\/$/, "")
   const publicToken = input.estimate.publicToken?.trim() || input.estimate.id
   const proposalUrl = `${baseOrigin}/p/${publicToken}${language === "es" ? "?lang=es" : ""}`
@@ -174,7 +179,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
             <span style="font-size: 11px; color: var(--ink-soft); margin-top: 4px;">Signed by ${escapeHtml(input.estimate.signature.signedName)}${input.estimate.signature.signedAt ? ` · ${escapeHtml(jobDate(input.estimate.signature.signedAt.slice(0, 10)))}` : ""}</span>
           </div>`
         : `<div style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); margin: 10px 0; padding: 6px 0;" data-testid="signature-accepted">
-            <div class="signature-cursive" style="margin: 0; border-bottom: none;">${escapeHtml(input.estimate.signature.signedName)}</div>
+            <div class="signature-cursive" style="margin: 0; border-bottom: none;">${escapeHtml(input.estimate.signature.signaturePayload.startsWith("typed:") ? input.estimate.signature.signaturePayload.slice(6) : input.estimate.signature.signedName)}</div>
             <span style="font-size: 11px; color: var(--ink-soft); margin-top: 2px;">Signed by ${escapeHtml(input.estimate.signature.signedName)}${input.estimate.signature.signedAt ? ` · ${escapeHtml(jobDate(input.estimate.signature.signedAt.slice(0, 10)))}` : ""}</span>
           </div>`
       : `<div style="min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-bottom: 1px solid var(--line); margin: 10px 0; padding: 8px 0;" data-testid="signature-online-prompt">

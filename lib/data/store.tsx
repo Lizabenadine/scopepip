@@ -46,6 +46,7 @@ import { recordDrip, holdDrip } from "@/lib/follow-ups/record"
 import { applyAssignUnmatched, applyCustomerReply, applyInbound, applyOutbound, dealForClient, markOutboundDelivery, type InboundText } from "@/lib/messages/thread"
 import type {
   Client,
+  ClientStatus,
   Estimate,
   EstimateDraft,
   EstimateSettings,
@@ -288,8 +289,23 @@ function mergeEstimateConflict(base: Estimate | undefined, server: Estimate, loc
   if (!serverChanged) return local
   const primary = localChanged ? local : server
   const serverPaid = server.paymentStatus === "paid" || server.paymentStatus === "deposit_paid"
+  const isAccepted =
+    server.clientStatus === "accepted" ||
+    local.clientStatus === "accepted" ||
+    Boolean(server.acceptedAt) ||
+    Boolean(local.acceptedAt) ||
+    Boolean(server.signature) ||
+    Boolean(local.signature)
+  const resolvedStatus: ClientStatus = isAccepted
+    ? "accepted"
+    : server.clientStatus === "declined" || local.clientStatus === "declined"
+      ? "declined"
+      : server.clientStatus === "sent" || local.clientStatus === "sent"
+        ? "sent"
+        : primary.clientStatus
   return {
     ...primary,
+    clientStatus: resolvedStatus,
     acceptedAt: server.acceptedAt ?? local.acceptedAt,
     declinedAt: server.declinedAt ?? local.declinedAt,
     signature: server.signature ?? local.signature,

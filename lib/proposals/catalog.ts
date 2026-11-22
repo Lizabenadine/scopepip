@@ -4,6 +4,7 @@ export interface ProposalListing {
   id: string
   clientName: string
   clientId?: string
+  clientEmail?: string
   title: string
   status: ClientStatus
   updatedAt: string
@@ -24,10 +25,15 @@ export function isSignedProposal(estimate: Estimate): boolean {
   )
 }
 
-export function listProposals(estimates: Estimate[], clients: Client[] = []): ProposalListing[] {
+export function listProposals(
+  estimates: Estimate[],
+  clients: Client[] = [],
+  options?: { includeDrafts?: boolean },
+): ProposalListing[] {
   return estimates
     .filter(
       (estimate) =>
+        options?.includeDrafts ||
         estimate.clientStatus === "sent" ||
         estimate.clientStatus === "accepted" ||
         estimate.clientStatus === "declined" ||
@@ -43,6 +49,7 @@ export function listProposals(estimates: Estimate[], clients: Client[] = []): Pr
         id: estimate.id,
         clientName: client?.name ?? "Client",
         clientId: estimate.clientId,
+        clientEmail: client?.email ?? "",
         title: estimate.title || "Estimate",
         status: effectiveStatus,
         updatedAt: estimate.updatedAt,

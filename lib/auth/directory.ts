@@ -805,6 +805,9 @@ export async function acceptPublicProposal(
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
   const found = await findByEstimate((estimate) => estimate.publicToken === token)
   if (!found) return { ok: false, reason: "This proposal link is not valid." }
+  if (found.estimate.clientStatus === "accepted" || found.estimate.signature) {
+    return { ok: true, estimate: forCustomer(found.estimate) }
+  }
   const result = applyAcceptance(found.book.state, token, input)
   if (!result.ok) return result
   const next = reconciled(found.book.state, result.state)

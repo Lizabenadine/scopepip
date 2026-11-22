@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { ChevronLeft, CheckCircle2, FileCheck2, ExternalLink, Briefcase } from "lucide-react"
+import { ChevronLeft, CheckCircle2, FileCheck2, ExternalLink, Briefcase, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import { useFieldLanguage } from "@/hooks/use-field-language"
 import { useScope } from "@/lib/data/store"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { money, scopeSummary } from "@/lib/format"
+import { ProposalSendEmailButton } from "@/components/proposal/proposal-send-email-button"
 
 export function ClientDetail({ id }: { id: string }) {
   const router = useRouter()
@@ -153,13 +154,28 @@ export function ClientDetail({ id }: { id: string }) {
                       <span className="font-display text-lg font-bold text-slate-900 tabular-nums">
                         {money(quote.total)}
                       </span>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <Link
                           href={`/proposal/${estimate.id}`}
                           className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
                         >
-                          Proposal
+                          View
                         </Link>
+                        <a
+                          href={`/api/proposals/${estimate.id}/pdf`}
+                          download={`signed-proposal-${estimate.id}.pdf`}
+                          data-testid={`download-pdf-${estimate.id}`}
+                          className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-2xs transition-colors"
+                        >
+                          <Download className="size-3 text-slate-500" />
+                          <span>PDF</span>
+                        </a>
+                        <ProposalSendEmailButton
+                          estimateId={estimate.id}
+                          clientEmail={client.email}
+                          isSigned={true}
+                          className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors"
+                        />
                         <Link
                           href={`/work-orders/${estimate.id}`}
                           className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 shadow-2xs"

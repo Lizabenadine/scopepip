@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { CheckCircle2, Download, FileCheck2 } from "lucide-react"
 import {
   ProposalCover,
   ProposalPager,
@@ -86,6 +87,15 @@ export function ProposalView({ id }: { id: string }) {
         <button type="button" className="font-medium text-primary" onClick={() => window.print()}>
           Print
         </button>
+        <a
+          href={`/api/proposals/${estimate.id}/pdf`}
+          download={`proposal-${estimate.id}.pdf`}
+          data-testid="download-proposal-pdf"
+          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+        >
+          <Download className="size-3.5" />
+          <span>Download PDF</span>
+        </a>
         <ProposalEmail
           estimateId={estimate.id}
           hasEmail={Boolean(client?.email.includes("@"))}
@@ -226,7 +236,30 @@ export function ProposalView({ id }: { id: string }) {
         customerName={client?.name || "Client"}
       />
       <section id="proposal-page-sign" data-testid="proposal-page-sign" className="flex flex-col gap-4 rounded-2xl bg-card p-4 border border-slate-200 bg-white shadow-sm">
-        <h2 className="text-lg font-semibold">Signature</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Signature</h2>
+          {estimate.signature || estimate.acceptedAt ? (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <CheckCircle2 className="size-3.5" /> Signed & Accepted
+            </span>
+          ) : null}
+        </div>
+        {estimate.signature ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+            <p className="font-display text-2xl font-bold text-slate-900">{estimate.signature.signedName}</p>
+            {estimate.signature.signaturePayload?.startsWith("data:") ? (
+              <div
+                role="img"
+                aria-label={`Signature of ${estimate.signature.signedName}`}
+                className="my-2 h-20 w-full max-w-sm rounded-lg bg-white bg-contain bg-center bg-no-repeat border border-slate-200"
+                style={{ backgroundImage: `url("${estimate.signature.signaturePayload}")` }}
+              />
+            ) : null}
+            <p className="text-xs text-slate-600 mt-1">
+              Signed by {estimate.signature.signedName} on {new Date(estimate.signature.signedAt).toLocaleDateString()}
+            </p>
+          </div>
+        ) : null}
         <ProposalSignatureCopy
           acceptWording={pagesDocument.acceptWording}
           declineWording={pagesDocument.declineWording}
