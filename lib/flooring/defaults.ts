@@ -150,6 +150,7 @@ export function createBlankFlooringScope(): FlooringScope {
     dumpsterFee: 150,
     overheadPercent: 10,
     profitPercent: 20,
+    profitMode: "margin",
     notes: "Prices include standard subfloor sweep, straight lay pattern, and manufacturer warranty guidelines.",
   }
 }

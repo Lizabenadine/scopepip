@@ -17,10 +17,12 @@ import {
   FileCheck2,
   Scissors,
   Check,
+  Printer,
+  CopyCheck,
 } from "lucide-react"
 import { useScope } from "@/lib/data/store"
 import { money, moneyExact } from "@/lib/format"
-import { formatFeetInches } from "@/lib/estimate/dimensions"
+import { formatFeetInches, toDecimalFeet } from "@/lib/estimate/dimensions"
 import type {
   DrywallAssemblyTemplate,
   DrywallBoardSize,
@@ -67,6 +69,19 @@ export function DrywallEstimator({
   const [savedNotice, setSavedNotice] = useState<string | null>(null)
 
   const quote = useMemo(() => calculateDrywallQuote(scope), [scope])
+
+  useEffect(() => {
+    if (!estimateId) return
+    const est = estimates.find((e) => e.id === estimateId)
+    if (est) {
+      if (est.drywallScope) {
+        setScope(est.drywallScope)
+      }
+      if (est.title) setProjectTitle(est.title)
+      if (est.jobAddress) setJobAddress(est.jobAddress)
+      if (est.clientId) setSelectedClientId(est.clientId)
+    }
+  }, [estimateId, estimates])
 
   useEffect(() => {
     if (onSaveScope) onSaveScope(scope)
@@ -180,6 +195,7 @@ export function DrywallEstimator({
       })
       setSavedNotice("Drywall estimate updated!")
       setTimeout(() => setSavedNotice(null), 3000)
+      router.push(`/proposal/${existing.id}`)
     } else {
       const client = clients.find((c) => c.id === selectedClientId) || clients[0]
       const lead = stages.find((s) => s.slug === "lead") || stages[0]
@@ -213,6 +229,43 @@ export function DrywallEstimator({
       setSavedNotice("Drywall estimate created!")
       router.push(`/proposal/${created.id}`)
     }
+  }
+
+  function handleDuplicateProject() {
+    const client = clients.find((c) => c.id === selectedClientId) || clients[0]
+    const lead = stages.find((s) => s.slug === "lead") || stages[0]
+    const created = saveEstimate({
+      id: null,
+      clientId: client?.id || null,
+      clientName: client?.name || "",
+      clientEmail: client?.email || "",
+      stageId: lead?.id || "",
+      title: `${projectTitle} (Copy)`,
+      jobAddress,
+      trades: ["drywall"],
+      primaryTrade: "drywall",
+      drywallScope: scope,
+      estimateKind: "interior",
+      areas: [],
+      lineItems: [],
+      rates: productionRates,
+      settings: estimateSettings,
+      scheduledOn: null,
+      notes: "",
+      crewNote: "",
+      acceptedAt: null,
+      publicToken: "",
+      clientStatus: "draft",
+      signature: null,
+      paymentStatus: "unpaid",
+      depositReceipt: null,
+      createdAt: null,
+    })
+    setSavedNotice("Drywall estimate duplicated as new draft!")
+    if (created?.id) {
+      router.push(`/drywall?id=${created.id}`)
+    }
+    setTimeout(() => setSavedNotice(null), 3500)
   }
 
   return (
@@ -539,55 +592,109 @@ export function DrywallEstimator({
                             <p className="text-xs text-slate-400 italic">No openings deducted.</p>
                           ) : (
                             <div className="flex flex-col gap-2">
-                              {room.openings.map((op) => (
-                                <div key={op.id} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg text-xs">
-                                  <input
-                                    type="text"
-                                    value={op.name}
-                                    onChange={(e) => {
-                                      const updatedOps = room.openings.map((o) =>
-                                        o.id === op.id ? { ...o, name: e.target.value } : o
-                                      )
-                                      updateRoom(room.id, { openings: updatedOps })
-                                    }}
-                                    className="h-7 rounded border border-slate-200 bg-white px-2 text-xs flex-1"
-                                  />
-                                  <span className="text-slate-400">Width:</span>
-                                  <input
-                                    type="number"
-                                    value={op.width.feet}
-                                    onChange={(e) => {
-                                      const feet = parseInt(e.target.value || "0", 10)
-                                      const updatedOps = room.openings.map((o) =>
-                                        o.id === op.id ? { ...o, width: { ...o.width, feet } } : o
-                                      )
-                                      updateRoom(room.id, { openings: updatedOps })
-                                    }}
-                                    className="h-7 w-12 rounded border border-slate-200 bg-white text-center text-xs"
-                                  />
-                                  <span className="text-slate-400">ft × Height:</span>
-                                  <input
-                                    type="number"
-                                    value={op.height.feet}
-                                    onChange={(e) => {
-                                      const feet = parseInt(e.target.value || "0", 10)
-                                      const updatedOps = room.openings.map((o) =>
-                                        o.id === op.id ? { ...o, height: { ...o.height, feet } } : o
-                                      )
-                                      updateRoom(room.id, { openings: updatedOps })
-                                    }}
-                                    className="h-7 w-12 rounded border border-slate-200 bg-white text-center text-xs"
-                                  />
-                                  <span className="text-slate-400">ft</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeOpening(room.id, op.id)}
-                                    className="p-1 text-slate-400 hover:text-rose-600"
-                                  >
-                                    <Trash2 className="size-3" />
-                                  </button>
-                                </div>
-                              ))}
+                              {room.openings.map((op) => {
+                                const opSqFt = Number((toDecimalFeet(op.width) * toDecimalFeet(op.height)).toFixed(1))
+                                return (
+                                  <div key={op.id} className="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg text-xs border border-slate-100">
+                                    <input
+                                      type="text"
+                                      value={op.name}
+                                      onChange={(e) => {
+                                        const updatedOps = room.openings.map((o) =>
+                                          o.id === op.id ? { ...o, name: e.target.value } : o
+                                        )
+                                        updateRoom(room.id, { openings: updatedOps })
+                                      }}
+                                      placeholder="Opening label"
+                                      className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium flex-1 min-w-[120px]"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-500 font-semibold text-[11px]">W:</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={op.width.feet}
+                                        onChange={(e) => {
+                                          const feet = Math.max(0, parseInt(e.target.value || "0", 10))
+                                          const newWidth = { ...op.width, feet }
+                                          const sqFt = Number((toDecimalFeet(newWidth) * toDecimalFeet(op.height)).toFixed(2))
+                                          const updatedOps = room.openings.map((o) =>
+                                            o.id === op.id ? { ...o, width: newWidth, sqFt } : o
+                                          )
+                                          updateRoom(room.id, { openings: updatedOps })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">ft</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="11"
+                                        value={op.width.inches}
+                                        onChange={(e) => {
+                                          const inches = Math.max(0, Math.min(11, parseInt(e.target.value || "0", 10)))
+                                          const newWidth = { ...op.width, inches }
+                                          const sqFt = Number((toDecimalFeet(newWidth) * toDecimalFeet(op.height)).toFixed(2))
+                                          const updatedOps = room.openings.map((o) =>
+                                            o.id === op.id ? { ...o, width: newWidth, sqFt } : o
+                                          )
+                                          updateRoom(room.id, { openings: updatedOps })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">in</span>
+                                    </div>
+                                    <span className="text-slate-300 font-bold">×</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-500 font-semibold text-[11px]">H:</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={op.height.feet}
+                                        onChange={(e) => {
+                                          const feet = Math.max(0, parseInt(e.target.value || "0", 10))
+                                          const newHeight = { ...op.height, feet }
+                                          const sqFt = Number((toDecimalFeet(op.width) * toDecimalFeet(newHeight)).toFixed(2))
+                                          const updatedOps = room.openings.map((o) =>
+                                            o.id === op.id ? { ...o, height: newHeight, sqFt } : o
+                                          )
+                                          updateRoom(room.id, { openings: updatedOps })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">ft</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="11"
+                                        value={op.height.inches}
+                                        onChange={(e) => {
+                                          const inches = Math.max(0, Math.min(11, parseInt(e.target.value || "0", 10)))
+                                          const newHeight = { ...op.height, inches }
+                                          const sqFt = Number((toDecimalFeet(op.width) * toDecimalFeet(newHeight)).toFixed(2))
+                                          const updatedOps = room.openings.map((o) =>
+                                            o.id === op.id ? { ...o, height: newHeight, sqFt } : o
+                                          )
+                                          updateRoom(room.id, { openings: updatedOps })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">in</span>
+                                    </div>
+                                    <span className="text-slate-500 font-semibold bg-white border border-slate-200 px-2 py-1 rounded-md text-[11px]">
+                                      -{opSqFt} sq ft
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeOpening(room.id, op.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 transition-colors ml-auto"
+                                      title="Remove opening"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  </div>
+                                )
+                              })}
                             </div>
                           )}
                         </div>
@@ -760,9 +867,19 @@ export function DrywallEstimator({
                     Exact purchasing units calculated for sheets, pails of compound, rolls of tape, and screw boxes.
                   </p>
                 </div>
-                <span className="text-xs font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-full">
-                  {quote.buyList.length} line items
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-full">
+                    {quote.buyList.length} line items
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                  >
+                    <Printer className="size-3.5 text-slate-500" />
+                    <span>Print Buy-List</span>
+                  </button>
+                </div>
               </div>
 
               {quote.buyList.length === 0 ? (
@@ -899,14 +1016,89 @@ export function DrywallEstimator({
             </div>
 
             {/* Overhead & Profit Settings */}
-            <div className="border-t border-slate-200 pt-3 flex flex-col gap-2">
+            <div className="border-t border-slate-200 pt-3 flex flex-col gap-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600 font-medium">Overhead ({scope.overheadPercent}%):</span>
-                <span className="font-bold text-slate-900">{moneyExact(quote.overhead)}</span>
+                <label className="text-slate-600 font-medium">Overhead %:</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={scope.overheadPercent}
+                    onChange={(e) =>
+                      setScope((prev) => ({
+                        ...prev,
+                        overheadPercent: Math.max(0, parseFloat(e.target.value) || 0),
+                      }))
+                    }
+                    className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1.5 text-right text-xs font-bold text-slate-800"
+                  />
+                  <span className="text-slate-400 font-semibold">%</span>
+                  <span className="font-bold text-slate-900 w-16 text-right">{moneyExact(quote.overhead)}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600 font-medium">Profit Margin ({scope.profitPercent}%):</span>
-                <span className="font-bold text-slate-900">{moneyExact(quote.profit)}</span>
+
+              {/* Profit Mode Selector: Margin vs Markup */}
+              <div className="flex flex-col gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-700 font-semibold">Profit Pricing Mode:</span>
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setScope((prev) => ({ ...prev, profitMode: "margin" }))}
+                      className={cn(
+                        "rounded-md px-2 py-0.5 transition-colors",
+                        (scope.profitMode ?? "margin") === "margin"
+                          ? "bg-amber-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Margin %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScope((prev) => ({ ...prev, profitMode: "markup" }))}
+                      className={cn(
+                        "rounded-md px-2 py-0.5 transition-colors",
+                        scope.profitMode === "markup"
+                          ? "bg-amber-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Markup %
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-slate-600 font-medium">
+                    {(scope.profitMode ?? "margin") === "margin" ? "Target Profit Margin:" : "Cost Markup:"}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="0"
+                      max="95"
+                      step="0.5"
+                      value={scope.profitPercent}
+                      onChange={(e) =>
+                        setScope((prev) => ({
+                          ...prev,
+                          profitPercent: Math.max(0, parseFloat(e.target.value) || 0),
+                        }))
+                      }
+                      className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1.5 text-right text-xs font-bold text-slate-800"
+                    />
+                    <span className="text-slate-400 font-semibold">%</span>
+                    <span className="font-bold text-slate-900 w-16 text-right">{moneyExact(quote.profit)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 mt-1">
+                  <span>Effective Margin: <strong className="text-slate-800">{quote.effectiveMarginPercent}%</strong></span>
+                  <span>Effective Markup: <strong className="text-slate-800">{quote.effectiveMarkupPercent}%</strong></span>
+                </div>
               </div>
             </div>
 
@@ -922,14 +1114,27 @@ export function DrywallEstimator({
             </div>
 
             {/* Actions */}
-            <button
-              type="button"
-              onClick={handleSaveProject}
-              data-testid="drywall-save-action"
-              className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors text-center"
-            >
-              Save Drywall Estimate
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleSaveProject}
+                data-testid="drywall-save-action"
+                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors text-center"
+              >
+                Save Drywall Estimate
+              </button>
+              {estimateId && (
+                <button
+                  type="button"
+                  onClick={handleDuplicateProject}
+                  data-testid="drywall-duplicate-action"
+                  className="w-full py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors text-center flex items-center justify-center gap-1.5"
+                >
+                  <CopyCheck className="size-3.5 text-slate-500" />
+                  <span>Duplicate as New Estimate</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

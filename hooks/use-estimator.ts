@@ -47,6 +47,10 @@ function fromEstimate(estimate: Estimate, clientName: string, clientEmail: strin
     stageId: estimate.stageId,
     title: estimate.title,
     jobAddress: estimate.jobAddress,
+    trades: estimate.trades,
+    primaryTrade: estimate.primaryTrade,
+    flooringScope: estimate.flooringScope,
+    drywallScope: estimate.drywallScope,
     estimateKind: estimate.estimateKind ?? "interior",
     areas: estimate.areas,
     areaGroups: estimate.areaGroups,
@@ -81,6 +85,10 @@ function buildInitialDraft(
     const base = cached
       ? {
           ...cached,
+          trades: estimate.trades,
+          primaryTrade: estimate.primaryTrade,
+          flooringScope: estimate.flooringScope,
+          drywallScope: estimate.drywallScope,
           stageId: estimate.stageId,
           clientStatus: estimate.clientStatus,
           acceptedAt: estimate.acceptedAt,

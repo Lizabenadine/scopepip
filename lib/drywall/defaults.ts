@@ -138,6 +138,7 @@ export function createBlankDrywallScope(): DrywallScope {
     dumpsterFee: 150,
     overheadPercent: 10,
     profitPercent: 20,
+    profitMode: "margin",
     notes: "Prices include standard fastener spacing, tape embedding, 3-coat joint compound, and dust control.",
   }
 }

@@ -130,4 +130,62 @@ describe("Flooring Estimator Engine", () => {
     assert.equal(grout.unit, "bags")
     assert.equal(backer.unit, "sheets")
   })
+
+  it("correctly distinguishes profit margin from markup", () => {
+    const room: FlooringRoom = {
+      ...createBlankFlooringRoom("Office"),
+      length: { feet: 10, inches: 0 },
+      width: { feet: 10, inches: 0 },
+      deductions: [],
+      additionsSqFt: 0,
+      materialType: "lvp",
+      sqFtPerBox: 20,
+      wastePercent: 0,
+      materialCostPerSqFt: 5, // 5 * 100 = $500
+      installCostPerSqFt: 5,  // 5 * 100 = $500
+      underlaymentType: "none",
+      removeExistingType: "none",
+      subfloorPrepType: "none",
+      includeBaseboard: false,
+      includeQuarterRound: false,
+      transitions: [],
+    }
+
+    // Subtotal = $1000. Overhead = 0%. Cost basis = $1000.
+    // 1) Markup mode at 25%:
+    // Profit = $1000 * 25% = $250. Total = $1250.
+    // Margin = 250 / 1250 = 20%.
+    const markupScope: FlooringScope = {
+      rooms: [room],
+      defaultWastePercent: 0,
+      dumpsterFee: 0,
+      overheadPercent: 0,
+      profitPercent: 25,
+      profitMode: "markup",
+    }
+    const markupQuote = calculateFlooringQuote(markupScope)
+    assert.equal(markupQuote.subtotal, 1000)
+    assert.equal(markupQuote.profit, 250)
+    assert.equal(markupQuote.total, 1250)
+    assert.equal(markupQuote.effectiveMarkupPercent, 25)
+    assert.equal(markupQuote.effectiveMarginPercent, 20)
+
+    // 2) Margin mode at 20%:
+    // Total = $1000 / (1 - 0.20) = $1250. Profit = $250.
+    // Markup = 250 / 1000 = 25%.
+    const marginScope: FlooringScope = {
+      rooms: [room],
+      defaultWastePercent: 0,
+      dumpsterFee: 0,
+      overheadPercent: 0,
+      profitPercent: 20,
+      profitMode: "margin",
+    }
+    const marginQuote = calculateFlooringQuote(marginScope)
+    assert.equal(marginQuote.subtotal, 1000)
+    assert.equal(marginQuote.profit, 250)
+    assert.equal(marginQuote.total, 1250)
+    assert.equal(marginQuote.effectiveMarginPercent, 20)
+    assert.equal(marginQuote.effectiveMarkupPercent, 25)
+  })
 })

@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description: "Professional flooring takeoff, box counts, underlayment, and installation estimating.",
 }
 
-export default function FlooringPage() {
-  return <FlooringEstimator />
+export default async function FlooringPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ id?: string }>
+}) {
+  const params = await searchParams
+  return <FlooringEstimator estimateId={params?.id} />
 }

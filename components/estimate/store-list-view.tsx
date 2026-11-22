@@ -61,47 +61,121 @@ export function StoreListView({ id }: { id: string }) {
             : "Hand this to the paint store or the crew. The gallons are what the estimate counted. Buy is the next whole gallon of each product."}
         </p>
       </header>
-      {list.products.length === 0 ? (
+      {list.products.length === 0 && list.flooringItems.length === 0 && list.drywallItems.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
-          {language === "es" ? "Este estimado todavía no tiene pintura para comprar." : "This estimate has no paint to buy yet."}
+          {language === "es" ? "Este estimado todavía no tiene materiales para comprar." : "This estimate has no materials to buy yet."}
         </p>
       ) : (
-        <div className="flex flex-col gap-4">
-          {list.products.map((product) => (
-            <section key={product.productName} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:shadow-none">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-lg font-semibold">{say(product.productName)}</h2>
-                <p className="text-sm font-semibold tabular-nums">
-                  {gallonsLabel(product.paintGallons)}
-                  <span className="ml-2 font-medium text-muted-foreground">
-                    {language === "es" ? "Comprar" : "Buy"} {product.buyGallons}
-                  </span>
-                </p>
-              </div>
-              <ul className="mt-3 flex flex-col gap-2">
-                {product.rooms.map((room) => (
-                  <li key={room.id} className="flex items-baseline justify-between gap-3 text-sm">
-                    <span>
-                      <span className="font-medium">{say(room.areaName)}</span>
-                      <span className="text-muted-foreground"> · {say(room.surfaceLabel)}</span>
-                      {room.includesPrimer ? (
-                        <span className="text-muted-foreground">
-                          {language === "es" ? " · incluye primario" : " · includes primer"}
+        <div className="flex flex-col gap-6">
+          {/* Paint Materials */}
+          {list.products.length > 0 && (
+            <div className="flex flex-col gap-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {language === "es" ? "Materiales de Pintura" : "Painting Materials"}
+              </h2>
+              {list.products.map((product) => (
+                <section key={product.productName} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:shadow-none">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-lg font-semibold">{say(product.productName)}</h3>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {gallonsLabel(product.paintGallons)}
+                      <span className="ml-2 font-medium text-muted-foreground">
+                        {language === "es" ? "Comprar" : "Buy"} {product.buyGallons}
+                      </span>
+                    </p>
+                  </div>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {product.rooms.map((room) => (
+                      <li key={room.id} className="flex items-baseline justify-between gap-3 text-sm">
+                        <span>
+                          <span className="font-medium">{say(room.areaName)}</span>
+                          <span className="text-muted-foreground"> · {say(room.surfaceLabel)}</span>
+                          {room.includesPrimer ? (
+                            <span className="text-muted-foreground">
+                              {language === "es" ? " · incluye primario" : " · includes primer"}
+                            </span>
+                          ) : null}
                         </span>
-                      ) : null}
-                    </span>
-                    <span className="tabular-nums">{gallonsLabel(room.paintGallons)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-          <p className="text-sm font-medium" data-testid="store-list-total">
-            {gallonsLabel(list.paintGallons)}
-            <span className="ml-2 text-muted-foreground">
-              {language === "es" ? "Comprar" : "Buy"} {list.buyGallons} gal
-            </span>
-          </p>
+                        <span className="tabular-nums">{gallonsLabel(room.paintGallons)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              <p className="text-sm font-medium" data-testid="store-list-total">
+                {gallonsLabel(list.paintGallons)}
+                <span className="ml-2 text-muted-foreground">
+                  {language === "es" ? "Comprar" : "Buy"} {list.buyGallons} gal
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* Flooring Materials */}
+          {list.flooringItems.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                {language === "es" ? "Materiales de Pisos (Flooring Buy-List)" : "Flooring Materials Buy-List"}
+              </h2>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:shadow-none overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500 font-semibold">
+                      <th className="py-2">Item</th>
+                      <th className="py-2">Category</th>
+                      <th className="py-2 text-right">Estimated</th>
+                      <th className="py-2 text-right font-bold text-slate-900">Order / Buy Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {list.flooringItems.map((item) => (
+                      <tr key={item.id} className="py-2">
+                        <td className="py-2.5 font-bold text-slate-900">{item.label}</td>
+                        <td className="py-2.5 capitalize text-slate-600">{item.category}</td>
+                        <td className="py-2.5 text-right text-slate-500">{item.estimatedQuantity}</td>
+                        <td className="py-2.5 text-right font-bold text-blue-700">
+                          {item.purchasingQuantity} {item.unit}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Drywall Materials */}
+          {list.drywallItems.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-700">
+                {language === "es" ? "Materiales de Tablaroca (Drywall Buy-List)" : "Drywall Materials Buy-List"}
+              </h2>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:shadow-none overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500 font-semibold">
+                      <th className="py-2">Item</th>
+                      <th className="py-2">Category</th>
+                      <th className="py-2 text-right">Estimated</th>
+                      <th className="py-2 text-right font-bold text-slate-900">Order / Buy Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {list.drywallItems.map((item) => (
+                      <tr key={item.id} className="py-2">
+                        <td className="py-2.5 font-bold text-slate-900">{item.label}</td>
+                        <td className="py-2.5 capitalize text-slate-600">{item.category}</td>
+                        <td className="py-2.5 text-right text-slate-500">{item.estimatedQuantity}</td>
+                        <td className="py-2.5 text-right font-bold text-amber-800">
+                          {item.purchasingQuantity} {item.unit}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </article>

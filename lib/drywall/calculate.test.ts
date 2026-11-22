@@ -97,4 +97,39 @@ describe("Drywall Estimator Engine", () => {
     assert.ok(quoteLevel5.finishingLaborCost > quoteLevel1.finishingLaborCost)
     assert.ok(quoteLevel5.jointCompoundCost > quoteLevel1.jointCompoundCost)
   })
+
+  it("correctly distinguishes profit margin from markup", () => {
+    const baseRoom = createBlankDrywallRoom()
+    // 1) Markup mode at 20%:
+    const markupScope: DrywallScope = {
+      rooms: [baseRoom],
+      defaultWastePercent: 10,
+      dumpsterFee: 0,
+      overheadPercent: 10,
+      profitPercent: 20,
+      profitMode: "markup",
+    }
+    const markupQuote = calculateDrywallQuote(markupScope)
+    const costBasis = markupQuote.subtotal + markupQuote.overhead
+    assert.equal(markupQuote.profit, Number((costBasis * 0.20).toFixed(2)))
+    assert.equal(markupQuote.total, Number((costBasis + markupQuote.profit).toFixed(2)))
+    assert.equal(markupQuote.effectiveMarkupPercent, 20)
+
+    // 2) Margin mode at 20%:
+    const marginScope: DrywallScope = {
+      rooms: [baseRoom],
+      defaultWastePercent: 10,
+      dumpsterFee: 0,
+      overheadPercent: 10,
+      profitPercent: 20,
+      profitMode: "margin",
+    }
+    const marginQuote = calculateDrywallQuote(marginScope)
+    const marginCostBasis = marginQuote.subtotal + marginQuote.overhead
+    // Total = costBasis / (1 - 0.20)
+    const expectedTotal = Number((marginCostBasis / 0.80).toFixed(2))
+    assert.equal(marginQuote.total, expectedTotal)
+    assert.equal(marginQuote.effectiveMarginPercent, 20)
+    assert.ok(marginQuote.effectiveMarkupPercent > 20) // 20% margin is 25% markup
+  })
 })

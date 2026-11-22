@@ -2,6 +2,9 @@ import { PAYMENT_METHODS } from "../defaults.ts"
 import { roundGallons, calculateEstimate, type PricedArea } from "./calculate.ts"
 import { ensureSubstrateRates } from "./substrate.ts"
 import type { Estimate } from "../types.ts"
+import { calculateFlooringQuote } from "../flooring/calculate.ts"
+import { calculateDrywallQuote } from "../drywall/calculate.ts"
+import type { FlooringBuyListItem, DrywallBuyListItem } from "./multi-trade-types.ts"
 
 export interface StoreRoom {
   id: string
@@ -27,6 +30,8 @@ export interface StoreList {
   products: StoreProduct[]
   paintGallons: number
   buyGallons: number
+  flooringItems: FlooringBuyListItem[]
+  drywallItems: DrywallBuyListItem[]
 }
 
 function buyGallons(paintGallons: number): number {
@@ -75,6 +80,16 @@ export function storeList(estimate: Estimate, clientName: string): StoreList {
     products.reduce((sum, product) => sum + product.paintGallons, 0),
     "none",
   )
+  const flooringItems =
+    estimate.flooringScope && estimate.flooringScope.rooms?.length > 0
+      ? calculateFlooringQuote(estimate.flooringScope).buyList
+      : []
+
+  const drywallItems =
+    estimate.drywallScope && estimate.drywallScope.rooms?.length > 0
+      ? calculateDrywallQuote(estimate.drywallScope).buyList
+      : []
+
   return {
     estimateId: estimate.id,
     title: estimate.title,
@@ -83,5 +98,7 @@ export function storeList(estimate: Estimate, clientName: string): StoreList {
     products,
     paintGallons,
     buyGallons: products.reduce((sum, product) => sum + product.buyGallons, 0),
+    flooringItems,
+    drywallItems,
   }
 }

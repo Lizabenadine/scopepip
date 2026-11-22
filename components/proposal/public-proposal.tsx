@@ -42,6 +42,7 @@ import { writeFieldLanguage, type FieldLanguage } from "@/lib/field/language"
 import { translatePainting, paintingText } from "@/lib/field/terms"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { ClientWorkOrder } from "@/components/proposal/client-work-order"
+import { MultiTradeProposalSections } from "@/components/proposal/multi-trade-proposal-sections"
 
 interface ProposalPayload {
   estimate: Estimate
@@ -438,27 +439,30 @@ export function ProposalDocument({
 
       {estimate.notes ? <p className="text-sm leading-6">{paintingText(estimate.notes, estimate.notesEs, language)}</p> : null}
 
-      <section id="proposal-page-scope" data-testid="proposal-page-scope" data-proposal-section="Project scope" className="flex flex-col gap-3">
+      <section id="proposal-page-scope" data-testid="proposal-page-scope" data-proposal-section="Project scope" className="flex flex-col gap-4">
         <div>
           <h2 className="text-xl font-semibold">Scope of work and investment summary</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Review your customized proposal, scope breakdown, and payment terms below.
           </p>
         </div>
-        <ClientWorkOrder
-          companyName={companyName}
-          logoUrl={estimateSettings.logoUrl}
-          clientName={clientName}
-          jobAddress={estimate.jobAddress}
-          orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
-          templateLabel={pagesDocument.template.label}
-          scopeOverview={pagesDocument.template.scopeOverview}
-          sections={sectionByGroup(
-            quote.areas.filter((area) => area.surfaces.length > 0),
-            estimate.areaGroups,
-            (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
-          )}
-        />
+        <MultiTradeProposalSections estimate={estimate} multiTradeQuote={figures.multiTradeQuote} />
+        {quote.areas.some((area) => area.surfaces.length > 0) && (
+          <ClientWorkOrder
+            companyName={companyName}
+            logoUrl={estimateSettings.logoUrl}
+            clientName={clientName}
+            jobAddress={estimate.jobAddress}
+            orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
+            templateLabel={pagesDocument.template.label}
+            scopeOverview={pagesDocument.template.scopeOverview}
+            sections={sectionByGroup(
+              quote.areas.filter((area) => area.surfaces.length > 0),
+              estimate.areaGroups,
+              (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
+            )}
+          />
+        )}
       </section>
 
       {quote.lineItems.filter((line) => !optionalLines.some((item) => item.id === line.id)).length > 0 ? (

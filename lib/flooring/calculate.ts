@@ -269,11 +269,32 @@ export function calculateFlooringQuote(scope: FlooringScope): FlooringQuote {
   )
 
   const overheadPct = (scope.overheadPercent ?? 10) / 100
-  const profitPct = (scope.profitPercent ?? 20) / 100
-
   const overhead = Number((subtotal * overheadPct).toFixed(2))
-  const profit = Number(((subtotal + overhead) * profitPct).toFixed(2))
-  const total = Number((subtotal + overhead + profit).toFixed(2))
+  const costBasis = subtotal + overhead
+
+  let profit = 0
+  let effectiveMarginPercent = 0
+  let effectiveMarkupPercent = 0
+
+  if (scope.profitMode === "margin") {
+    // True Profit Margin: Margin % = Profit / Total
+    // Total = CostBasis / (1 - MarginRate)
+    const marginRate = Math.min(0.95, Math.max(0, (scope.profitPercent ?? 20) / 100))
+    const totalWithMargin = marginRate >= 0.99 ? costBasis : costBasis / (1 - marginRate)
+    profit = Number((totalWithMargin - costBasis).toFixed(2))
+    effectiveMarginPercent = Number((marginRate * 100).toFixed(1))
+    effectiveMarkupPercent = costBasis > 0 ? Number(((profit / costBasis) * 100).toFixed(1)) : 0
+  } else {
+    // Markup on Cost: Markup % = Profit / CostBasis
+    // Profit = CostBasis * MarkupRate
+    const markupRate = Math.max(0, (scope.profitPercent ?? 20) / 100)
+    profit = Number((costBasis * markupRate).toFixed(2))
+    effectiveMarkupPercent = Number((markupRate * 100).toFixed(1))
+    const totalWithMarkup = costBasis + profit
+    effectiveMarginPercent = totalWithMarkup > 0 ? Number(((profit / totalWithMarkup) * 100).toFixed(1)) : 0
+  }
+
+  const total = Number((costBasis + profit).toFixed(2))
 
   return {
     netSqFt: Number(totalNetSqFt.toFixed(2)),
@@ -289,6 +310,8 @@ export function calculateFlooringQuote(scope: FlooringScope): FlooringQuote {
     subtotal,
     overhead,
     profit,
+    effectiveMarginPercent,
+    effectiveMarkupPercent,
     total,
     buyList: Array.from(buyListMap.values()),
   }

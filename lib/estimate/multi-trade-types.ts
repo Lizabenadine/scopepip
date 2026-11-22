@@ -100,6 +100,7 @@ export interface FlooringScope {
   dumpsterFee: number
   overheadPercent: number
   profitPercent: number
+  profitMode?: "margin" | "markup"
   notes?: string
 }
 
@@ -128,6 +129,8 @@ export interface FlooringQuote {
   subtotal: number
   overhead: number
   profit: number
+  effectiveMarginPercent: number
+  effectiveMarkupPercent: number
   total: number
   buyList: FlooringBuyListItem[]
 }
@@ -215,6 +218,7 @@ export interface DrywallScope {
   dumpsterFee: number
   overheadPercent: number
   profitPercent: number
+  profitMode?: "margin" | "markup"
   notes?: string
 }
 
@@ -246,6 +250,8 @@ export interface DrywallQuote {
   subtotal: number
   overhead: number
   profit: number
+  effectiveMarginPercent: number
+  effectiveMarkupPercent: number
   total: number
   buyList: DrywallBuyListItem[]
 }

@@ -22,10 +22,12 @@ import {
   Maximize2,
   Scissors,
   Hammer,
+  Printer,
+  CopyCheck,
 } from "lucide-react"
 import { useScope } from "@/lib/data/store"
 import { money, moneyExact } from "@/lib/format"
-import { formatFeetInches } from "@/lib/estimate/dimensions"
+import { formatFeetInches, toDecimalFeet } from "@/lib/estimate/dimensions"
 import type {
   FlooringAssemblyTemplate,
   FlooringDeduction,
@@ -73,6 +75,23 @@ export function FlooringEstimator({
   useEffect(() => {
     if (onSaveScope) onSaveScope(scope)
   }, [scope, onSaveScope])
+
+  // Reopen existing estimate when estimateId is provided
+  useEffect(() => {
+    if (!estimateId || estimates.length === 0) return
+    const existing = estimates.find((e) => e.id === estimateId)
+    if (existing) {
+      if (existing.flooringScope) {
+        setScope(existing.flooringScope)
+        if (existing.flooringScope.rooms.length > 0) {
+          setExpandedRoomId(existing.flooringScope.rooms[0].id)
+        }
+      }
+      if (existing.title) setProjectTitle(existing.title)
+      if (existing.jobAddress) setJobAddress(existing.jobAddress)
+      if (existing.clientId) setSelectedClientId(existing.clientId)
+    }
+  }, [estimateId, estimates])
 
   function updateRoom(roomId: string, patch: Partial<FlooringRoom>) {
     setScope((prev) => ({
@@ -175,6 +194,7 @@ export function FlooringEstimator({
       })
       setSavedNotice("Flooring estimate updated!")
       setTimeout(() => setSavedNotice(null), 3000)
+      router.push(`/proposal/${existing.id}`)
     } else {
       const client = clients.find((c) => c.id === selectedClientId) || clients[0]
       const lead = stages.find((s) => s.slug === "lead") || stages[0]
@@ -208,6 +228,43 @@ export function FlooringEstimator({
       setSavedNotice("Flooring estimate created!")
       router.push(`/proposal/${created.id}`)
     }
+  }
+
+  function handleDuplicateProject() {
+    const client = clients.find((c) => c.id === selectedClientId) || clients[0]
+    const lead = stages.find((s) => s.slug === "lead") || stages[0]
+    const created = saveEstimate({
+      id: null,
+      clientId: client?.id || null,
+      clientName: client?.name || "",
+      clientEmail: client?.email || "",
+      stageId: lead?.id || "",
+      title: `${projectTitle} (Copy)`,
+      jobAddress,
+      trades: ["flooring"],
+      primaryTrade: "flooring",
+      flooringScope: scope,
+      estimateKind: "interior",
+      areas: [],
+      lineItems: [],
+      rates: productionRates,
+      settings: estimateSettings,
+      scheduledOn: null,
+      notes: "",
+      crewNote: "",
+      acceptedAt: null,
+      publicToken: "",
+      clientStatus: "draft",
+      signature: null,
+      paymentStatus: "unpaid",
+      depositReceipt: null,
+      createdAt: null,
+    })
+    setSavedNotice("Flooring estimate duplicated as new draft!")
+    if (created?.id) {
+      router.push(`/flooring?id=${created.id}`)
+    }
+    setTimeout(() => setSavedNotice(null), 3500)
   }
 
   return (
@@ -471,55 +528,109 @@ export function FlooringEstimator({
                             <p className="text-xs text-slate-400 italic">No deductions in this room.</p>
                           ) : (
                             <div className="flex flex-col gap-2">
-                              {room.deductions.map((ded) => (
-                                <div key={ded.id} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg text-xs">
-                                  <input
-                                    type="text"
-                                    value={ded.name}
-                                    onChange={(e) => {
-                                      const updatedDeds = room.deductions.map((d) =>
-                                        d.id === ded.id ? { ...d, name: e.target.value } : d
-                                      )
-                                      updateRoom(room.id, { deductions: updatedDeds })
-                                    }}
-                                    className="h-7 rounded border border-slate-200 bg-white px-2 text-xs flex-1"
-                                  />
-                                  <span className="text-slate-400">Length:</span>
-                                  <input
-                                    type="number"
-                                    value={ded.length.feet}
-                                    onChange={(e) => {
-                                      const feet = parseInt(e.target.value || "0", 10)
-                                      const updatedDeds = room.deductions.map((d) =>
-                                        d.id === ded.id ? { ...d, length: { ...d.length, feet } } : d
-                                      )
-                                      updateRoom(room.id, { deductions: updatedDeds })
-                                    }}
-                                    className="h-7 w-12 rounded border border-slate-200 bg-white text-center text-xs"
-                                  />
-                                  <span className="text-slate-400">ft × Width:</span>
-                                  <input
-                                    type="number"
-                                    value={ded.width.feet}
-                                    onChange={(e) => {
-                                      const feet = parseInt(e.target.value || "0", 10)
-                                      const updatedDeds = room.deductions.map((d) =>
-                                        d.id === ded.id ? { ...d, width: { ...d.width, feet } } : d
-                                      )
-                                      updateRoom(room.id, { deductions: updatedDeds })
-                                    }}
-                                    className="h-7 w-12 rounded border border-slate-200 bg-white text-center text-xs"
-                                  />
-                                  <span className="text-slate-400">ft</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeDeduction(room.id, ded.id)}
-                                    className="p-1 text-slate-400 hover:text-rose-600"
-                                  >
-                                    <Trash2 className="size-3" />
-                                  </button>
-                                </div>
-                              ))}
+                              {room.deductions.map((ded) => {
+                                const dSqFt = Number((toDecimalFeet(ded.length) * toDecimalFeet(ded.width)).toFixed(1))
+                                return (
+                                  <div key={ded.id} className="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg text-xs border border-slate-100">
+                                    <input
+                                      type="text"
+                                      value={ded.name}
+                                      onChange={(e) => {
+                                        const updatedDeds = room.deductions.map((d) =>
+                                          d.id === ded.id ? { ...d, name: e.target.value } : d
+                                        )
+                                        updateRoom(room.id, { deductions: updatedDeds })
+                                      }}
+                                      placeholder="Deduction label"
+                                      className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium flex-1 min-w-[120px]"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-500 font-semibold text-[11px]">L:</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={ded.length.feet}
+                                        onChange={(e) => {
+                                          const feet = Math.max(0, parseInt(e.target.value || "0", 10))
+                                          const newLen = { ...ded.length, feet }
+                                          const sqFt = Number((toDecimalFeet(newLen) * toDecimalFeet(ded.width)).toFixed(2))
+                                          const updatedDeds = room.deductions.map((d) =>
+                                            d.id === ded.id ? { ...d, length: newLen, sqFt } : d
+                                          )
+                                          updateRoom(room.id, { deductions: updatedDeds })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">ft</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="11"
+                                        value={ded.length.inches}
+                                        onChange={(e) => {
+                                          const inches = Math.max(0, Math.min(11, parseInt(e.target.value || "0", 10)))
+                                          const newLen = { ...ded.length, inches }
+                                          const sqFt = Number((toDecimalFeet(newLen) * toDecimalFeet(ded.width)).toFixed(2))
+                                          const updatedDeds = room.deductions.map((d) =>
+                                            d.id === ded.id ? { ...d, length: newLen, sqFt } : d
+                                          )
+                                          updateRoom(room.id, { deductions: updatedDeds })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">in</span>
+                                    </div>
+                                    <span className="text-slate-300 font-bold">×</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-500 font-semibold text-[11px]">W:</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={ded.width.feet}
+                                        onChange={(e) => {
+                                          const feet = Math.max(0, parseInt(e.target.value || "0", 10))
+                                          const newWidth = { ...ded.width, feet }
+                                          const sqFt = Number((toDecimalFeet(ded.length) * toDecimalFeet(newWidth)).toFixed(2))
+                                          const updatedDeds = room.deductions.map((d) =>
+                                            d.id === ded.id ? { ...d, width: newWidth, sqFt } : d
+                                          )
+                                          updateRoom(room.id, { deductions: updatedDeds })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">ft</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="11"
+                                        value={ded.width.inches}
+                                        onChange={(e) => {
+                                          const inches = Math.max(0, Math.min(11, parseInt(e.target.value || "0", 10)))
+                                          const newWidth = { ...ded.width, inches }
+                                          const sqFt = Number((toDecimalFeet(ded.length) * toDecimalFeet(newWidth)).toFixed(2))
+                                          const updatedDeds = room.deductions.map((d) =>
+                                            d.id === ded.id ? { ...d, width: newWidth, sqFt } : d
+                                          )
+                                          updateRoom(room.id, { deductions: updatedDeds })
+                                        }}
+                                        className="h-8 w-11 rounded-lg border border-slate-200 bg-white text-center text-xs font-semibold"
+                                      />
+                                      <span className="text-slate-400 font-medium">in</span>
+                                    </div>
+                                    <span className="text-slate-500 font-semibold bg-white border border-slate-200 px-2 py-1 rounded-md text-[11px]">
+                                      -{dSqFt} sq ft
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeDeduction(room.id, ded.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600 transition-colors ml-auto"
+                                      title="Remove deduction"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  </div>
+                                )
+                              })}
                             </div>
                           )}
                         </div>
@@ -735,9 +846,19 @@ export function FlooringEstimator({
                     Exact purchasing units calculated with waste allowances for ordering from suppliers.
                   </p>
                 </div>
-                <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                  {quote.buyList.length} line items
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                    {quote.buyList.length} line items
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                  >
+                    <Printer className="size-3.5 text-slate-500" />
+                    <span>Print Buy-List</span>
+                  </button>
+                </div>
               </div>
 
               {quote.buyList.length === 0 ? (
@@ -880,14 +1001,89 @@ export function FlooringEstimator({
             </div>
 
             {/* Overhead & Profit Settings */}
-            <div className="border-t border-slate-200 pt-3 flex flex-col gap-2">
+            <div className="border-t border-slate-200 pt-3 flex flex-col gap-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600 font-medium">Overhead ({scope.overheadPercent}%):</span>
-                <span className="font-bold text-slate-900">{moneyExact(quote.overhead)}</span>
+                <label className="text-slate-600 font-medium">Overhead %:</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={scope.overheadPercent}
+                    onChange={(e) =>
+                      setScope((prev) => ({
+                        ...prev,
+                        overheadPercent: Math.max(0, parseFloat(e.target.value) || 0),
+                      }))
+                    }
+                    className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1.5 text-right text-xs font-bold text-slate-800"
+                  />
+                  <span className="text-slate-400 font-semibold">%</span>
+                  <span className="font-bold text-slate-900 w-16 text-right">{moneyExact(quote.overhead)}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600 font-medium">Profit Margin ({scope.profitPercent}%):</span>
-                <span className="font-bold text-slate-900">{moneyExact(quote.profit)}</span>
+
+              {/* Profit Mode Selector: Margin vs Markup */}
+              <div className="flex flex-col gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-700 font-semibold">Profit Pricing Mode:</span>
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setScope((prev) => ({ ...prev, profitMode: "margin" }))}
+                      className={cn(
+                        "rounded-md px-2 py-0.5 transition-colors",
+                        (scope.profitMode ?? "margin") === "margin"
+                          ? "bg-blue-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Margin %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScope((prev) => ({ ...prev, profitMode: "markup" }))}
+                      className={cn(
+                        "rounded-md px-2 py-0.5 transition-colors",
+                        scope.profitMode === "markup"
+                          ? "bg-blue-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Markup %
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-slate-600 font-medium">
+                    {(scope.profitMode ?? "margin") === "margin" ? "Target Profit Margin:" : "Cost Markup:"}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="0"
+                      max="95"
+                      step="0.5"
+                      value={scope.profitPercent}
+                      onChange={(e) =>
+                        setScope((prev) => ({
+                          ...prev,
+                          profitPercent: Math.max(0, parseFloat(e.target.value) || 0),
+                        }))
+                      }
+                      className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1.5 text-right text-xs font-bold text-slate-800"
+                    />
+                    <span className="text-slate-400 font-semibold">%</span>
+                    <span className="font-bold text-slate-900 w-16 text-right">{moneyExact(quote.profit)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 mt-1">
+                  <span>Effective Margin: <strong className="text-slate-800">{quote.effectiveMarginPercent}%</strong></span>
+                  <span>Effective Markup: <strong className="text-slate-800">{quote.effectiveMarkupPercent}%</strong></span>
+                </div>
               </div>
             </div>
 
@@ -903,14 +1099,27 @@ export function FlooringEstimator({
             </div>
 
             {/* Actions */}
-            <button
-              type="button"
-              onClick={handleSaveProject}
-              data-testid="flooring-save-action"
-              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors text-center"
-            >
-              Save Flooring Estimate
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleSaveProject}
+                data-testid="flooring-save-action"
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors text-center"
+              >
+                Save Flooring Estimate
+              </button>
+              {estimateId && (
+                <button
+                  type="button"
+                  onClick={handleDuplicateProject}
+                  data-testid="flooring-duplicate-action"
+                  className="w-full py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors text-center flex items-center justify-center gap-1.5"
+                >
+                  <CopyCheck className="size-3.5 text-slate-500" />
+                  <span>Duplicate as New Estimate</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

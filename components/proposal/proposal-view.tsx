@@ -32,6 +32,8 @@ import { ProposalLineVideo } from "@/components/proposal/line-video"
 import { ProposalEmail } from "@/components/proposal/proposal-email"
 import { OfficeProposalChat } from "@/components/proposal/proposal-chat"
 import { ClientWorkOrder } from "@/components/proposal/client-work-order"
+import { MultiTradeProposalSections } from "@/components/proposal/multi-trade-proposal-sections"
+import { proposalFigures } from "@/lib/proposals/figures"
 
 export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
@@ -56,7 +58,8 @@ export function ProposalView({ id }: { id: string }) {
     )
   }
   const client = scope.clientById(estimate.clientId)
-  const quote = scope.quoteEstimate(estimate)
+  const figures = proposalFigures(estimate, scope.paymentMethods, [])
+  const quote = figures.quote
   const sent = estimate.createdAt
   const expires =
     estimate.settings.expiryDays > 0
@@ -138,21 +141,24 @@ export function ProposalView({ id }: { id: string }) {
         pageCount={pages.length}
       />
       {estimate.notes ? <p className="text-sm">{paintingText(estimate.notes, estimate.notesEs, language)}</p> : null}
-      <div id="proposal-page-scope" data-testid="proposal-page-scope" className="flex flex-col gap-3">
-      <ClientWorkOrder
-        companyName={companyName}
-        logoUrl={scope.estimateSettings.logoUrl}
-        clientName={client?.name || "Client"}
-        jobAddress={estimate.jobAddress}
-        orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
-        templateLabel={pagesDocument.template.label}
-        scopeOverview={pagesDocument.template.scopeOverview}
-        sections={sectionByGroup(
-          quote.areas.filter((area) => area.surfaces.length > 0),
-          estimate.areaGroups,
-          (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
-        )}
-      />
+      <div id="proposal-page-scope" data-testid="proposal-page-scope" className="flex flex-col gap-4">
+      <MultiTradeProposalSections estimate={estimate} multiTradeQuote={figures.multiTradeQuote} />
+      {quote.areas.some((area) => area.surfaces.length > 0) && (
+        <ClientWorkOrder
+          companyName={companyName}
+          logoUrl={scope.estimateSettings.logoUrl}
+          clientName={client?.name || "Client"}
+          jobAddress={estimate.jobAddress}
+          orderNumber={estimate.id.replace(/^est-/i, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toUpperCase()}
+          templateLabel={pagesDocument.template.label}
+          scopeOverview={pagesDocument.template.scopeOverview}
+          sections={sectionByGroup(
+            quote.areas.filter((area) => area.surfaces.length > 0),
+            estimate.areaGroups,
+            (area) => estimate.areas.find((item) => item.id === area.id)?.groupId,
+          )}
+        />
+      )}
       {quote.lineItems.length > 0 ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">

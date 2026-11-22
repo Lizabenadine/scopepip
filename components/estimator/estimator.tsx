@@ -60,6 +60,7 @@ import { NEXT_ACTION } from "@/lib/stages"
 import { applyRoomUpdateToAreas, applyRemoveSurfaceFromAreas } from "@/lib/voice/voice-executor"
 import type { UpdateRoomAction, RemoveSurfaceAction, AddJobNoteAction } from "@/lib/voice/voice-parser"
 import type { AreaInput, LineItemInput, LineMaterial, LinePricingMode, ProductionRate } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 export function Estimator({
   mode,
@@ -535,6 +536,51 @@ export function Estimator({
               )
             })}
           </div>
+
+          {draft.id && (
+            <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs">
+              <span className="font-semibold text-slate-500 uppercase tracking-wider text-[11px]">Trade Scopes:</span>
+              <span className="rounded-lg bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5">
+                Painting (Active)
+              </span>
+              <Link
+                href={`/flooring?id=${draft.id}`}
+                className={cn(
+                  "rounded-lg font-bold px-2.5 py-1 transition-colors flex items-center gap-1",
+                  draft.flooringScope?.rooms?.length
+                    ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                )}
+              >
+                <span>Flooring</span>
+                {draft.flooringScope?.rooms?.length ? (
+                  <span className="bg-blue-200 text-blue-900 rounded-full px-1.5 py-0.2 text-[10px]">
+                    {draft.flooringScope.rooms.length} {draft.flooringScope.rooms.length === 1 ? "room" : "rooms"}
+                  </span>
+                ) : (
+                  <span className="text-slate-400 font-normal">+ Add</span>
+                )}
+              </Link>
+              <Link
+                href={`/drywall?id=${draft.id}`}
+                className={cn(
+                  "rounded-lg font-bold px-2.5 py-1 transition-colors flex items-center gap-1",
+                  draft.drywallScope?.rooms?.length
+                    ? "bg-amber-100 text-amber-900 hover:bg-amber-200"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                )}
+              >
+                <span>Drywall</span>
+                {draft.drywallScope?.rooms?.length ? (
+                  <span className="bg-amber-200 text-amber-900 rounded-full px-1.5 py-0.2 text-[10px]">
+                    {draft.drywallScope.rooms.length} {draft.drywallScope.rooms.length === 1 ? "room" : "rooms"}
+                  </span>
+                ) : (
+                  <span className="text-slate-400 font-normal">+ Add</span>
+                )}
+              </Link>
+            </div>
+          )}
           <ClientField
             clients={clients}
             name={draft.clientName}
