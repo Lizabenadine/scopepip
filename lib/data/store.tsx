@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react"
 import { calculateEstimate, type EstimateQuote } from "@/lib/estimate/calculate"
+import { calculateMultiTradeQuote } from "@/lib/estimate/multi-trade"
 import { withApprovedScope } from "@/lib/estimate/versions"
 import type { LearnedPace } from "@/lib/estimate/learned-pace"
 import type { SavedEstimateTemplate } from "@/lib/estimate/saved-templates"
@@ -929,13 +930,29 @@ function buildApi(snapshot: Snapshot): ScopeApi {
     stageById: (id) => state.stages.find((stage) => stage.id === id),
     quoteEstimate: (estimate) => {
       const source = withApprovedScope(estimate)
-      return calculateEstimate({
+      const baseQuote = calculateEstimate({
         areas: source.areas,
         lineItems: source.lineItems,
         rates: quoteRates(source.rates, state.productionRates, source.areas),
         settings: source.settings,
         paymentMethods: state.paymentMethods,
       })
+      const hasFlooring = Boolean(source.flooringScope && source.flooringScope.rooms.length > 0)
+      const hasDrywall = Boolean(source.drywallScope && source.drywallScope.rooms.length > 0)
+      if (
+        hasFlooring ||
+        hasDrywall ||
+        (source.trades && source.trades.length > 1) ||
+        (source.primaryTrade && source.primaryTrade !== "painting")
+      ) {
+        const { multiTradeQuote } = calculateMultiTradeQuote(source, state.paymentMethods)
+        return {
+          ...baseQuote,
+          total: multiTradeQuote.combinedTotal,
+          subtotal: multiTradeQuote.combinedSubtotal,
+        }
+      }
+      return baseQuote
     },
     saveEstimate: (draft) => {
       const latest = getSnapshot().state

@@ -8,6 +8,17 @@ import type { Estimate, EstimateSettings, PaymentMethod } from "../types.ts"
 import { paintMaterialsInclusionLabel, proposalDocument, scheduledProductsFromAreas } from "./document.ts"
 import { proposalFigures } from "./figures.ts"
 import { customerLineIds } from "./mail.ts"
+import { calculateFlooringQuote, recomputeRoomGeometry } from "../flooring/calculate.ts"
+import { calculateDrywallQuote, recomputeDrywallRoomGeometry } from "../drywall/calculate.ts"
+import { activeTrades, isMultiTrade } from "../estimate/multi-trade.ts"
+import {
+  DRYWALL_BOARD_LABELS,
+  DRYWALL_BOARD_SIZE_SPECS,
+  DRYWALL_FINISH_LEVEL_LABELS,
+} from "../drywall/defaults.ts"
+import { FLOORING_MATERIAL_LABELS } from "../flooring/defaults.ts"
+import { formatFeetInches, areaSqFt } from "../estimate/dimensions.ts"
+import type { FlooringRoom, DrywallRoom } from "../estimate/multi-trade-types.ts"
 
 export interface RenderProposalHtmlInput {
   estimate: Estimate
@@ -142,12 +153,20 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
   const totalAdditionalCount = includedLines.length + optionalLines.length
   const roomSummaryParts: string[] = []
   if (visibleAreas.length > 0) {
-    roomSummaryParts.push(`${visibleAreas.length} ${visibleAreas.length === 1 ? "Room" : "Rooms"}`)
+    roomSummaryParts.push(`${visibleAreas.length} ${visibleAreas.length === 1 ? "Painting Room" : "Painting Rooms"}`)
+  }
+  if (input.estimate.flooringScope && input.estimate.flooringScope.rooms.length > 0) {
+    roomSummaryParts.push(`${input.estimate.flooringScope.rooms.length} ${input.estimate.flooringScope.rooms.length === 1 ? "Flooring Area" : "Flooring Areas"}`)
+  }
+  if (input.estimate.drywallScope && input.estimate.drywallScope.rooms.length > 0) {
+    roomSummaryParts.push(`${input.estimate.drywallScope.rooms.length} ${input.estimate.drywallScope.rooms.length === 1 ? "Drywall Area" : "Drywall Areas"}`)
   }
   if (totalAdditionalCount > 0) {
     roomSummaryParts.push(`${totalAdditionalCount} Additional ${totalAdditionalCount === 1 ? "Item" : "Items"}`)
   }
-  roomSummaryParts.push("2-Coat System")
+  if (visibleAreas.length > 0 || roomSummaryParts.length === 0) {
+    roomSummaryParts.push("2-Coat System")
+  }
 
   const salesperson = input.estimate.salesperson?.trim() || company
   const validityLabel = `Valid for ${expiresDays} days`
@@ -307,6 +326,196 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
         </div>`
       : ""
 
+  // Multi-Trade Breakdown
+  let multiTradeBreakdownHtml = ""
+  if (figures.multiTradeQuote && figures.multiTradeQuote.tradeSummaries.length > 1) {
+    const tradeCards = figures.multiTradeQuote.tradeSummaries
+      .map(
+        (summary) => `<div style="background: #ffffff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+        <div>
+          <p class="eyebrow" style="color: var(--brand);">${escapeHtml(summary.label)}</p>
+          <p style="font-size: 13.5px; font-weight: 700; color: var(--ink); margin-top: 2px;">${escapeHtml(summary.netQuantityLabel)}</p>
+        </div>
+        <div style="text-align: right;">
+          <p style="font-size: 16px; font-weight: 700; color: var(--ink);">${escapeHtml(moneyExact(summary.total))}</p>
+        </div>
+      </div>`,
+      )
+      .join("\n")
+
+    multiTradeBreakdownHtml = `<div class="proposal-section" style="margin-top: 14px; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px;" data-testid="proposal-multitrade-summary">
+      <p class="eyebrow">Unified Multi-Trade Investment Breakdown</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 10px;">
+        ${tradeCards}
+      </div>
+    </div>`
+  }
+
+  // Flooring Scope Section
+  let flooringSectionHtml = ""
+  if (input.estimate.flooringScope && input.estimate.flooringScope.rooms.length > 0) {
+    const fQuote = calculateFlooringQuote(input.estimate.flooringScope)
+    const flooringRoomsHtml = input.estimate.flooringScope.rooms
+      .map((rawRoom: FlooringRoom) => {
+        const room = recomputeRoomGeometry(rawRoom)
+        const matLabel = FLOORING_MATERIAL_LABELS[room.materialType] || room.materialName || "Flooring"
+        const dims = `${formatFeetInches(room.length)} × ${formatFeetInches(room.width)}`
+        const deductionsText =
+          room.deductions?.length > 0
+            ? ` · ${room.deductions.reduce((s, d) => s + areaSqFt(d.length, d.width), 0)} sq ft deductions`
+            : ""
+        const wasteText = `${room.wastePercent ?? 10}% waste`
+        const grossNeeded = Number((room.netSqFt * (1 + (room.wastePercent ?? 10) / 100)).toFixed(1))
+        const sqFtPerBox = room.sqFtPerBox > 0 ? room.sqFtPerBox : 20
+        const boxes = Math.ceil(grossNeeded / sqFtPerBox)
+        const underlaymentText =
+          room.underlaymentType && room.underlaymentType !== "none" ? ` · Underlayment: ${room.underlaymentType}` : ""
+        const subfloorPrepText =
+          room.subfloorPrepType && room.subfloorPrepType !== "none" ? ` · Prep: ${room.subfloorPrepType}` : ""
+        const demoText =
+          room.removeExistingType && room.removeExistingType !== "none" ? ` · Demo: ${room.removeExistingType}` : ""
+
+        return `<div class="room-card" style="margin-top: 10px;">
+          <div class="room-header">
+            <div>
+              <p class="room-name">${escapeHtml(room.name)}</p>
+              <p class="room-dims">Measurements: <strong>${escapeHtml(dims)}</strong> (${room.netSqFt.toLocaleString()} net sq ft${deductionsText})</p>
+            </div>
+            <div style="text-align: right;">
+              <p class="eyebrow">Purchasing Cartons</p>
+              <p class="room-price" style="font-size: 20px;">${boxes} boxes</p>
+            </div>
+          </div>
+          <div class="surface-list">
+            <div class="surface-item">
+              <div class="surface-top">
+                <span class="surface-name">${escapeHtml(matLabel)}</span>
+                <span class="surface-spec">${boxes} boxes (${grossNeeded} sq ft w/ ${wasteText})</span>
+              </div>
+              <p class="surface-desc">Installation System${underlaymentText}${subfloorPrepText}${demoText}</p>
+            </div>
+            ${
+              room.includeBaseboard || room.includeQuarterRound || (room.transitions && room.transitions.length > 0)
+                ? `<div class="surface-item">
+                    <div class="surface-top">
+                      <span class="surface-name">Moulding, Trim &amp; Transitions</span>
+                      <span class="surface-spec">${[
+                        room.includeBaseboard ? `${room.perimeterFt} LF baseboard` : "",
+                        room.includeQuarterRound ? `${room.perimeterFt} LF quarter-round` : "",
+                        room.transitions?.length > 0 ? `${room.transitions.reduce((a, t) => a + t.pieces, 0)} transitions` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}</span>
+                    </div>
+                  </div>`
+                : ""
+            }
+          </div>
+        </div>`
+      })
+      .join("\n")
+
+    flooringSectionHtml = `<section class="proposal-section allow-break" id="proposal-page-flooring" data-testid="proposal-page-flooring">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <p class="eyebrow">Professional Flooring Installation</p>
+          <h2 class="section-title">Flooring Scope of Work</h2>
+        </div>
+        <div style="text-align: right;">
+          <p class="eyebrow">Flooring Total</p>
+          <p class="room-price" style="font-size: 26px;">${escapeHtml(moneyExact(fQuote.total))}</p>
+        </div>
+      </div>
+      <div class="scope-overview-banner">
+        <strong>Flooring Specifications:</strong> ${fQuote.netSqFt.toLocaleString()} sq ft across ${input.estimate.flooringScope.rooms.length} ${input.estimate.flooringScope.rooms.length === 1 ? "area" : "areas"} · ${fQuote.totalBoxes} total cartons/boxes including waste allowance.
+      </div>
+      ${flooringRoomsHtml}
+    </section>`
+  }
+
+  // Drywall Scope Section
+  let drywallSectionHtml = ""
+  if (input.estimate.drywallScope && input.estimate.drywallScope.rooms.length > 0) {
+    const dQuote = calculateDrywallQuote(input.estimate.drywallScope)
+    const drywallRoomsHtml = input.estimate.drywallScope.rooms
+      .map((rawRoom: DrywallRoom) => {
+        const room = recomputeDrywallRoomGeometry(rawRoom)
+        const finishSpec = DRYWALL_FINISH_LEVEL_LABELS[room.finishLevel]
+        const finishLabel = finishSpec?.name || `Level ${room.finishLevel}`
+        const boardLabel = DRYWALL_BOARD_LABELS[room.boardType] || room.boardType
+        const dims = `${formatFeetInches(room.length)} × ${formatFeetInches(room.width)} × ${formatFeetInches(room.height)}`
+        const openingsSqFt = (room.openings || []).reduce((s, op) => s + areaSqFt(op.width, op.height), 0)
+        const deductionsText = openingsSqFt > 0 ? ` · ${openingsSqFt} sq ft deductions` : ""
+        const textureText =
+          room.texture && room.texture !== "smooth" && room.texture !== "none" ? ` · Texture: ${room.texture}` : ""
+
+        const wasteFactor = 1 + (room.wastePercent ?? 10) / 100
+        const grossBoardArea = Number((room.totalNetSqFt * wasteFactor).toFixed(1))
+        const sizeSpec = DRYWALL_BOARD_SIZE_SPECS[room.boardSize] || DRYWALL_BOARD_SIZE_SPECS["4x8"]
+        const sheetsNeeded = Math.ceil(grossBoardArea / sizeSpec.sqFt)
+
+        return `<div class="room-card" style="margin-top: 10px;">
+          <div class="room-header">
+            <div>
+              <p class="room-name">${escapeHtml(room.name)}</p>
+              <p class="room-dims">Dimensions: <strong>${escapeHtml(dims)}</strong> (${room.totalNetSqFt.toLocaleString()} sq ft total · ${room.netWallSqFt.toLocaleString()} walls${room.includeCeiling ? ` · ${room.netCeilingSqFt.toLocaleString()} ceiling` : ""}${deductionsText})</p>
+            </div>
+            <div style="text-align: right;">
+              <p class="eyebrow">Purchasing Boards</p>
+              <p class="room-price" style="font-size: 20px;">${sheetsNeeded} sheets</p>
+            </div>
+          </div>
+          <div class="surface-list">
+            <div class="surface-item">
+              <div class="surface-top">
+                <span class="surface-name">${escapeHtml(boardLabel)} (${room.boardSize})</span>
+                <span class="surface-spec">${sheetsNeeded} sheets (${grossBoardArea} sq ft w/ ${room.wastePercent}% waste)</span>
+              </div>
+              <p class="surface-desc">Finish: <strong>${escapeHtml(finishLabel)}</strong>${escapeHtml(textureText)}</p>
+            </div>
+            ${
+              room.outsideCornerBeadFt > 0 ||
+              (room.insulationType && room.insulationType !== "none") ||
+              room.framingLinearFt > 0
+                ? `<div class="surface-item">
+                    <div class="surface-top">
+                      <span class="surface-name">Corner Beads &amp; Substrate Prep</span>
+                      <span class="surface-spec">${[
+                        room.outsideCornerBeadFt > 0 ? `${room.outsideCornerBeadFt} LF corner bead` : "",
+                        room.insulationType && room.insulationType !== "none"
+                          ? `Insulation (${room.insulationType})`
+                          : "",
+                        room.framingLinearFt > 0 ? `${room.framingLinearFt} LF framing` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}</span>
+                    </div>
+                  </div>`
+                : ""
+            }
+          </div>
+        </div>`
+      })
+      .join("\n")
+
+    drywallSectionHtml = `<section class="proposal-section allow-break" id="proposal-page-drywall" data-testid="proposal-page-drywall">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <p class="eyebrow">Professional Drywall &amp; Finishing</p>
+          <h2 class="section-title">Drywall Scope of Work</h2>
+        </div>
+        <div style="text-align: right;">
+          <p class="eyebrow">Drywall Total</p>
+          <p class="room-price" style="font-size: 26px;">${escapeHtml(moneyExact(dQuote.total))}</p>
+        </div>
+      </div>
+      <div class="scope-overview-banner">
+        <strong>Drywall Specifications:</strong> ${dQuote.totalNetSqFt.toLocaleString()} sq ft across ${input.estimate.drywallScope.rooms.length} ${input.estimate.drywallScope.rooms.length === 1 ? "area" : "areas"} · ${dQuote.totalSheets} total sheets · Screws, tape &amp; joint compound included.
+      </div>
+      ${drywallRoomsHtml}
+    </section>`
+  }
+
   const prepBulletsHtml = document.template.preparation
     .map((item) => `<li><span class="bullet-dot"></span><span>${escapeHtml(say(item))}</span></li>`)
     .join("\n")
@@ -407,12 +616,20 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
         </div>
       </div>`
 
+  const defaultProposalTitle = isMultiTrade(input.estimate)
+    ? "Multi-Trade Contractor Proposal"
+    : activeTrades(input.estimate)[0] === "flooring"
+      ? "Flooring Installation Proposal"
+      : activeTrades(input.estimate)[0] === "drywall"
+        ? "Drywall & Finishing Proposal"
+        : "Interior Painting Proposal"
+
   return `<!DOCTYPE html>
 <html lang="${language}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(company)} — ${escapeHtml(input.estimate.title || "Painting Proposal")}</title>
+  <title>${escapeHtml(company)} — ${escapeHtml(input.estimate.title || defaultProposalTitle)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -920,7 +1137,7 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
         </div>
       </div>
 
-      <h1 class="cover-headline">${escapeHtml(input.estimate.title || "Interior Painting Proposal")}</h1>
+      <h1 class="cover-headline">${escapeHtml(input.estimate.title || defaultProposalTitle)}</h1>
       <p class="cover-tagline" data-testid="proposal-cover-line">${escapeHtml(document.coverLine || "Complete preparation and finish schedule, tailored for your home.")}</p>
 
       <div class="meta-grid">
@@ -961,7 +1178,11 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
       </div>
     </div>
 
-    <!-- 3. ROOM-BY-ROOM PAINTING DETAILS & PRICING -->
+    ${multiTradeBreakdownHtml}
+
+    ${
+      visibleAreas.length > 0 || totalAdditionalCount > 0
+        ? `<!-- 3. ROOM-BY-ROOM PAINTING DETAILS & PRICING -->
     <section class="proposal-section allow-break" id="proposal-page-scope" data-testid="proposal-page-scope">
       <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px;">
         <div>
@@ -976,7 +1197,12 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
 
       ${roomsHtml}
       ${additionalBlockHtml}
-    </section>
+    </section>`
+        : ""
+    }
+
+    ${flooringSectionHtml}
+    ${drywallSectionHtml}
 
     <!-- 4. PREPARATION PROCEDURES -->
     <section class="proposal-section" data-testid="proposal-section-preparation">

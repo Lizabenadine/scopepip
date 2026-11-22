@@ -1,4 +1,5 @@
 import type { FollowUpEnrollment, FollowUpMessage } from "./follow-ups/types.ts"
+import type { TradeType, FlooringScope, DrywallScope } from "./estimate/multi-trade-types.ts"
 
 export const STAGE_SLUGS = [
   "lead",
@@ -32,6 +33,7 @@ export type SurfaceMeasure =
   | "accent"
 export type AreaType = "room" | "surface"
 export type EstimateKind = "interior" | "exterior" | "cabinets"
+export * from "./estimate/multi-trade-types.ts"
 export type HourRounding = 0 | 0.25 | 0.5 | 1
 export type PriceRounding = "none" | "nearest" | "up"
 export type LinePricingMode = "hourly" | "quantity" | "custom"
@@ -549,6 +551,10 @@ export interface EstimateVersion {
   savedAt: string
   title: string
   jobAddress: string
+  trades?: TradeType[]
+  primaryTrade?: TradeType
+  flooringScope?: FlooringScope
+  drywallScope?: DrywallScope
   estimateKind?: EstimateKind
   areas: AreaInput[]
   areaGroups?: AreaGroup[]
@@ -584,6 +590,11 @@ export interface Estimate {
   stageId: string
   title: string
   jobAddress: string
+  /** Active trades for this estimate. Defaults to ["painting"] when omitted. */
+  trades?: TradeType[]
+  primaryTrade?: TradeType
+  flooringScope?: FlooringScope
+  drywallScope?: DrywallScope
   /** Missing estimates stay interior. */
   estimateKind?: EstimateKind
   areas: AreaInput[]
@@ -674,6 +685,10 @@ export interface EstimateDraft {
   stageId: string
   title: string
   jobAddress: string
+  trades?: TradeType[]
+  primaryTrade?: TradeType
+  flooringScope?: FlooringScope
+  drywallScope?: DrywallScope
   estimateKind?: EstimateKind
   areas: AreaInput[]
   areaGroups?: AreaGroup[]

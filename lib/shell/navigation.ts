@@ -3,7 +3,7 @@ import type { UserRole } from "../auth/role.ts"
 
 export { managerCanOpen }
 
-export type OfficeLink = { name: string; href: string }
+export type OfficeLink = { name: string; href: string; group?: string }
 
 export type OfficeSection = {
   name: string
@@ -21,9 +21,11 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
         name: "Sales",
         short: "Sales",
         links: [
-          { name: "Sales Pipeline", href: "/sales-pipeline" },
-          { name: "Estimates & Proposals", href: "/estimate" },
-          { name: "Clients", href: "/clients" },
+          { name: "Sales Pipeline", href: "/sales-pipeline", group: "SALES MANAGEMENT" },
+          { name: "Clients", href: "/clients", group: "SALES MANAGEMENT" },
+          { name: "Painting — Estimates & Proposals", href: "/estimate", group: "ESTIMATING" },
+          { name: "Flooring — Estimates & Proposals", href: "/flooring", group: "ESTIMATING" },
+          { name: "Drywall — Estimates & Proposals", href: "/drywall", group: "ESTIMATING" },
         ],
       },
       {
@@ -82,9 +84,11 @@ export function navigationSections(userRole: UserRole): OfficeSection[] {
       name: "Sales",
       short: "Sales",
       links: [
-        { name: "Sales Pipeline", href: "/sales-pipeline" },
-        { name: "Estimates & Proposals", href: "/estimate" },
-        { name: "Clients", href: "/clients" },
+        { name: "Sales Pipeline", href: "/sales-pipeline", group: "SALES MANAGEMENT" },
+        { name: "Clients", href: "/clients", group: "SALES MANAGEMENT" },
+        { name: "Painting — Estimates & Proposals", href: "/estimate", group: "ESTIMATING" },
+        { name: "Flooring — Estimates & Proposals", href: "/flooring", group: "ESTIMATING" },
+        { name: "Drywall — Estimates & Proposals", href: "/drywall", group: "ESTIMATING" },
       ],
     },
     {

@@ -386,31 +386,49 @@ function SectionMenu({
 }) {
   const say = (text: string) => officeLabel(text, language)
   if (!section || section.links.length === 0) return null
+  const hasGroups = section.links.some((l) => Boolean(l.group))
+
   return (
-    <div role="menu" className={cn("min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg", wide && "w-full")}>
-      <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">
-        {say(section.name === "Daily" ? "Daily Operations" : section.name)}
-      </p>
-      {section.links.map((link) => {
+    <div role="menu" className={cn("min-w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg", wide && "w-full")}>
+      {!hasGroups ? (
+        <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase">
+          {say(section.name === "Daily" ? "Daily Operations" : section.name)}
+        </p>
+      ) : null}
+      {section.links.map((link, idx) => {
         const active = navIsActive(pathname, link.href)
+        const prevLink = idx > 0 ? section.links[idx - 1] : null
+        const isNewGroup = link.group && (!prevLink || prevLink.group !== link.group)
+
         return (
-          <Link
-            key={link.href}
-            href={link.href}
-            role="menuitem"
-            aria-current={active ? "page" : undefined}
-            data-testid={linkTestId(link.href)}
-            onClick={(event) => {
-              event.stopPropagation()
-              window.setTimeout(onNavigate, 0)
-            }}
-            className={cn(
-              "block rounded-lg px-3 py-2 text-sm font-medium",
-              active ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50",
-            )}
-          >
-            {say(link.name)}
-          </Link>
+          <div key={link.href}>
+            {isNewGroup ? (
+              <p
+                className={cn(
+                  "px-3 pb-1 text-[11px] font-bold tracking-[0.14em] text-slate-400 uppercase",
+                  idx > 0 ? "pt-3 border-t border-slate-100 mt-1" : "pt-1.5"
+                )}
+              >
+                {link.group}
+              </p>
+            ) : null}
+            <Link
+              href={link.href}
+              role="menuitem"
+              aria-current={active ? "page" : undefined}
+              data-testid={linkTestId(link.href)}
+              onClick={(event) => {
+                event.stopPropagation()
+                window.setTimeout(onNavigate, 0)
+              }}
+              className={cn(
+                "block rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                active ? "bg-slate-100 text-slate-900 font-semibold" : "text-slate-700 hover:bg-slate-50",
+              )}
+            >
+              {say(link.name)}
+            </Link>
+          </div>
         )
       })}
     </div>

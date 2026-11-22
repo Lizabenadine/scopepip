@@ -20,8 +20,10 @@ describe("office nav data", () => {
     assert.equal(owner.find((section) => section.name === "Daily Sketch & Notes")?.href, "/sketches")
     assert.deepEqual(owner.find((section) => section.name === "Sales")?.links.map((link) => link.name), [
       "Sales Pipeline",
-      "Estimates & Proposals",
       "Clients",
+      "Painting — Estimates & Proposals",
+      "Flooring — Estimates & Proposals",
+      "Drywall — Estimates & Proposals",
     ])
     assert.deepEqual(owner.find((section) => section.name === "Jobs")?.links.map((link) => link.name), [
       "Work Orders",
