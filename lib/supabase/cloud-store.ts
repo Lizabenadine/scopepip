@@ -9,7 +9,7 @@ function workOrderPath(companyId: string): string {
 }
 
 async function readWorkOrders(supabase: SupabaseClient, companyId: string): Promise<CloudWorkOrder[]> {
-  const downloaded = await supabase.storage.from(BUCKET).download(workOrderPath(companyId), { cacheNonce: String(Date.now()) }, { cache: "no-store" })
+  const downloaded = await supabase.storage.from(BUCKET).download(workOrderPath(companyId))
   if (downloaded.error || !downloaded.data) return []
   try {
     const parsed = JSON.parse(await downloaded.data.text()) as unknown

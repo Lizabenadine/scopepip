@@ -94,8 +94,49 @@ export function OfficeProposalChat({
     reload.current = scope.reloadBook
   })
   useEffect(() => {
-    const timer = window.setInterval(() => void reload.current(), 8000)
-    return () => window.clearInterval(timer)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let delay = 20_000
+    let idleStreak = 0
+    let cancelled = false
+
+    const poll = async () => {
+      if (typeof document !== "undefined" && document.hidden) return
+      try {
+        await reload.current()
+        idleStreak += 1
+        if (idleStreak >= 2) delay = 45_000
+        if (idleStreak >= 5) delay = 90_000
+      } catch {
+        delay = 90_000
+      } finally {
+        if (!cancelled && typeof document !== "undefined" && !document.hidden) {
+          timer = setTimeout(poll, delay)
+        }
+      }
+    }
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (timer) clearTimeout(timer)
+        timer = null
+      } else {
+        delay = 20_000
+        idleStreak = 0
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(poll, 10_000)
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibility)
+    window.addEventListener("focus", onVisibility)
+
+    timer = setTimeout(poll, delay)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.removeEventListener("focus", onVisibility)
+    }
   }, [])
   return (
     <ProposalChat

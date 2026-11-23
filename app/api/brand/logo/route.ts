@@ -27,6 +27,42 @@ function detectImageMime(bytes: Uint8Array): string | null {
   return null
 }
 
+export async function GET(request: Request) {
+  const url = new URL(request.url)
+  const companyId = url.searchParams.get("companyId")?.trim() || ""
+  if (!companyId) {
+    return new Response("Company ID required", { status: 400 })
+  }
+  const admin = supabaseAdmin()
+  if (!admin) {
+    return new Response("Storage not configured", { status: 503 })
+  }
+  const cleanId = companyId.replace(/[^a-zA-Z0-9_-]/g, "")
+  try {
+    const download = await admin.storage.from(BUCKET).download(`logos/${cleanId}/logo`)
+    if (download.error || !download.data) {
+      return new Response("Logo not found", { status: 404 })
+    }
+    const bytes = new Uint8Array(await download.data.arrayBuffer())
+    const mime = detectImageMime(bytes) || "image/png"
+    const etag = `"${cleanId}-${bytes.byteLength}"`
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, { status: 304 })
+    }
+
+    return new Response(Buffer.from(bytes), {
+      headers: {
+        "content-type": mime,
+        "cache-control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+        "etag": etag,
+      },
+    })
+  } catch {
+    return new Response("Logo not found", { status: 404 })
+  }
+}
+
 export async function POST(request: Request) {
   const session = await sessionFromRequest(request)
   if (!session) return Response.json({ ok: false, reason: "Sign in before uploading a logo." }, { status: 401 })

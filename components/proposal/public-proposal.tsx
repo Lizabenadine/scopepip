@@ -104,19 +104,82 @@ export function PublicProposal({
   }, [token])
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void fetch(`/api/public/proposals/${encodeURIComponent(token)}/messages`)
-        .then(async (response) => {
-          if (!response.ok) return
-          const payload = (await response.json()) as { messages?: Estimate["proposalMessages"] }
-          if (!payload.messages) return
-          setView((current) =>
-            current ? { ...current, estimate: { ...current.estimate, proposalMessages: payload.messages } } : current,
-          )
+    if (!token) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let delay = 15_000
+    let idleStreak = 0
+    let cancelled = false
+
+    const poll = async () => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/messages`, {
+          cache: "no-store",
         })
-        .catch(() => undefined)
-    }, 8000)
-    return () => window.clearInterval(timer)
+        if (response.ok && !cancelled) {
+          const payload = (await response.json()) as { messages?: Estimate["proposalMessages"] }
+          if (payload.messages) {
+            setView((current) => {
+              if (!current) return current
+              const currentLen = current.estimate.proposalMessages?.length ?? 0
+              const newLen = payload.messages?.length ?? 0
+              if (newLen > currentLen) {
+                delay = 15_000
+                idleStreak = 0
+              } else {
+                idleStreak += 1
+                if (idleStreak >= 2) delay = 30_000
+                if (idleStreak >= 4) delay = 60_000
+                if (idleStreak >= 8) delay = 120_000
+              }
+              return { ...current, estimate: { ...current.estimate, proposalMessages: payload.messages } }
+            })
+          }
+        }
+      } catch {
+        delay = Math.min(delay * 2, 120_000)
+      } finally {
+        if (!cancelled && typeof document !== "undefined" && !document.hidden) {
+          timer = setTimeout(poll, delay)
+        }
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (timer) clearTimeout(timer)
+        timer = null
+      } else {
+        delay = 15_000
+        idleStreak = 0
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(poll, 15_000)
+      }
+    }
+
+    const onUserActivity = () => {
+      if (delay > 30_000) {
+        delay = 15_000
+        idleStreak = 0
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    window.addEventListener("focus", onVisibilityChange)
+    window.addEventListener("keydown", onUserActivity)
+
+    timer = setTimeout(poll, delay)
+
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.removeEventListener("focus", onVisibilityChange)
+      window.removeEventListener("keydown", onUserActivity)
+    }
   }, [token])
 
   if (!view && !missing) {

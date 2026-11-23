@@ -201,6 +201,10 @@ export function flushBook(): Promise<{ ok: true } | { ok: false; reason: string 
   if (!officeSession) {
     return Promise.resolve({ ok: false, reason: "Sign in before saving this estimate." })
   }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
   if (dirty && !saving) void pumpBook()
   return new Promise((resolve) => {
     const start = Date.now()
@@ -267,12 +271,18 @@ async function encodeBookBody(payload: unknown): Promise<{ body: BodyInit; heade
   }
 }
 
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
 function persist(state: ScopeState) {
   if (!officeSession) return
   void state
   dirty = true
   lastSyncResult = { ok: true }
-  if (!saving) void pumpBook()
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null
+    if (!saving && dirty) void pumpBook()
+  }, 600)
 }
 
 function mergeById<T extends { id: string }>(first: T[] | undefined, second: T[] | undefined): T[] | undefined {

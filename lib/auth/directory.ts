@@ -117,7 +117,14 @@ export function authSecret(): string {
   return next
 }
 
+let memoryAccounts: { file: AccountFile; cachedAt: number } | null = null
+const ACCOUNTS_CACHE_TTL_MS = 15_000
+
 async function readAccounts(): Promise<AccountFile> {
+  const now = Date.now()
+  if (memoryAccounts && now - memoryAccounts.cachedAt < ACCOUNTS_CACHE_TTL_MS) {
+    return memoryAccounts.file
+  }
   const raw = await readJsonFile(accountsFile(), "accounts/accounts.json")
   if (!raw) return EMPTY
   try {
@@ -125,6 +132,7 @@ async function readAccounts(): Promise<AccountFile> {
     if (!parsed || typeof parsed !== "object") return EMPTY
     const file = parsed as AccountFile
     if (!Array.isArray(file.users) || !Array.isArray(file.companies)) return EMPTY
+    memoryAccounts = { file, cachedAt: now }
     return file
   } catch {
     return EMPTY
@@ -132,10 +140,86 @@ async function readAccounts(): Promise<AccountFile> {
 }
 
 async function writeAccounts(file: AccountFile) {
+  memoryAccounts = { file, cachedAt: Date.now() }
   await writeJsonFile(accountsFile(), "accounts/accounts.json", JSON.stringify(file))
 }
 
+interface TokenIndex {
+  proposals: Record<string, string>
+  estimates: Record<string, string>
+  offers: Record<string, string>
+  webhooks: Record<string, string>
+}
+
+let memoryTokenIndex: TokenIndex | null = null
+let indexSavePending = false
+
+function tokenIndexPath(): string {
+  return path.join(path.dirname(accountsFile()), "token-index.json")
+}
+
+async function readTokenIndex(): Promise<TokenIndex> {
+  if (memoryTokenIndex) return memoryTokenIndex
+  const raw = await readJsonFile(tokenIndexPath(), "accounts/token-index.json")
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as TokenIndex
+      if (parsed && typeof parsed.proposals === "object") {
+        memoryTokenIndex = {
+          proposals: parsed.proposals || {},
+          estimates: parsed.estimates || {},
+          offers: parsed.offers || {},
+          webhooks: parsed.webhooks || {},
+        }
+        return memoryTokenIndex
+      }
+    } catch {}
+  }
+  memoryTokenIndex = { proposals: {}, estimates: {}, offers: {}, webhooks: {} }
+  return memoryTokenIndex
+}
+
+function updateTokenIndexForBook(companyId: string, state: ScopeState) {
+  if (!memoryTokenIndex) {
+    memoryTokenIndex = { proposals: {}, estimates: {}, offers: {}, webhooks: {} }
+  }
+  for (const est of state.estimates) {
+    if (est.publicToken) memoryTokenIndex.proposals[est.publicToken] = companyId
+    if (est.id) memoryTokenIndex.estimates[est.id] = companyId
+  }
+  for (const order of state.workOrders) {
+    for (const offer of order.offers ?? []) {
+      if (offer.token) memoryTokenIndex.offers[offer.token] = companyId
+    }
+  }
+  const webhook = leadWebhookToken(state.estimateSettings?.leadWebhookToken)
+  if (webhook) memoryTokenIndex.webhooks[webhook] = companyId
+
+  void scheduleSaveTokenIndex()
+}
+
+async function scheduleSaveTokenIndex() {
+  if (indexSavePending || !memoryTokenIndex) return
+  indexSavePending = true
+  try {
+    await writeJsonFile(tokenIndexPath(), "accounts/token-index.json", JSON.stringify(memoryTokenIndex))
+  } catch {
+    // Non-fatal if host write fails; in-memory index remains active
+  } finally {
+    indexSavePending = false
+  }
+}
+
+interface CachedBook {
+  book: BookFile
+  cachedAt: number
+}
+const memoryBooks = new Map<string, CachedBook>()
+const BOOK_CACHE_TTL_MS = 15_000
+
 async function writeBook(companyId: string, value: BookFile) {
+  memoryBooks.set(companyId, { book: value, cachedAt: Date.now() })
+  updateTokenIndexForBook(companyId, value.state)
   await writeJsonFile(bookPath(companyId), `books/${companyId}.json`, JSON.stringify(value))
 }
 
@@ -144,6 +228,11 @@ function bookPath(companyId: string): string {
 }
 
 async function readBookFile(companyId: string): Promise<BookFile | null> {
+  const now = Date.now()
+  const cached = memoryBooks.get(companyId)
+  if (cached && now - cached.cachedAt < BOOK_CACHE_TTL_MS) {
+    return cached.book
+  }
   const raw = await readJsonFile(bookPath(companyId), `books/${companyId}.json`)
   if (!raw) return null
   try {
@@ -151,6 +240,7 @@ async function readBookFile(companyId: string): Promise<BookFile | null> {
     if (!parsed || typeof parsed !== "object") return null
     const file = parsed as BookFile
     if (typeof file.revision !== "number" || !isScopeState(file.state)) return null
+    memoryBooks.set(companyId, { book: file, cachedAt: now })
     return file
   } catch {
     return null
@@ -164,7 +254,10 @@ async function eachBook(): Promise<{ companyId: string; book: BookFile }[]> {
     if (!name.endsWith(".json")) continue
     const companyId = name.slice(0, -5)
     const book = await readBookFile(companyId)
-    if (book) rows.push({ companyId, book })
+    if (book) {
+      updateTokenIndexForBook(companyId, book.state)
+      rows.push({ companyId, book })
+    }
   }
   return rows
 }
@@ -647,6 +740,14 @@ export async function readCompanyBook(companyId: string): Promise<BookFile | nul
 export async function companyForLeadWebhook(token: string): Promise<{ companyId: string; book: BookFile } | null> {
   const expected = leadWebhookToken(token)
   if (!expected) return null
+  const index = await readTokenIndex()
+  const companyId = index.webhooks[expected]
+  if (companyId) {
+    const book = await readBookFile(companyId)
+    if (book && leadWebhookToken(book.state.estimateSettings.leadWebhookToken) === expected) {
+      return { companyId, book }
+    }
+  }
   for (const row of await eachBook()) {
     if (leadWebhookToken(row.book.state.estimateSettings.leadWebhookToken) === expected) return row
   }
@@ -680,6 +781,38 @@ export async function companyBySlug(slug: string): Promise<{ name: string; slug:
 function reconciled(before: ScopeState, after: ScopeState): ScopeState {
   const at = new Date().toISOString()
   return reconcileFollowUps(recordStageChanges(before, after, at), at)
+}
+
+async function findByProposalToken(token: string): Promise<{ companyId: string; book: BookFile; estimate: Estimate } | null> {
+  if (!token) return null
+  const index = await readTokenIndex()
+  const companyId = index.proposals[token]
+  if (companyId) {
+    const book = await readBookFile(companyId)
+    const estimate = book?.state.estimates.find((e) => e.publicToken === token)
+    if (estimate && book) return { companyId, book, estimate }
+  }
+  for (const row of await eachBook()) {
+    const estimate = row.book.state.estimates.find((e) => e.publicToken === token)
+    if (estimate) return { companyId: row.companyId, book: row.book, estimate }
+  }
+  return null
+}
+
+async function findByEstimateId(id: string): Promise<{ companyId: string; book: BookFile; estimate: Estimate } | null> {
+  if (!id) return null
+  const index = await readTokenIndex()
+  const companyId = index.estimates[id]
+  if (companyId) {
+    const book = await readBookFile(companyId)
+    const estimate = book?.state.estimates.find((e) => e.id === id)
+    if (estimate && book) return { companyId, book, estimate }
+  }
+  for (const row of await eachBook()) {
+    const estimate = row.book.state.estimates.find((e) => e.id === id)
+    if (estimate) return { companyId: row.companyId, book: row.book, estimate }
+  }
+  return null
 }
 
 async function findByEstimate(match: (estimate: Estimate) => boolean): Promise<{ companyId: string; book: BookFile; estimate: Estimate } | null> {
@@ -753,7 +886,7 @@ function publicSettings(settings: EstimateSettings): EstimateSettings {
 }
 
 export async function rememberProposalLanguage(token: string, language: "en" | "es"): Promise<boolean> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return false
   const updatedAt = new Date().toISOString()
   const clients = found.book.state.clients.map((client) =>
@@ -764,7 +897,7 @@ export async function rememberProposalLanguage(token: string, language: "en" | "
 }
 
 export async function publicProposal(token: string): Promise<PublicProposalView | null> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return null
   const { resolveCompanyBrand } = await import("../proposals/htmlPdf.ts")
   const brand = await resolveCompanyBrand({
@@ -788,7 +921,7 @@ export async function declinePublicProposal(
   token: string,
   declinedAt: string,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return { ok: false, reason: "This proposal link is not valid." }
   const result = applyDecline(found.book.state, token, declinedAt)
   if (!result.ok) return result
@@ -803,7 +936,7 @@ export async function acceptPublicProposal(
   token: string,
   input: AcceptanceInput,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return { ok: false, reason: "This proposal link is not valid." }
   if (found.estimate.clientStatus === "accepted" || found.estimate.signature) {
     return { ok: true, estimate: forCustomer(found.estimate) }
@@ -845,7 +978,7 @@ export async function publicProposalPdfData(token: string): Promise<{
   paymentMethods: PaymentMethod[]
   estimateSettings: EstimateSettings
 } | null> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return null
   const client = found.book.state.clients.find((item) => item.id === found.estimate.clientId)
   const { resolveCompanyBrand } = await import("../proposals/htmlPdf.ts")
@@ -879,7 +1012,7 @@ export async function recordPublicDepositByToken(
   token: string,
   receipt: DepositReceipt,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return { ok: false, reason: "This proposal link is not valid." }
   if (found.estimate.clientStatus !== "accepted") {
     return { ok: false, reason: "Accept the proposal before paying the deposit." }
@@ -914,7 +1047,7 @@ export async function recordPendingSignatureByToken(
   token: string,
   input: { lineIds: string[]; clientSignatureUrl: string },
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return { ok: false, reason: "This proposal link is not valid." }
   const signed = signPendingWork(found.estimate, input)
   if (!signed.ok) return signed
@@ -949,7 +1082,7 @@ export async function recordCompanyPendingSignature(
 }
 
 export async function publicEstimate(id: string): Promise<{ estimate: Estimate; clientName: string; paymentMethods: PaymentMethod[] } | null> {
-  const found = await findByEstimate((estimate) => estimate.id === id)
+  const found = await findByEstimateId(id)
   if (!found) return null
   const client = found.book.state.clients.find((item) => item.id === found.estimate.clientId)
   return {
@@ -963,7 +1096,7 @@ export async function recordPublicDeposit(
   estimateId: string,
   receipt: DepositReceipt,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.id === estimateId)
+  const found = await findByEstimateId(estimateId)
   if (!found) return { ok: false, reason: "This estimate is not on file." }
   const result = applyDeposit(found.book.state, estimateId, receipt)
   if (!result.ok) return result
@@ -978,7 +1111,7 @@ export async function recordPendingSignature(
   estimateId: string,
   input: { lineIds: string[]; clientSignatureUrl: string },
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.id === estimateId)
+  const found = await findByEstimateId(estimateId)
   if (!found) return { ok: false, reason: "This estimate is not on file." }
   const signed = signPendingWork(found.estimate, input)
   if (!signed.ok) return signed
@@ -996,7 +1129,7 @@ export async function recordProposalMessage(
   token: string,
   body: string,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return { ok: false, reason: "This proposal link is not valid." }
   const posted = postProposalMessage(found.estimate, { from: "customer", body })
   if (!posted.ok) return posted
@@ -1023,6 +1156,18 @@ export interface PublicWorkOrderOffer {
 async function findByOffer(
   token: string,
 ): Promise<{ companyId: string; book: BookFile; order: WorkOrder; offer: SubcontractorOffer } | null> {
+  if (!token) return null
+  const index = await readTokenIndex()
+  const companyId = index.offers[token]
+  if (companyId) {
+    const book = await readBookFile(companyId)
+    if (book) {
+      for (const order of book.state.workOrders) {
+        const offer = order.offers?.find((item) => item.token === token)
+        if (offer) return { companyId, book, order, offer }
+      }
+    }
+  }
   for (const row of await eachBook()) {
     for (const order of row.book.state.workOrders) {
       const offer = order.offers?.find((item) => item.token === token)
@@ -1115,7 +1260,7 @@ function replaceOrder(state: ScopeState, order: WorkOrder): ScopeState {
 }
 
 export async function publicBooking(token: string): Promise<PublicBookingView | null> {
-  const found = await findByEstimate((estimate) => estimate.publicToken === token)
+  const found = await findByProposalToken(token)
   if (!found) return null
   const client = found.book.state.clients.find((item) => item.id === found.estimate.clientId)
   return {

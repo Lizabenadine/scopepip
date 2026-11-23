@@ -8,6 +8,9 @@ export function displayLogoUrl(value: string | null | undefined): string | null 
   if (/^data:image\/[a-z0-9+.-]+;base64,/i.test(trimmed) || /^data:image\/[a-z0-9+.-]+,/i.test(trimmed)) {
     return trimmed
   }
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed
+  }
   try {
     const url = new URL(trimmed)
     if (url.protocol === "https:" || url.protocol === "http:") return trimmed

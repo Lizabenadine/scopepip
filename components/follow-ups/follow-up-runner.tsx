@@ -183,6 +183,7 @@ export function FollowUpRunner() {
     }
 
     async function tick() {
+      if (typeof document !== "undefined" && document.hidden) return
       const api = scopeRef.current
       try {
         await pullInbound()
@@ -281,12 +282,23 @@ export function FollowUpRunner() {
     }
 
     void tick()
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        void tick()
+      }
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility)
+    }
     const timer = window.setInterval(() => {
       void tick()
     }, TICK_MS)
     return () => {
       stopped = true
       window.clearInterval(timer)
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility)
+      }
     }
   }, [])
 

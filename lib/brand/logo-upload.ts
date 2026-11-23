@@ -26,23 +26,23 @@ async function browserUpload(file: File): Promise<string | null> {
   })
   if (error) return null
   const { data: published } = supabase.storage.from(BUCKET).getPublicUrl(`logos/${data.user.id}/logo`)
-  return `${published.publicUrl}?v=${Date.now()}`
+  return published.publicUrl
 }
 
-/** Public logo address. A signed-in Supabase user writes company-assets; otherwise the office route does. */
+/** Public logo address. Uploads through the office route and returns an optimized data URL or edge URL. */
 export async function uploadCompanyLogo(file: File): Promise<string> {
   const reason = logoFileError(file)
   if (reason) throw new Error(reason)
   try {
-    const fromBrowser = await browserUpload(file).catch(() => null)
-    if (fromBrowser) return fromBrowser
-
     const body = new FormData()
     body.set("file", file)
     const response = await fetch("/api/brand/logo", { method: "POST", body })
     const result = (await response.json().catch(() => null)) as { url?: string; reason?: string } | null
     if (response.ok && result?.url) return result.url
     if (result?.reason === "storage-off") return readAsDataUrl(file)
+
+    const fromBrowser = await browserUpload(file).catch(() => null)
+    if (fromBrowser) return fromBrowser
   } catch {
     // Fall back to self-contained data URL
   }

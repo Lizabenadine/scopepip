@@ -51,7 +51,14 @@ function bytesToDataUrl(bytes: Uint8Array): string | undefined {
   return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
 }
 
+const assetMemoryCache = new Map<string, { dataUrl: string; cachedAt: number }>()
+const ASSET_CACHE_TTL_MS = 60_000
+
 async function downloadCompanyAsset(objectKey: string): Promise<string | undefined> {
+  const cached = assetMemoryCache.get(objectKey)
+  if (cached && Date.now() - cached.cachedAt < ASSET_CACHE_TTL_MS) {
+    return cached.dataUrl
+  }
   const admin = supabaseAdmin()
   if (!admin || !objectKey) return undefined
   const buckets = ["scopepipe", "company-assets"]
@@ -67,7 +74,9 @@ async function downloadCompanyAsset(objectKey: string): Promise<string | undefin
         if (!error && data) {
           const bytes = new Uint8Array(await data.arrayBuffer())
           const mime = detectImageMime(bytes) || (data as { type?: string }).type || "image/png"
-          return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
+          const dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
+          assetMemoryCache.set(objectKey, { dataUrl, cachedAt: Date.now() })
+          return dataUrl
         }
       } catch {
         // continue to next candidate

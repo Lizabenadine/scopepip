@@ -18,7 +18,7 @@ export async function readJsonFile(localPath: string, remoteKey: string): Promis
       return null
     }
   }
-  const { data, error } = await admin.storage.from(BUCKET).download(remoteKey, { cacheNonce: String(Date.now()) }, { cache: "no-store" })
+  const { data, error } = await admin.storage.from(BUCKET).download(remoteKey)
   if (error || !data) return null
   return data.text()
 }
