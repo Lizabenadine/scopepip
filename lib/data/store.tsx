@@ -275,7 +275,10 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function persist(state: ScopeState) {
   if (!officeSession) return
-  void state
+  // Immediate zero-cost synchronous local persistence prevents data loss on crash/reload
+  try {
+    saveBrowserBook(officeSession.companyId, bookRevision, state)
+  } catch {}
   dirty = true
   lastSyncResult = { ok: true }
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -283,6 +286,23 @@ function persist(state: ScopeState) {
     debounceTimer = null
     if (!saving && dirty) void pumpBook()
   }, 600)
+}
+
+if (typeof window !== "undefined") {
+  const flushIfDirty = () => {
+    if (dirty && !saving && officeSession) {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+        debounceTimer = null
+      }
+      void pumpBook()
+    }
+  }
+  window.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushIfDirty()
+  })
+  window.addEventListener("pagehide", flushIfDirty)
+  window.addEventListener("beforeunload", flushIfDirty)
 }
 
 function mergeById<T extends { id: string }>(first: T[] | undefined, second: T[] | undefined): T[] | undefined {

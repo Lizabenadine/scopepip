@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { sessionFromRequest } from "@/lib/auth/request"
 import { logoFileError } from "@/lib/brand/logo"
 import { supabaseAdmin, supabaseProjectUrl } from "@/lib/supabase/admin"
@@ -45,7 +46,8 @@ export async function GET(request: Request) {
     }
     const bytes = new Uint8Array(await download.data.arrayBuffer())
     const mime = detectImageMime(bytes) || "image/png"
-    const etag = `"${cleanId}-${bytes.byteLength}"`
+    const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 16)
+    const etag = `"${cleanId}-${hash}"`
 
     if (request.headers.get("if-none-match") === etag) {
       return new Response(null, { status: 304 })
@@ -74,7 +76,9 @@ export async function POST(request: Request) {
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   const mime = detectImageMime(bytes) || file.type || "image/png"
+  const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 16)
   const dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`
+  const edgeUrl = `/api/brand/logo?companyId=${encodeURIComponent(session.companyId)}&v=${hash}`
 
   const admin = supabaseAdmin()
   if (admin) {
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
     }
   }
 
-  return Response.json({ ok: true, url: dataUrl })
+  return Response.json({ ok: true, url: edgeUrl, dataUrl, hash })
 }
 
 export async function DELETE(request: Request) {

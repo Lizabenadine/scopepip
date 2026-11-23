@@ -9,7 +9,7 @@ export const runtime = "nodejs"
 export async function GET(request: Request) {
   const session = await sessionFromRequest(request)
   if (!session) return Response.json({ reason: "Sign in first." }, { status: 401 })
-  const book = await readCompanyBook(session.companyId)
+  const book = await readCompanyBook(session.companyId, { bypassCache: true })
   if (!book) return Response.json({ reason: "This company has no book." }, { status: 404 })
   return Response.json(
     { revision: book.revision, state: book.state },
@@ -24,7 +24,7 @@ export async function PUT(request: Request) {
   if (!body || typeof body.revision !== "number" || !isScopeState(body.state)) {
     return Response.json({ reason: "The book could not be read." }, { status: 400 })
   }
-  const current = await readCompanyBook(session.companyId)
+  const current = await readCompanyBook(session.companyId, { bypassCache: true })
   if (!current) return Response.json({ reason: "This company has no book." }, { status: 404 })
   const state = session.role === "estimator" ? bookForEstimator(current.state, body.state, session.id) : body.state
   try {

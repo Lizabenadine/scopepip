@@ -119,6 +119,11 @@ export function PublicProposal({
         const response = await fetch(`/api/public/proposals/${encodeURIComponent(token)}/messages`, {
           cache: "no-store",
         })
+        if (response.status === 401 || response.status === 403 || response.status === 429 || response.status === 503) {
+          // Circuit breaker: backend quota restriction or auth failure; back off 5 minutes
+          delay = 300_000
+          return
+        }
         if (response.ok && !cancelled) {
           const payload = (await response.json()) as { messages?: Estimate["proposalMessages"] }
           if (payload.messages) {
@@ -140,10 +145,13 @@ export function PublicProposal({
           }
         }
       } catch {
-        delay = Math.min(delay * 2, 120_000)
+        delay = Math.min(delay * 2, 300_000)
       } finally {
         if (!cancelled && typeof document !== "undefined" && !document.hidden) {
-          timer = setTimeout(poll, delay)
+          // Pause polling completely after 20 consecutive idle intervals (~30+ minutes of inactivity)
+          if (idleStreak < 20) {
+            timer = setTimeout(poll, delay)
+          }
         }
       }
     }
@@ -161,15 +169,21 @@ export function PublicProposal({
     }
 
     const onUserActivity = () => {
-      if (delay > 30_000) {
+      const wasPaused = idleStreak >= 20 || !timer
+      if (delay > 30_000 || wasPaused) {
         delay = 15_000
         idleStreak = 0
+        if (wasPaused && !cancelled && typeof document !== "undefined" && !document.hidden) {
+          if (timer) clearTimeout(timer)
+          timer = setTimeout(poll, delay)
+        }
       }
     }
 
     document.addEventListener("visibilitychange", onVisibilityChange)
     window.addEventListener("focus", onVisibilityChange)
     window.addEventListener("keydown", onUserActivity)
+    window.addEventListener("pointerdown", onUserActivity)
 
     timer = setTimeout(poll, delay)
 
@@ -179,6 +193,7 @@ export function PublicProposal({
       document.removeEventListener("visibilitychange", onVisibilityChange)
       window.removeEventListener("focus", onVisibilityChange)
       window.removeEventListener("keydown", onUserActivity)
+      window.removeEventListener("pointerdown", onUserActivity)
     }
   }, [token])
 

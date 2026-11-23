@@ -158,6 +158,35 @@ function tokenIndexPath(): string {
   return path.join(path.dirname(accountsFile()), "token-index.json")
 }
 
+async function persistTokenMapping(kind: "proposals" | "estimates", key: string, companyId: string) {
+  const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "")
+  if (!safeKey || !companyId) return
+  const local = path.join(path.dirname(accountsFile()), "tokens", kind, `${safeKey}.json`)
+  const remote = `tokens/${kind}/${safeKey}.json`
+  try {
+    await writeJsonFile(local, remote, JSON.stringify({ companyId }))
+  } catch {
+    // Non-fatal if host write fails; in-memory cache remains active
+  }
+}
+
+async function lookupTokenMapping(kind: "proposals" | "estimates", key: string): Promise<string | null> {
+  const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "")
+  if (!safeKey) return null
+  const local = path.join(path.dirname(accountsFile()), "tokens", kind, `${safeKey}.json`)
+  const remote = `tokens/${kind}/${safeKey}.json`
+  try {
+    const raw = await readJsonFile(local, remote)
+    if (raw) {
+      const parsed = JSON.parse(raw) as { companyId?: string }
+      if (typeof parsed?.companyId === "string" && parsed.companyId) {
+        return parsed.companyId
+      }
+    }
+  } catch {}
+  return null
+}
+
 async function readTokenIndex(): Promise<TokenIndex> {
   if (memoryTokenIndex) return memoryTokenIndex
   const raw = await readJsonFile(tokenIndexPath(), "accounts/token-index.json")
@@ -184,8 +213,14 @@ function updateTokenIndexForBook(companyId: string, state: ScopeState) {
     memoryTokenIndex = { proposals: {}, estimates: {}, offers: {}, webhooks: {} }
   }
   for (const est of state.estimates) {
-    if (est.publicToken) memoryTokenIndex.proposals[est.publicToken] = companyId
-    if (est.id) memoryTokenIndex.estimates[est.id] = companyId
+    if (est.publicToken) {
+      memoryTokenIndex.proposals[est.publicToken] = companyId
+      void persistTokenMapping("proposals", est.publicToken, companyId)
+    }
+    if (est.id) {
+      memoryTokenIndex.estimates[est.id] = companyId
+      void persistTokenMapping("estimates", est.id, companyId)
+    }
   }
   for (const order of state.workOrders) {
     for (const offer of order.offers ?? []) {
@@ -202,7 +237,23 @@ async function scheduleSaveTokenIndex() {
   if (indexSavePending || !memoryTokenIndex) return
   indexSavePending = true
   try {
-    await writeJsonFile(tokenIndexPath(), "accounts/token-index.json", JSON.stringify(memoryTokenIndex))
+    const existing = await readJsonFile(tokenIndexPath(), "accounts/token-index.json")
+    let merged = memoryTokenIndex
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing) as TokenIndex
+        if (parsed && typeof parsed.proposals === "object") {
+          merged = {
+            proposals: { ...parsed.proposals, ...memoryTokenIndex.proposals },
+            estimates: { ...parsed.estimates, ...memoryTokenIndex.estimates },
+            offers: { ...parsed.offers, ...memoryTokenIndex.offers },
+            webhooks: { ...parsed.webhooks, ...memoryTokenIndex.webhooks },
+          }
+          memoryTokenIndex = merged
+        }
+      } catch {}
+    }
+    await writeJsonFile(tokenIndexPath(), "accounts/token-index.json", JSON.stringify(merged))
   } catch {
     // Non-fatal if host write fails; in-memory index remains active
   } finally {
@@ -227,10 +278,10 @@ function bookPath(companyId: string): string {
   return path.join(booksDir(), `${companyId}.json`)
 }
 
-async function readBookFile(companyId: string): Promise<BookFile | null> {
+async function readBookFile(companyId: string, options?: { bypassCache?: boolean }): Promise<BookFile | null> {
   const now = Date.now()
   const cached = memoryBooks.get(companyId)
-  if (cached && now - cached.cachedAt < BOOK_CACHE_TTL_MS) {
+  if (!options?.bypassCache && cached && now - cached.cachedAt < BOOK_CACHE_TTL_MS) {
     return cached.book
   }
   const raw = await readJsonFile(bookPath(companyId), `books/${companyId}.json`)
@@ -733,8 +784,8 @@ export async function listPeople(userId: string): Promise<{ id: string; name: st
     .map((item) => ({ id: item.id, name: item.name, email: item.email, role: item.role }))
 }
 
-export async function readCompanyBook(companyId: string): Promise<BookFile | null> {
-  return readBookFile(companyId)
+export async function readCompanyBook(companyId: string, options?: { bypassCache?: boolean }): Promise<BookFile | null> {
+  return readBookFile(companyId, options)
 }
 
 export async function companyForLeadWebhook(token: string): Promise<{ companyId: string; book: BookFile } | null> {
@@ -759,7 +810,7 @@ export async function writeCompanyBook(
   revision: number,
   state: ScopeState,
 ): Promise<{ ok: true; revision: number } | { ok: false; reason: "conflict"; revision: number; state: ScopeState } | { ok: false; reason: string }> {
-  const current = await readBookFile(companyId)
+  const current = await readBookFile(companyId, { bypassCache: true })
   if (!current) return { ok: false, reason: "This company has no book." }
   if (current.revision !== revision) {
     return { ok: false, reason: "conflict", revision: current.revision, state: current.state }
@@ -785,32 +836,62 @@ function reconciled(before: ScopeState, after: ScopeState): ScopeState {
 
 async function findByProposalToken(token: string): Promise<{ companyId: string; book: BookFile; estimate: Estimate } | null> {
   if (!token) return null
-  const index = await readTokenIndex()
-  const companyId = index.proposals[token]
+  let companyId = memoryTokenIndex?.proposals[token]
+  if (!companyId) {
+    companyId = (await lookupTokenMapping("proposals", token)) || undefined
+    if (companyId && memoryTokenIndex) {
+      memoryTokenIndex.proposals[token] = companyId
+    }
+  }
+  if (!companyId) {
+    const index = await readTokenIndex()
+    companyId = index.proposals[token]
+  }
   if (companyId) {
     const book = await readBookFile(companyId)
     const estimate = book?.state.estimates.find((e) => e.publicToken === token)
-    if (estimate && book) return { companyId, book, estimate }
+    if (estimate && book) {
+      void persistTokenMapping("proposals", token, companyId)
+      return { companyId, book, estimate }
+    }
   }
   for (const row of await eachBook()) {
     const estimate = row.book.state.estimates.find((e) => e.publicToken === token)
-    if (estimate) return { companyId: row.companyId, book: row.book, estimate }
+    if (estimate) {
+      void persistTokenMapping("proposals", token, row.companyId)
+      return { companyId: row.companyId, book: row.book, estimate }
+    }
   }
   return null
 }
 
 async function findByEstimateId(id: string): Promise<{ companyId: string; book: BookFile; estimate: Estimate } | null> {
   if (!id) return null
-  const index = await readTokenIndex()
-  const companyId = index.estimates[id]
+  let companyId = memoryTokenIndex?.estimates[id]
+  if (!companyId) {
+    companyId = (await lookupTokenMapping("estimates", id)) || undefined
+    if (companyId && memoryTokenIndex) {
+      memoryTokenIndex.estimates[id] = companyId
+    }
+  }
+  if (!companyId) {
+    const index = await readTokenIndex()
+    companyId = index.estimates[id]
+  }
   if (companyId) {
     const book = await readBookFile(companyId)
     const estimate = book?.state.estimates.find((e) => e.id === id)
-    if (estimate && book) return { companyId, book, estimate }
+    if (estimate && book) {
+      void persistTokenMapping("estimates", id, companyId)
+      return { companyId, book, estimate }
+    }
   }
   for (const row of await eachBook()) {
     const estimate = row.book.state.estimates.find((e) => e.id === id)
-    if (estimate) return { companyId: row.companyId, book: row.book, estimate }
+    if (estimate) {
+      void persistTokenMapping("estimates", id, row.companyId)
+      return { companyId: row.companyId, book: row.book, estimate }
+    }
   }
   return null
 }
