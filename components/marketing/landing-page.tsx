@@ -300,8 +300,8 @@ export function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {/* Header Language Toggle */}
-            <div className="flex items-center rounded-full border border-white/15 bg-white/5 p-0.5 text-xs">
+            {/* Header Language Toggle (visible on tablet/desktop, mobile uses persistent top bar switcher) */}
+            <div className="hidden sm:flex items-center rounded-full border border-white/15 bg-white/5 p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setLanguage("en")}
