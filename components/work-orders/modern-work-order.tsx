@@ -130,11 +130,21 @@ export function ModernWorkOrder({
                         <strong>{spanish ? "Material:" : "Material:"}</strong> {matLabel}
                       </p>
                       <p>
-                        <strong>{spanish ? "Bajo-suelo (Underlayment):" : "Underlayment:"}</strong> {room.underlaymentType}
+                        <strong>{spanish ? "Bajo-suelo (Underlayment):" : "Underlayment:"}</strong>{" "}
+                        {room.underlaymentType === "moisture_barrier"
+                          ? (spanish ? "Barrera contra humedad y sonido" : "Moisture & Sound Barrier")
+                          : room.underlaymentType === "foam_2mm"
+                            ? (spanish ? "Espuma estándar de 2mm" : "2mm Standard Foam")
+                            : room.underlaymentType === "cork"
+                              ? (spanish ? "Corcho acústico de 1/4\"" : "1/4\" Acoustic Cork")
+                              : room.underlaymentType === "cement_backer"
+                                ? (spanish ? "Panel de cemento de 1/2\"" : "1/2\" Cement Backer Board")
+                                : (spanish ? "Estándar" : "Standard")}
                       </p>
                       {room.subfloorPrepType !== "none" && (
                         <p className="text-amber-800">
-                          <strong>{spanish ? "Prep de Subsuelo:" : "Subfloor Prep:"}</strong> {room.subfloorPrepType}
+                          <strong>{spanish ? "Prep de Subsuelo:" : "Subfloor Prep:"}</strong>{" "}
+                          {room.subfloorPrepType.replace(/_/g, " ")}
                         </p>
                       )}
                       {(room.includeBaseboard || room.includeQuarterRound) && (

@@ -10,6 +10,6 @@ export async function POST(request: Request) {
   const language = body?.language === "es" ? "es" : body?.language === "en" ? "en" : null
   if (!language) return Response.json({ ok: false }, { status: 400 })
   const saved = await saveAccountLanguage(session.id, language)
-  if (!saved) return Response.json({ ok: false }, { status: 404 })
-  return jsonWithOfficeSession({ ...session, language: saved.language }, { ok: true, language: saved.language })
+  const effectiveLang = saved ? saved.language : language
+  return jsonWithOfficeSession({ ...session, language: effectiveLang }, { ok: true, language: effectiveLang })
 }
