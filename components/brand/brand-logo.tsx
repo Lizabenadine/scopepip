@@ -25,14 +25,14 @@ export function BrandLogo({
     <Link href={href} className="inline-flex max-w-full shrink-0 items-center" data-testid="brand-logo">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.png?v=2"
-        alt="Scopepipe"
-        width={208}
-        height={56}
+        src="/scopepipe-contractor-logo.png"
+        alt="Scopepipe Contractor CRM & Estimating"
+        width={260}
+        height={86}
         className={
           compact
-            ? "h-10 w-auto max-w-[10.5rem] object-contain object-left"
-            : "h-12 w-auto max-w-[46vw] object-contain object-left sm:h-14 sm:max-w-[13rem]"
+            ? "h-10 w-auto max-w-[165px] sm:h-11 sm:max-w-[195px] object-contain object-left"
+            : "h-11 w-auto max-w-[185px] sm:h-14 sm:max-w-[245px] object-contain object-left"
         }
       />
     </Link>

@@ -17,11 +17,11 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   metadataBase: new URL("https://scopepipe.com"),
   title: {
-    default: "Scopepipe | Contractor Estimating & Proposal Software",
+    default: "Scopepipe | Painting, Drywall & Flooring Contractor Estimating Software",
     template: "%s | Scopepipe",
   },
   description:
-    "Estimating, proposals, and crew sheets for painting contractors. $49 a month. Put a video on the proposal line, and open the crew sheet in English or Spanish.",
+    "Estimating, proposals, and bilingual crew sheets for painting, drywall, and flooring contractors. Measure rooms, build bids, attach video walkthroughs, and share work orders in English or Spanish.",
   icons: {
     icon: [
       { url: "/scopepipe-tab.png", type: "image/png", sizes: "32x32" },
