@@ -100,7 +100,14 @@ export async function POST(request: NextRequest) {
           hosted: true,
           passwordHash: hashPassword(password),
         })
-        response.headers.append("set-cookie", sessionCookie(sessionToken, 30 * 24 * 60 * 60, { domain: cookieDomain }))
+        response.cookies.set(SESSION_COOKIE, sessionToken, {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 30 * 24 * 60 * 60,
+          secure: process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL),
+          domain: cookieDomain,
+        })
         return attachAuthCookies(response, pending.pending, pending.cacheHeaders, cookieDomain)
       }
 

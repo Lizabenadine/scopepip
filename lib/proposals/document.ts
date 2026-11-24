@@ -173,6 +173,7 @@ export function proposalKindTemplate(
 export function proposalDocument(
   settings: EstimateSettings | undefined,
   kind: EstimateKind = "interior",
+  trade?: string,
 ): ResolvedProposalPages {
   const safeKind = normalizeKind(kind)
   const pages = settings?.proposalPages
@@ -181,9 +182,58 @@ export function proposalDocument(
     exterior: proposalKindTemplate(settings, "exterior"),
     cabinets: proposalKindTemplate(settings, "cabinets"),
   }
+
+  let template = templates[safeKind]
+  if (trade === "flooring") {
+    template = {
+      ...template,
+      label: "Flooring Installation",
+      scopeOverview:
+        "Supply labor, substrate preparation, transitions, and specified flooring materials to install and finish the rooms detailed in the Flooring Scope below.",
+      preparation: [
+        "Inspect subfloor for levelness, moisture, and structural integrity.",
+        "Remove existing floor coverings or baseboards as specified.",
+        "Clean, vacuum, and prime/prep subfloor surface.",
+        "Acclimate flooring materials to indoor temperature prior to installation.",
+      ],
+      materials: [
+        "Premium underlayment and moisture barrier as specified.",
+        "Flooring planks, tiles, or materials with waste factor included.",
+        "Matching transition moldings and baseboards / quarter round.",
+      ],
+      warranty: "1-year installation warranty on workmanship and floor assembly.",
+    }
+  } else if (trade === "drywall") {
+    template = {
+      ...template,
+      label: "Drywall & Finishing",
+      scopeOverview:
+        "Supply labor, drywall hanging, taping, mudding, and specified surface finish level detailed in the Drywall Scope below.",
+      preparation: [
+        "Inspect framing, stud spacing, and backing prior to hanging.",
+        "Hang gypsum board with proper fastener spacing and staggered seams.",
+        "Apply joint tape and compound coats according to specified finish level.",
+        "Sand smooth and prepare for paint primer.",
+      ],
+      materials: [
+        "Gypsum wallboard / drywall sheets as specified.",
+        "Drywall screws, joint tape, and joint compound.",
+        "Corner bead and edge trim.",
+      ],
+      warranty: "1-year installation warranty on drywall finishing and seams.",
+    }
+  } else if (trade === "multi-trade") {
+    template = {
+      ...template,
+      label: "Multi-Trade Scope",
+      scopeOverview:
+        "Supply labor, materials, surface preparation, and installation for the Painting, Flooring, and Drywall scopes detailed in the sections below.",
+    }
+  }
+
   return {
     kind: safeKind,
-    template: templates[safeKind],
+    template,
     templates,
     coverLine: clip(pages?.coverLine, 240),
     photos: photosOf(pages),

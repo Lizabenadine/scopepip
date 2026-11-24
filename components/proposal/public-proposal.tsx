@@ -43,6 +43,7 @@ import { translatePainting, paintingText } from "@/lib/field/terms"
 import { FieldLanguageSwitch } from "@/components/field/language-switch"
 import { ClientWorkOrder } from "@/components/proposal/client-work-order"
 import { MultiTradeProposalSections } from "@/components/proposal/multi-trade-proposal-sections"
+import { activeTrades } from "@/lib/estimate/multi-trade"
 
 interface ProposalPayload {
   estimate: Estimate
@@ -343,7 +344,9 @@ export function ProposalDocument({
     estimate.settings.expiryDays > 0
       ? new Date(new Date(estimate.createdAt).getTime() + estimate.settings.expiryDays * 86400000)
       : null
-  const pagesDocument = proposalDocument(estimateSettings, estimate.estimateKind)
+  const trades = activeTrades(estimate)
+  const effectiveTrade = trades.length > 1 ? "multi-trade" : trades[0]
+  const pagesDocument = proposalDocument(estimateSettings, estimate.estimateKind, effectiveTrade)
   const pages = proposalPageList(pagesDocument)
   const scheduledProducts = scheduledProductsFromAreas(quote.areas)
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { authSecret, signup, signupInputError } from "@/lib/auth/directory"
 import { interpretSignUp } from "@/lib/auth/signup-auth"
-import { sessionCookie } from "@/lib/auth/session"
+import { SESSION_COOKIE, sessionCookie } from "@/lib/auth/session"
 import { signOfficeSession, signSession } from "@/lib/auth/session-token"
 import { attachAuthCookies, authClientFromRequest } from "@/lib/supabase/pending-cookies"
 import { supabaseAuthConfigured } from "@/lib/supabase/env"
@@ -94,7 +94,14 @@ export async function POST(request: NextRequest) {
     const token = result.hosted ? signOfficeSession(result.user, authSecret()) : signSession(result.user.id, authSecret())
     const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || ""
     const cookieDomain = host.includes("scopepipe.com") ? ".scopepipe.com" : undefined
-    response.headers.append("set-cookie", sessionCookie(token, 30 * 24 * 60 * 60, { domain: cookieDomain }))
+    response.cookies.set(SESSION_COOKIE, token, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60,
+      secure: process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL),
+      domain: cookieDomain,
+    })
     return attachAuthCookies(response, pendingCookies, cacheHeaders, cookieDomain)
   } catch (error) {
     const reason = error instanceof Error ? error.message : "The account could not be saved."

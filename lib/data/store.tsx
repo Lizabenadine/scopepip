@@ -572,6 +572,34 @@ async function pumpBook() {
             lastSyncResult = { ok: true }
             if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, state)
           } else {
+            if (response.status === 413) {
+              // Serverless body limit exceeded: fall back to syncing the active estimate directly
+              const activeEstimate = state.estimates[0]
+              if (activeEstimate) {
+                const activeClient = state.clients.find((c) => c.id === activeEstimate.clientId)
+                const activeOrder = state.workOrders.find((o) => o.estimateId === activeEstimate.id)
+                const fallbackEncoded = await encodeBookBody({
+                  revision,
+                  estimate: activeEstimate,
+                  ...(activeClient ? { client: activeClient } : {}),
+                  ...(activeOrder ? { workOrder: activeOrder } : {}),
+                })
+                const fallbackResponse = await fetch("/api/account/book/estimate", {
+                  method: "PATCH",
+                  headers: fallbackEncoded.headers,
+                  body: fallbackEncoded.body,
+                })
+                if (fallbackResponse.ok) {
+                  const saved = (await fallbackResponse.json().catch(() => null)) as { revision?: number }
+                  if (typeof saved?.revision === "number") bookRevision = saved.revision
+                  lastSyncedState = state
+                  lastSyncResult = { ok: true }
+                  if (officeSession) saveBrowserBook(officeSession.companyId, bookRevision, state)
+                  continue
+                }
+              }
+            }
+
             const failed = (await response.json().catch(() => null)) as { reason?: string } | null
             lastSyncResult = {
               ok: false,

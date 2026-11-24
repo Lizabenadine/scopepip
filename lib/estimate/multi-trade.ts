@@ -27,6 +27,30 @@ export function activeTrades(estimate: Estimate | EstimateDraft | Partial<Estima
   if (estimate.primaryTrade) {
     return [estimate.primaryTrade]
   }
+  const set = new Set<TradeType>()
+  if (
+    estimate.flooringScope &&
+    Array.isArray(estimate.flooringScope.rooms) &&
+    estimate.flooringScope.rooms.length > 0
+  ) {
+    set.add("flooring")
+  }
+  if (
+    estimate.drywallScope &&
+    Array.isArray(estimate.drywallScope.rooms) &&
+    estimate.drywallScope.rooms.length > 0
+  ) {
+    set.add("drywall")
+  }
+  if (
+    (Array.isArray(estimate.areas) && estimate.areas.some((a) => (a.surfaces?.length ?? 0) > 0)) ||
+    (Array.isArray(estimate.lineItems) && estimate.lineItems.length > 0)
+  ) {
+    set.add("painting")
+  }
+  if (set.size > 0) {
+    return Array.from(set)
+  }
   return ["painting"]
 }
 

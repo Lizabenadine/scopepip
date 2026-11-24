@@ -123,7 +123,9 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
   const selectedIds = customerLineIds(input.estimate)
   const figures = proposalFigures(input.estimate, input.paymentMethods, selectedIds)
   const quote = figures.quote
-  const document = proposalDocument(effectiveSettings, input.estimate.estimateKind)
+  const trades = activeTrades(input.estimate)
+  const effectiveTrade = trades.length > 1 ? "multi-trade" : trades[0]
+  const document = proposalDocument(effectiveSettings, input.estimate.estimateKind, effectiveTrade)
   const scheduledProducts = scheduledProductsFromAreas(quote.areas)
   const materialsStatus = paintMaterialsInclusionLabel(effectiveSettings.excludeMaterials, input.language ?? "en")
   const deposit = figures.deposit

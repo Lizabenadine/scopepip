@@ -34,6 +34,7 @@ import { OfficeProposalChat } from "@/components/proposal/proposal-chat"
 import { ClientWorkOrder } from "@/components/proposal/client-work-order"
 import { MultiTradeProposalSections } from "@/components/proposal/multi-trade-proposal-sections"
 import { proposalFigures } from "@/lib/proposals/figures"
+import { activeTrades } from "@/lib/estimate/multi-trade"
 
 export function ProposalView({ id }: { id: string }) {
   const scope = useScope()
@@ -66,7 +67,9 @@ export function ProposalView({ id }: { id: string }) {
       ? new Date(new Date(sent).getTime() + estimate.settings.expiryDays * 86400000)
       : null
   const companyName = displayCompanyName(scope.estimateSettings.companyName)
-  const pagesDocument = proposalDocument(scope.estimateSettings, estimate.estimateKind)
+  const trades = activeTrades(estimate)
+  const effectiveTrade = trades.length > 1 ? "multi-trade" : trades[0]
+  const pagesDocument = proposalDocument(scope.estimateSettings, estimate.estimateKind, effectiveTrade)
   const pages = proposalPageList(pagesDocument)
   const scheduledProducts = scheduledProductsFromAreas(quote.areas)
   const declined = estimate.clientStatus === "declined" || Boolean(estimate.declinedAt)

@@ -65,7 +65,19 @@ export function singleChangedEstimate(
   previous: ScopeState | null,
   next: ScopeState,
 ): SingleEstimatePatch | null {
-  if (!previous) return null
+  if (!previous) {
+    if (next.estimates.length === 1) {
+      const estimate = next.estimates[0]!
+      const client = next.clients.find((item) => item.id === estimate.clientId)
+      const workOrder = next.workOrders.find((item) => item.estimateId === estimate.id)
+      return {
+        estimate,
+        ...(client ? { client } : {}),
+        ...(workOrder ? { workOrder } : {}),
+      }
+    }
+    return null
+  }
 
   const estDiff = changedItemsById(previous.estimates, next.estimates, (item) => item.id)
   if (estDiff.removed || estDiff.changed.length !== 1) return null

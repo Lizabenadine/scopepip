@@ -1,9 +1,32 @@
 import { supabaseServerKey } from "../supabase/admin.ts"
-import { authSecret, isMasterAdmin, sessionById } from "./directory.ts"
+import { authSecret, isMasterAdmin, sessionByEmail, sessionById } from "./directory.ts"
 import { readAllCookies, readCookie, sessionCookie, type OfficeSession } from "./session.ts"
 import { readOfficeSession, readSession, signOfficeSession, signSession } from "./session-token.ts"
 
 export type { OfficeSession }
+
+function emailFromSupabaseCookie(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null
+  const cookies = cookieHeader.split(";")
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim()
+    const eq = trimmed.indexOf("=")
+    if (eq === -1) continue
+    const name = trimmed.slice(0, eq).trim()
+    const val = trimmed.slice(eq + 1).trim()
+    if (name.startsWith("sb-") && name.endsWith("-auth-token") && val.startsWith("base64-")) {
+      try {
+        const rawJson = Buffer.from(val.slice(7), "base64").toString("utf8")
+        const parsed = JSON.parse(rawJson) as { user?: { email?: string } }
+        const email = parsed?.user?.email
+        if (typeof email === "string" && email.includes("@")) {
+          return email.trim().toLowerCase()
+        }
+      } catch {}
+    }
+  }
+  return null
+}
 
 export async function sessionFromRequest(request: Request): Promise<OfficeSession | null> {
   const cookieHeader = request.headers.get("cookie")
@@ -38,6 +61,23 @@ export async function sessionFromRequest(request: Request): Promise<OfficeSessio
       }
     }
   }
+
+  const supabaseEmail = emailFromSupabaseCookie(cookieHeader)
+  if (supabaseEmail) {
+    const session = await sessionByEmail(supabaseEmail)
+    if (session) {
+      if (isMasterAdmin(session)) {
+        session.role = "super_admin"
+        session.subscriptionStatus = "lifetime"
+        session.trialEndsAt = ""
+        if (!session.companyId || session.companyId === session.id) {
+          session.companyId = "6121f9b9-59df-4190-b4ff-289a062f4c20"
+        }
+      }
+      return session
+    }
+  }
+
   return null
 }
 
