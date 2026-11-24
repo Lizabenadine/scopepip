@@ -46,14 +46,21 @@ import { formatFeetInches, toDecimalFeet } from "@/lib/estimate/dimensions"
 import type {
   FlooringAssemblyTemplate,
   FlooringDeduction,
+  FlooringJobType,
   FlooringMaterialType,
   FlooringRoom,
   FlooringScope,
+  RefinishAddonItem,
+  RefinishAreaSource,
+  RefinishServiceType,
 } from "@/lib/estimate/multi-trade-types"
 import {
   FLOORING_ASSEMBLY_TEMPLATES,
   FLOORING_DEFAULT_SPECS,
   FLOORING_MATERIAL_LABELS,
+  REFINISH_DEFAULT_RATES,
+  REFINISH_SERVICE_DESCRIPTIONS,
+  REFINISH_SERVICE_LABELS,
   createBlankFlooringRoom,
   createBlankFlooringScope,
 } from "@/lib/flooring/defaults"
@@ -91,7 +98,76 @@ export function FlooringEstimator({
   const [sending, setSending] = useState<boolean>(false)
   const [feedback, setFeedback] = useState<{ tone: "success" | "error"; text: string } | null>(null)
 
-  const quote = useMemo(() => calculateFlooringQuote(scope), [scope])
+  const quote = useMemo(
+    () => calculateFlooringQuote(scope, estimateSettings),
+    [scope, estimateSettings]
+  )
+
+  function addStairAddon(preset?: { name: string; quantity: number; unitPrice: number }) {
+    const item: RefinishAddonItem = {
+      id: `stair-${Math.random().toString(36).slice(2, 7)}`,
+      name: preset?.name || "Box Steps",
+      quantity: preset?.quantity || 14,
+      unitPrice: preset?.unitPrice || 50,
+      total: (preset?.quantity || 14) * (preset?.unitPrice || 50),
+    }
+    setScope((prev) => ({
+      ...prev,
+      refinishStairs: [...(prev.refinishStairs || []), item],
+    }))
+  }
+
+  function updateStairAddon(id: string, patch: Partial<RefinishAddonItem>) {
+    setScope((prev) => ({
+      ...prev,
+      refinishStairs: (prev.refinishStairs || []).map((item) => {
+        if (item.id !== id) return item
+        const updated = { ...item, ...patch }
+        updated.total = Number(((updated.quantity || 0) * (updated.unitPrice || 0)).toFixed(2))
+        return updated
+      }),
+    }))
+  }
+
+  function removeStairAddon(id: string) {
+    setScope((prev) => ({
+      ...prev,
+      refinishStairs: (prev.refinishStairs || []).filter((item) => item.id !== id),
+    }))
+  }
+
+  function addRepairAddon(preset?: { name: string; quantity: number; unitPrice: number }) {
+    const item: RefinishAddonItem = {
+      id: `repair-${Math.random().toString(36).slice(2, 7)}`,
+      name: preset?.name || "Board Replacement",
+      quantity: preset?.quantity || 1,
+      unitPrice: preset?.unitPrice || 150,
+      total: (preset?.quantity || 1) * (preset?.unitPrice || 150),
+    }
+    setScope((prev) => ({
+      ...prev,
+      refinishRepairs: [...(prev.refinishRepairs || []), item],
+    }))
+  }
+
+  function updateRepairAddon(id: string, patch: Partial<RefinishAddonItem>) {
+    setScope((prev) => ({
+      ...prev,
+      refinishRepairs: (prev.refinishRepairs || []).map((item) => {
+        if (item.id !== id) return item
+        const updated = { ...item, ...patch }
+        updated.total = Number(((updated.quantity || 0) * (updated.unitPrice || 0)).toFixed(2))
+        return updated
+      }),
+    }))
+  }
+
+  function removeRepairAddon(id: string) {
+    setScope((prev) => ({
+      ...prev,
+      refinishRepairs: (prev.refinishRepairs || []).filter((item) => item.id !== id),
+    }))
+  }
 
   // Propagate scope changes to parent when provided
   useEffect(() => {
@@ -517,6 +593,59 @@ export function FlooringEstimator({
         </div>
       )}
 
+      {/* Job Type Selector */}
+      <section
+        data-testid="flooring-job-type-selector"
+        className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Flooring Project Scope</span>
+          <h2 className="text-base font-bold text-slate-900 mt-0.5">Select Job Type</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Choose installation of new flooring or refinishing of existing hardwood.</p>
+        </div>
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80">
+          <button
+            type="button"
+            data-testid="job-type-installation"
+            onClick={() => setScope((prev) => ({ ...prev, jobType: "installation" }))}
+            className={cn(
+              "flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all",
+              (scope.jobType ?? "installation") === "installation"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <Layers className="size-4 text-blue-600" />
+            <span>Install New Flooring</span>
+          </button>
+          <button
+            type="button"
+            data-testid="job-type-refinish"
+            onClick={() =>
+              setScope((prev) => ({
+                ...prev,
+                jobType: "refinish",
+                refinishService: prev.refinishService || "sand_stain_clear",
+                refinishAreaSource: prev.refinishAreaSource || "manual",
+                refinishSellingRatePerSqFt:
+                  prev.refinishSellingRatePerSqFt !== undefined && prev.refinishSellingRatePerSqFt > 0
+                    ? prev.refinishSellingRatePerSqFt
+                    : 8,
+              }))
+            }
+            className={cn(
+              "flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all",
+              scope.jobType === "refinish"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <Sparkles className="size-4 text-amber-200" />
+            <span>Refinish Existing Hardwood</span>
+          </button>
+        </div>
+      </section>
+
       {/* Customer & Jobsite Details Card */}
       <section
         className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-4"
@@ -618,62 +747,622 @@ export function FlooringEstimator({
         </div>
       </section>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab("takeoff")}
-          data-testid="tab-flooring-takeoff"
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-            activeTab === "takeoff"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-          )}
-        >
-          <Calculator className="size-3.5" />
-          <span>Room Takeoff ({scope.rooms.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("buylist")}
-          data-testid="tab-flooring-buylist"
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-            activeTab === "buylist"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200/60"
-          )}
-        >
-          <ShoppingBag className="size-3.5" />
-          <span>Material Buy-List ({quote.buyList.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("templates")}
-          data-testid="tab-flooring-templates"
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-            activeTab === "templates"
-              ? "bg-purple-600 text-white shadow-xs"
-              : "bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200/60"
-          )}
-        >
-          <Sparkles className="size-3.5" />
-          <span>Assemblies &amp; Templates</span>
-        </button>
-      </div>
+      {/* Tabs / Subheader */}
+      {scope.jobType === "refinish" ? (
+        <div className="flex items-center gap-2 border-b border-amber-200/60 pb-2">
+          <span className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 text-white px-3.5 py-1.5 text-xs font-bold shadow-xs">
+            <Sparkles className="size-3.5" /> Hardwood Refinishing Workspace
+          </span>
+          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+            Direct area takeoff, service tier, add-ons &amp; fixed selling price
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("takeoff")}
+            data-testid="tab-flooring-takeoff"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+              activeTab === "takeoff"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            )}
+          >
+            <Calculator className="size-3.5" />
+            <span>Room Takeoff ({scope.rooms.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("buylist")}
+            data-testid="tab-flooring-buylist"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+              activeTab === "buylist"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200/60"
+            )}
+          >
+            <ShoppingBag className="size-3.5" />
+            <span>Material Buy-List ({quote.buyList.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("templates")}
+            data-testid="tab-flooring-templates"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+              activeTab === "templates"
+                ? "bg-purple-600 text-white shadow-xs"
+                : "bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200/60"
+            )}
+          >
+            <Sparkles className="size-3.5" />
+            <span>Assemblies &amp; Templates</span>
+          </button>
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (8 cols): Room Takeoff or Buy-List */}
         <div className="lg:col-span-8 flex flex-col gap-4">
-          {activeTab === "takeoff" && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                  Rooms &amp; Measurement Areas
-                </h2>
+          {scope.jobType === "refinish" ? (
+            <div className="flex flex-col gap-4" data-testid="refinish-workspace">
+              {/* 1. Service Selection */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">1. Refinishing Service</h3>
+                    <p className="text-xs text-slate-500">Choose the service level for existing hardwood floors.</p>
+                  </div>
+                  <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/50">
+                    {REFINISH_SERVICE_LABELS[scope.refinishService ?? "sand_stain_clear"]}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {(
+                    [
+                      {
+                        id: "screen_recoat",
+                        label: "Screen & Recoat",
+                        desc: "Light abrasion and fresh protective clear topcoat without sanding down to bare wood.",
+                        rate: 3.5,
+                      },
+                      {
+                        id: "sand_refinish",
+                        label: "Sand & Refinish",
+                        desc: "Full sand to raw wood, seal, and apply durable clear protective finish (natural finish).",
+                        rate: 5.5,
+                      },
+                      {
+                        id: "sand_stain_clear",
+                        label: "Sand, Stain & Clear Coat",
+                        desc: "Full sand to bare wood, apply custom color stain, and multi-coat protective finish.",
+                        rate: 8.0,
+                      },
+                    ] as const
+                  ).map((tier) => {
+                    const isSelected = (scope.refinishService ?? "sand_stain_clear") === tier.id
+                    return (
+                      <button
+                        key={tier.id}
+                        type="button"
+                        data-testid={`service-${tier.id}`}
+                        onClick={() =>
+                          setScope((prev) => {
+                            const prevDefault = REFINISH_DEFAULT_RATES[prev.refinishService ?? "sand_stain_clear"]
+                            const currentRate = prev.refinishSellingRatePerSqFt
+                            const shouldUpdateRate =
+                              currentRate === undefined || currentRate === 0 || currentRate === prevDefault
+                            return {
+                              ...prev,
+                              refinishService: tier.id,
+                              refinishSellingRatePerSqFt: shouldUpdateRate ? tier.rate : currentRate,
+                            }
+                          })
+                        }
+                        className={cn(
+                          "flex flex-col text-left p-3.5 rounded-xl border transition-all relative",
+                          isSelected
+                            ? "border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20 shadow-xs"
+                            : "border-slate-200 bg-white hover:bg-slate-50/70"
+                        )}
+                      >
+                        <div className="flex items-center justify-between w-full mb-1">
+                          <span className={cn("text-xs font-bold", isSelected ? "text-amber-950" : "text-slate-800")}>
+                            {tier.label}
+                          </span>
+                          {isSelected && <CheckCircle2 className="size-4 text-amber-600 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500 line-clamp-3 mb-2 flex-1">{tier.desc}</p>
+                        <span className="text-xs font-black text-slate-900 mt-auto">
+                          ${tier.rate.toFixed(2)} <span className="text-[10px] font-normal text-slate-500">/ sq ft default</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+
+              {/* 2. Area Source & Measurements */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">2. Refinishing Area Measurement</h3>
+                    <p className="text-xs text-slate-500">
+                      Use direct square footage or calculate from room dimensions. One source active at a time.
+                    </p>
+                  </div>
+                  <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80">
+                    <button
+                      type="button"
+                      data-testid="area-source-manual"
+                      onClick={() => setScope((prev) => ({ ...prev, refinishAreaSource: "manual" }))}
+                      className={cn(
+                        "rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
+                        (scope.refinishAreaSource ?? "manual") === "manual"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Direct Sq. Ft.
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="area-source-rooms"
+                      onClick={() => setScope((prev) => ({ ...prev, refinishAreaSource: "rooms" }))}
+                      className={cn(
+                        "rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
+                        scope.refinishAreaSource === "rooms"
+                          ? "bg-white text-slate-900 shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Measure Rooms
+                    </button>
+                  </div>
+                </div>
+
+                {(scope.refinishAreaSource ?? "manual") === "manual" ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="refinish-manual-sqft" className="text-xs font-semibold text-slate-700">
+                        Total Refinishing Square Footage (Sq. Ft.)
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="refinish-manual-sqft"
+                          data-testid="refinish-manual-sqft"
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="e.g. 1300"
+                          value={scope.refinishManualSqFt || ""}
+                          onChange={(e) =>
+                            setScope((prev) => ({
+                              ...prev,
+                              refinishManualSqFt: Math.max(0, parseFloat(e.target.value) || 0),
+                            }))
+                          }
+                          className="h-12 text-base font-bold max-w-xs"
+                        />
+                        <span className="text-sm font-bold text-slate-500">sq ft</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Square footage is sourced directly from this field. Rooms list is excluded from calculations.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <span className="text-xs text-slate-400 self-center">Quick Set:</span>
+                      {[500, 800, 1000, 1300, 1500, 2000].map((sf) => (
+                        <button
+                          key={sf}
+                          type="button"
+                          onClick={() => setScope((prev) => ({ ...prev, refinishManualSqFt: sf }))}
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-medium text-slate-700"
+                        >
+                          {sf.toLocaleString()} sf
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between pb-1">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">Room Measurement Takeoff</p>
+                        <p className="text-[11px] text-slate-400">
+                          Total net square footage is calculated from the rooms below ({quote.netSqFt.toLocaleString()} sq ft).
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addRoom}
+                        data-testid="add-refinish-room"
+                        className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors"
+                      >
+                        <Plus className="size-3.5" /> Add Room
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2.5">
+                      {scope.rooms.map((room) => {
+                        const geom = recomputeRoomGeometry(room)
+                        return (
+                          <div
+                            key={room.id}
+                            className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col gap-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <input
+                                type="text"
+                                value={room.name}
+                                onChange={(e) => updateRoom(room.id, { name: e.target.value })}
+                                className="h-8 font-bold text-xs bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none"
+                              />
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                                  {geom.netSqFt} sq ft
+                                </span>
+                                {scope.rooms.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteRoom(room.id)}
+                                    className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-400">Length (ft)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={room.length.feet || ""}
+                                  onChange={(e) =>
+                                    updateRoom(room.id, {
+                                      length: { ...room.length, feet: parseFloat(e.target.value) || 0 },
+                                    })
+                                  }
+                                  className="h-8 w-full rounded border border-slate-200 bg-white px-2 font-semibold text-slate-800"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-400">Length (in)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="11"
+                                  value={room.length.inches || ""}
+                                  onChange={(e) =>
+                                    updateRoom(room.id, {
+                                      length: { ...room.length, inches: parseFloat(e.target.value) || 0 },
+                                    })
+                                  }
+                                  className="h-8 w-full rounded border border-slate-200 bg-white px-2 font-semibold text-slate-800"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-400">Width (ft)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={room.width.feet || ""}
+                                  onChange={(e) =>
+                                    updateRoom(room.id, {
+                                      width: { ...room.width, feet: parseFloat(e.target.value) || 0 },
+                                    })
+                                  }
+                                  className="h-8 w-full rounded border border-slate-200 bg-white px-2 font-semibold text-slate-800"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-400">Width (in)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="11"
+                                  value={room.width.inches || ""}
+                                  onChange={(e) =>
+                                    updateRoom(room.id, {
+                                      width: { ...room.width, inches: parseFloat(e.target.value) || 0 },
+                                    })
+                                  }
+                                  className="h-8 w-full rounded border border-slate-200 bg-white px-2 font-semibold text-slate-800"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* 3. Final Selling Price per Sq. Ft. */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">3. Final Selling Price per Sq. Ft.</h3>
+                    <p className="text-xs text-slate-500">
+                      Calculates base price as net square footage × selling rate. Overhead and margin are skipped.
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-400">Includes labor &amp; finish</span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="refinish-rate-input" className="text-xs font-semibold text-slate-700">
+                      Final Selling Price ($ / Sq. Ft.)
+                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base font-bold text-slate-500">$</span>
+                      <Input
+                        id="refinish-rate-input"
+                        data-testid="refinish-selling-rate"
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        placeholder="8.00"
+                        value={scope.refinishSellingRatePerSqFt ?? ""}
+                        onChange={(e) =>
+                          setScope((prev) => ({
+                            ...prev,
+                            refinishSellingRatePerSqFt: Math.max(0, parseFloat(e.target.value) || 0),
+                          }))
+                        }
+                        className="h-11 w-32 text-base font-bold"
+                      />
+                      <span className="text-xs text-slate-500">/ sq ft</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right sm:border-l sm:border-slate-200 sm:pl-6">
+                    <p className="text-xs text-slate-500 font-medium">Base Refinishing Price</p>
+                    <p className="text-2xl font-black text-slate-900 font-display">
+                      {money(quote.refinishBasePrice ?? 0)}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {quote.netSqFt.toLocaleString()} sq ft × ${moneyExact(scope.refinishSellingRatePerSqFt ?? 0)}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* 4. Separately Priced Add-ons: Stairs & Repairs */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">4. Optional Add-ons (Stairs &amp; Repairs)</h3>
+                    <p className="text-xs text-slate-500">Separately priced add-on items added directly to estimate.</p>
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    {moneyExact((quote.stairsTotal ?? 0) + (quote.repairsTotal ?? 0))}
+                  </span>
+                </div>
+
+                {/* Stairs Add-ons */}
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Stairs Add-ons ({scope.refinishStairs?.length ?? 0})
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="add-stair-addon"
+                      onClick={() => addStairAddon()}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      <Plus className="size-3" /> Add Stair Item
+                    </button>
+                  </div>
+
+                  {(scope.refinishStairs || []).length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {scope.refinishStairs!.map((stair) => (
+                        <div
+                          key={stair.id}
+                          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/60"
+                        >
+                          <input
+                            type="text"
+                            value={stair.name}
+                            onChange={(e) => updateStairAddon(stair.id, { name: e.target.value })}
+                            placeholder="e.g. Box Steps"
+                            className="h-8 flex-1 rounded border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800"
+                          />
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] text-slate-400">Qty:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={stair.quantity || ""}
+                                onChange={(e) =>
+                                  updateStairAddon(stair.id, { quantity: Math.max(0, parseInt(e.target.value, 10) || 0) })
+                                }
+                                className="h-8 w-14 rounded border border-slate-200 bg-white px-1.5 text-center text-xs font-bold text-slate-800"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] text-slate-400">Price:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={stair.unitPrice || ""}
+                                onChange={(e) =>
+                                  updateStairAddon(stair.id, { unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })
+                                }
+                                className="h-8 w-16 rounded border border-slate-200 bg-white px-1.5 text-right text-xs font-bold text-slate-800"
+                              />
+                            </div>
+                            <span className="w-16 text-right font-bold text-xs text-slate-900">
+                              {moneyExact(stair.total || stair.quantity * stair.unitPrice)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeStairAddon(stair.id)}
+                              className="p-1 text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
+                      <span>No stairs added.</span>
+                      <button
+                        type="button"
+                        onClick={() => addStairAddon({ name: "Box Steps", quantity: 14, unitPrice: 50 })}
+                        className="text-blue-600 hover:underline font-semibold"
+                      >
+                        + 14 Box Steps ($50/ea)
+                      </button>
+                      <span>·</span>
+                      <button
+                        type="button"
+                        onClick={() => addStairAddon({ name: "Stair Landing", quantity: 1, unitPrice: 150 })}
+                        className="text-blue-600 hover:underline font-semibold"
+                      >
+                        + 1 Landing ($150)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Repairs Add-ons */}
+                <div className="flex flex-col gap-2.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Repairs &amp; Prep Add-ons ({scope.refinishRepairs?.length ?? 0})
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="add-repair-addon"
+                      onClick={() => addRepairAddon()}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      <Plus className="size-3" /> Add Repair Item
+                    </button>
+                  </div>
+
+                  {(scope.refinishRepairs || []).length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {scope.refinishRepairs!.map((repair) => (
+                        <div
+                          key={repair.id}
+                          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/60"
+                        >
+                          <input
+                            type="text"
+                            value={repair.name}
+                            onChange={(e) => updateRepairAddon(repair.id, { name: e.target.value })}
+                            placeholder="e.g. Board Replacement"
+                            className="h-8 flex-1 rounded border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800"
+                          />
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] text-slate-400">Qty:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={repair.quantity || ""}
+                                onChange={(e) =>
+                                  updateRepairAddon(repair.id, {
+                                    quantity: Math.max(0, parseInt(e.target.value, 10) || 0),
+                                  })
+                                }
+                                className="h-8 w-14 rounded border border-slate-200 bg-white px-1.5 text-center text-xs font-bold text-slate-800"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] text-slate-400">Price:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={repair.unitPrice || ""}
+                                onChange={(e) =>
+                                  updateRepairAddon(repair.id, {
+                                    unitPrice: Math.max(0, parseFloat(e.target.value) || 0),
+                                  })
+                                }
+                                className="h-8 w-16 rounded border border-slate-200 bg-white px-1.5 text-right text-xs font-bold text-slate-800"
+                              />
+                            </div>
+                            <span className="w-16 text-right font-bold text-xs text-slate-900">
+                              {moneyExact(repair.total || repair.quantity * repair.unitPrice)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeRepairAddon(repair.id)}
+                              className="p-1 text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400">
+                      <span>No repairs added.</span>
+                      <button
+                        type="button"
+                        onClick={() => addRepairAddon({ name: "Board Replacement / Lacing", quantity: 5, unitPrice: 60 })}
+                        className="text-blue-600 hover:underline font-semibold"
+                      >
+                        + 5 Board Replacements ($60/ea)
+                      </button>
+                      <span>·</span>
+                      <button
+                        type="button"
+                        onClick={() => addRepairAddon({ name: "Pet Stain Treatment / Patch", quantity: 1, unitPrice: 150 })}
+                        className="text-blue-600 hover:underline font-semibold"
+                      >
+                        + Pet Stain Treatment ($150)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* 5. Project Notes */}
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col gap-2">
+                <Label htmlFor="refinish-notes" className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Scope Notes &amp; Finish Specifications
+                </Label>
+                <textarea
+                  id="refinish-notes"
+                  rows={3}
+                  value={scope.notes || ""}
+                  onChange={(e) => setScope((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="e.g. Includes vacuuming, dust-containment sanding, custom stain sample approvals, and 3 coats of commercial polyurethane."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </section>
+            </div>
+          ) : (
+            <>
+              {activeTab === "takeoff" && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                      Rooms &amp; Measurement Areas
+                    </h2>
                 <button
                   type="button"
                   onClick={addRoom}
@@ -1246,19 +1935,88 @@ export function FlooringEstimator({
               </div>
             </div>
           )}
-        </div>
+        </>
+      )}
+    </div>
 
-        {/* Right Column (4 cols): Live Pricing Summary */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-xs sticky top-20 flex flex-col gap-4">
-            <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-between">
-              <span>Pricing &amp; Project Summary</span>
-              <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-                {quote.netSqFt.toLocaleString()} sq ft
+    {/* Right Column (4 cols): Live Pricing Summary */}
+    <div className="lg:col-span-4 flex flex-col gap-4">
+      <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-xs sticky top-20 flex flex-col gap-4">
+        <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-between">
+          <span>Pricing &amp; Project Summary</span>
+          <span
+            className={cn(
+              "text-xs font-semibold px-2 py-0.5 rounded-full",
+              scope.jobType === "refinish"
+                ? "text-amber-800 bg-amber-50"
+                : "text-blue-700 bg-blue-50"
+            )}
+          >
+            {quote.netSqFt.toLocaleString()} sq ft
+          </span>
+        </h2>
+
+        {/* Metrics Breakdown */}
+        {scope.jobType === "refinish" ? (
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Job Type:</span>
+              <span className="font-bold text-amber-700">Hardwood Refinishing</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Service:</span>
+              <span className="font-bold text-slate-900">
+                {REFINISH_SERVICE_LABELS[scope.refinishService ?? "sand_stain_clear"]}
               </span>
-            </h2>
-
-            {/* Metrics Breakdown */}
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Area Source:</span>
+              <span className="font-bold text-slate-800">
+                {(scope.refinishAreaSource ?? "manual") === "manual" ? "Direct Square Footage" : "Measured Rooms"}
+              </span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Net Floor Area:</span>
+              <span className="font-bold text-slate-900">{quote.netSqFt.toLocaleString()} sq ft</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Final Selling Rate:</span>
+              <span className="font-bold text-slate-900">
+                {moneyExact(quote.refinishSellingRate ?? 0)} / sq ft
+              </span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Base Refinishing:</span>
+              <span className="font-bold text-slate-900">{moneyExact(quote.refinishBasePrice ?? 0)}</span>
+            </div>
+            {(quote.stairsTotal ?? 0) > 0 && (
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Stairs Add-ons:</span>
+                <span className="font-bold text-slate-900">{moneyExact(quote.stairsTotal ?? 0)}</span>
+              </div>
+            )}
+            {(quote.repairsTotal ?? 0) > 0 && (
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Repairs Add-ons:</span>
+                <span className="font-bold text-slate-900">{moneyExact(quote.repairsTotal ?? 0)}</span>
+              </div>
+            )}
+            <div className="flex justify-between py-1 border-b border-slate-50">
+              <span className="text-slate-500">Subtotal:</span>
+              <span className="font-bold text-slate-900">{moneyExact(quote.subtotal)}</span>
+            </div>
+            {(quote.tax ?? 0) > 0 && (
+              <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Tax:</span>
+                <span className="font-bold text-slate-900">{moneyExact(quote.tax ?? 0)}</span>
+              </div>
+            )}
+            <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/60 text-[11px] text-amber-900 mt-1">
+              ✓ Selling rate already includes labor, finish materials, overhead, and margin.
+            </div>
+          </div>
+        ) : (
+          <>
             <div className="flex flex-col gap-2 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Net Floor Area:</span>
@@ -1398,6 +2156,8 @@ export function FlooringEstimator({
                 </div>
               </div>
             </div>
+          </>
+        )}
 
             {/* Total Highlight */}
             <div className="rounded-xl bg-slate-900 text-white p-4 flex items-baseline justify-between shadow-xs">

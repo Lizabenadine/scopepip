@@ -5,6 +5,18 @@
 
 export type TradeType = "painting" | "flooring" | "drywall"
 
+export type FlooringJobType = "installation" | "refinish"
+export type RefinishServiceType = "screen_recoat" | "sand_refinish" | "sand_stain_clear"
+export type RefinishAreaSource = "manual" | "rooms"
+
+export interface RefinishAddonItem {
+  id: string
+  name: string
+  quantity: number
+  unitPrice: number
+  total: number
+}
+
 export interface FeetInches {
   feet: number
   inches: number
@@ -95,6 +107,15 @@ export interface FlooringAssemblyTemplate {
 }
 
 export interface FlooringScope {
+  jobType?: FlooringJobType
+  refinishService?: RefinishServiceType
+  refinishAreaSource?: RefinishAreaSource
+  refinishManualSqFt?: number
+  refinishSellingRatePerSqFt?: number
+  refinishStairs?: RefinishAddonItem[]
+  refinishRepairs?: RefinishAddonItem[]
+  taxPercent?: number
+  taxBasis?: "materials_only" | "total_job"
   rooms: FlooringRoom[]
   defaultWastePercent: number
   dumpsterFee: number
@@ -116,6 +137,7 @@ export interface FlooringBuyListItem {
 }
 
 export interface FlooringQuote {
+  jobType?: FlooringJobType
   netSqFt: number
   grossSqFt: number
   totalBoxes: number
@@ -133,6 +155,12 @@ export interface FlooringQuote {
   effectiveMarkupPercent: number
   total: number
   buyList: FlooringBuyListItem[]
+  refinishService?: RefinishServiceType
+  refinishSellingRate?: number
+  refinishBasePrice?: number
+  stairsTotal?: number
+  repairsTotal?: number
+  tax?: number
 }
 
 // ============================================================================

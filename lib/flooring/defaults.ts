@@ -3,7 +3,26 @@ import type {
   FlooringMaterialType,
   FlooringRoom,
   FlooringScope,
+  RefinishServiceType,
 } from "../estimate/multi-trade-types.ts"
+
+export const REFINISH_SERVICE_LABELS: Record<RefinishServiceType, string> = {
+  screen_recoat: "Screen & Recoat",
+  sand_refinish: "Sand & Refinish",
+  sand_stain_clear: "Sand, Stain & Clear Coat",
+}
+
+export const REFINISH_SERVICE_DESCRIPTIONS: Record<RefinishServiceType, string> = {
+  screen_recoat: "Light abrasion and fresh protective topcoat without sanding down to bare wood.",
+  sand_refinish: "Sand to raw wood, seal, and apply durable clear protective coats (natural finish).",
+  sand_stain_clear: "Sand down to bare wood, apply custom color stain, and multi-coat protective finish.",
+}
+
+export const REFINISH_DEFAULT_RATES: Record<RefinishServiceType, number> = {
+  screen_recoat: 3.5,
+  sand_refinish: 5.5,
+  sand_stain_clear: 8.0,
+}
 
 export const FLOORING_MATERIAL_LABELS: Record<FlooringMaterialType, string> = {
   lvp: "Luxury Vinyl Plank (LVP)",
@@ -145,6 +164,13 @@ export function createBlankFlooringRoom(name = "Living Room"): FlooringRoom {
 
 export function createBlankFlooringScope(): FlooringScope {
   return {
+    jobType: "installation",
+    refinishService: "sand_stain_clear",
+    refinishAreaSource: "manual",
+    refinishManualSqFt: 0,
+    refinishSellingRatePerSqFt: 8,
+    refinishStairs: [],
+    refinishRepairs: [],
     rooms: [createBlankFlooringRoom("Main Room")],
     defaultWastePercent: 10,
     dumpsterFee: 150,

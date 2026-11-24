@@ -26,7 +26,11 @@ export function proposalFigures(
   const depositPercent = clampDepositPercent(estimate.settings?.depositPercent)
 
   const trades = activeTrades(source)
-  const hasFlooring = Boolean(source.flooringScope && source.flooringScope.rooms.length > 0)
+  const hasFlooring = Boolean(
+    source.flooringScope &&
+      ((Array.isArray(source.flooringScope.rooms) && source.flooringScope.rooms.length > 0) ||
+        source.flooringScope.jobType === "refinish")
+  )
   const hasDrywall = Boolean(source.drywallScope && source.drywallScope.rooms.length > 0)
   const isMulti =
     hasFlooring ||

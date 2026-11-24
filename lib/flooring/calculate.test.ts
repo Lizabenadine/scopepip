@@ -188,4 +188,161 @@ describe("Flooring Estimator Engine", () => {
     assert.equal(marginQuote.effectiveMarginPercent, 20)
     assert.equal(marginQuote.effectiveMarkupPercent, 25)
   })
+
+  it("calculates Juan's example: Sand, Stain & Clear Coat, 1,300 sq ft @ $8/sq ft = $10,400", () => {
+    const scope: FlooringScope = {
+      jobType: "refinish",
+      refinishService: "sand_stain_clear",
+      refinishAreaSource: "manual",
+      refinishManualSqFt: 1300,
+      refinishSellingRatePerSqFt: 8,
+      refinishStairs: [],
+      refinishRepairs: [],
+      rooms: [createBlankFlooringRoom("Ignored Room")],
+      defaultWastePercent: 10,
+      dumpsterFee: 150, // Should be excluded from refinishing total
+      overheadPercent: 10, // Should be skipped on final selling rate
+      profitPercent: 20, // Should be skipped on final selling rate
+    }
+
+    const quote = calculateFlooringQuote(scope)
+    assert.equal(quote.jobType, "refinish")
+    assert.equal(quote.netSqFt, 1300)
+    assert.equal(quote.grossSqFt, 1300)
+    assert.equal(quote.refinishSellingRate, 8)
+    assert.equal(quote.refinishBasePrice, 10400)
+    assert.equal(quote.stairsTotal, 0)
+    assert.equal(quote.repairsTotal, 0)
+    assert.equal(quote.overhead, 0, "Overhead must be skipped because selling rate includes it")
+    assert.equal(quote.profit, 0, "Profit must be skipped because selling rate includes it")
+    assert.equal(quote.subtotal, 10400)
+    assert.equal(quote.total, 10400, "Juan's estimate total must be exactly $10,400")
+
+    // Installation-only charges must be strictly excluded
+    assert.equal(quote.materialCost, 0)
+    assert.equal(quote.dumpsterFee, 0)
+    assert.equal(quote.prepCost, 0)
+    assert.equal(quote.demoCost, 0)
+    assert.equal(quote.trimCost, 0)
+    assert.equal(quote.transitionsCost, 0)
+    assert.equal(quote.totalBoxes, 0)
+    assert.equal(quote.buyList.length, 0)
+  })
+
+  it("calculates refinishing with room measurements when areaSource is 'rooms' and ignores manual sq ft", () => {
+    // 2 rooms: 20'x15' (300 sf) and 10'x12' (120 sf) = 420 sf net
+    const room1: FlooringRoom = {
+      ...createBlankFlooringRoom("Living Room"),
+      length: { feet: 20, inches: 0 },
+      width: { feet: 15, inches: 0 },
+      deductions: [],
+      additionsSqFt: 0,
+    }
+    const room2: FlooringRoom = {
+      ...createBlankFlooringRoom("Dining Room"),
+      length: { feet: 10, inches: 0 },
+      width: { feet: 12, inches: 0 },
+      deductions: [],
+      additionsSqFt: 0,
+    }
+
+    const scope: FlooringScope = {
+      jobType: "refinish",
+      refinishService: "screen_recoat",
+      refinishAreaSource: "rooms",
+      refinishManualSqFt: 9999, // Should be ignored because areaSource is 'rooms'
+      refinishSellingRatePerSqFt: 3.5,
+      rooms: [room1, room2],
+      defaultWastePercent: 0,
+      dumpsterFee: 0,
+      overheadPercent: 15,
+      profitPercent: 25,
+    }
+
+    const quote = calculateFlooringQuote(scope)
+    assert.equal(quote.netSqFt, 420)
+    assert.equal(quote.refinishSellingRate, 3.5)
+    // 420 * $3.50 = $1,470
+    assert.equal(quote.subtotal, 1470)
+    assert.equal(quote.total, 1470)
+  })
+
+  it("calculates optional stairs and repairs add-ons with tax settings", () => {
+    const scope: FlooringScope = {
+      jobType: "refinish",
+      refinishService: "sand_refinish",
+      refinishAreaSource: "manual",
+      refinishManualSqFt: 1000,
+      refinishSellingRatePerSqFt: 5.5, // 1000 * 5.5 = $5,500 base
+      refinishStairs: [
+        { id: "s1", name: "Box Steps", quantity: 14, unitPrice: 50, total: 700 },
+        { id: "s2", name: "Landing", quantity: 1, unitPrice: 150, total: 150 },
+      ],
+      refinishRepairs: [
+        { id: "r1", name: "Board Replacement", quantity: 5, unitPrice: 60, total: 300 },
+      ],
+      rooms: [],
+      defaultWastePercent: 0,
+      dumpsterFee: 0,
+      overheadPercent: 0,
+      profitPercent: 0,
+    }
+
+    // Without tax: $5500 + $850 stairs + $300 repairs = $6,650
+    const quoteNoTax = calculateFlooringQuote(scope)
+    assert.equal(quoteNoTax.refinishBasePrice, 5500)
+    assert.equal(quoteNoTax.stairsTotal, 850)
+    assert.equal(quoteNoTax.repairsTotal, 300)
+    assert.equal(quoteNoTax.subtotal, 6650)
+    assert.equal(quoteNoTax.total, 6650)
+
+    // With 10% tax on total_job: 6650 + 665 = $7,315
+    const quoteWithTax = calculateFlooringQuote(scope, { taxPercent: 10, taxBasis: "total_job" })
+    assert.equal(quoteWithTax.tax, 665)
+    assert.equal(quoteWithTax.total, 7315)
+  })
+
+  it("verifies existing installation estimate calculates the exact same total", () => {
+    const room: FlooringRoom = {
+      ...createBlankFlooringRoom("Bedroom"),
+      length: { feet: 12, inches: 0 },
+      width: { feet: 12, inches: 0 },
+      deductions: [],
+      additionsSqFt: 0,
+      sqFtPerBox: 20,
+      wastePercent: 10,
+      materialCostPerSqFt: 4,
+      installCostPerSqFt: 2.5,
+      underlaymentType: "none",
+      removeExistingType: "none",
+      subfloorPrepType: "none",
+      includeBaseboard: false,
+      includeQuarterRound: false,
+      transitions: [],
+    }
+
+    // 144 sq ft net * 1.1 = 158.4 -> 8 boxes * 20 = 160 sq ft * $4 = $640 material
+    // 144 * $2.5 = $360 labor
+    // Subtotal = $1000, Overhead 10% = $100 -> Cost basis = $1100
+    // Markup 20% = $220 -> Total = $1320
+    const existingScope: FlooringScope = {
+      jobType: "installation",
+      rooms: [room],
+      defaultWastePercent: 10,
+      dumpsterFee: 0,
+      overheadPercent: 10,
+      profitPercent: 20,
+      profitMode: "markup",
+    }
+
+    const quote = calculateFlooringQuote(existingScope)
+    assert.equal(quote.jobType, "installation")
+    assert.equal(quote.netSqFt, 144)
+    assert.equal(quote.materialCost, 640)
+    assert.equal(quote.laborCost, 360)
+    assert.equal(quote.subtotal, 1000)
+    assert.equal(quote.overhead, 100)
+    assert.equal(quote.profit, 220)
+    assert.equal(quote.total, 1320)
+  })
 })

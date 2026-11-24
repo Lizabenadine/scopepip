@@ -224,4 +224,46 @@ test("multi-trade proposal rendering", async (t) => {
     assert.doesNotMatch(html, /data-testid="proposal-page-scope"/)
     assert.doesNotMatch(html, /data-testid="proposal-page-flooring"/)
   })
+
+  await t.test("renders Juan's hardwood refinishing proposal showing $10,400", () => {
+    const estimate = makeBaseEstimate({
+      title: "Hardwood Refinishing Project",
+      trades: ["flooring"],
+      primaryTrade: "flooring",
+      areas: [],
+      lineItems: [],
+      flooringScope: {
+        jobType: "refinish",
+        refinishService: "sand_stain_clear",
+        refinishAreaSource: "manual",
+        refinishManualSqFt: 1300,
+        refinishSellingRatePerSqFt: 8,
+        refinishStairs: [],
+        refinishRepairs: [],
+        rooms: [],
+        defaultWastePercent: 0,
+        dumpsterFee: 0,
+        overheadPercent: 10,
+        profitPercent: 20,
+      },
+    })
+
+    const html = renderProposalHtml({
+      estimate,
+      clientName: "Juan Martinez",
+      paymentMethods: MOCK_PAYMENT_METHODS,
+    })
+
+    // Flooring refinishing scope is present
+    assert.match(html, /data-testid="proposal-page-flooring"/)
+    assert.match(html, /Hardwood Refinishing Scope/)
+    assert.match(html, /Sand, Stain &amp; Clear Coat/)
+    assert.match(html, /\$10,400\.00/)
+    assert.match(html, /1,300 sq ft @ \$8\.00\/sq ft/)
+
+    // Excludes cartons, boxes, and underlayment
+    assert.doesNotMatch(html, /boxes/)
+    assert.doesNotMatch(html, /cartons/)
+    assert.doesNotMatch(html, /Underlayment/)
+  })
 })

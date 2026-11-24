@@ -1,6 +1,7 @@
 import { calculateEstimate, type EstimateQuote } from "./calculate.ts"
 import { ensureSubstrateRates } from "./substrate.ts"
 import { calculateFlooringQuote } from "../flooring/calculate.ts"
+import { REFINISH_SERVICE_LABELS } from "../flooring/defaults.ts"
 import { calculateDrywallQuote } from "../drywall/calculate.ts"
 import type {
   Estimate,
@@ -30,8 +31,8 @@ export function activeTrades(estimate: Estimate | EstimateDraft | Partial<Estima
   const set = new Set<TradeType>()
   if (
     estimate.flooringScope &&
-    Array.isArray(estimate.flooringScope.rooms) &&
-    estimate.flooringScope.rooms.length > 0
+    ((Array.isArray(estimate.flooringScope.rooms) && estimate.flooringScope.rooms.length > 0) ||
+      estimate.flooringScope.jobType === "refinish")
   ) {
     set.add("flooring")
   }
@@ -115,18 +116,27 @@ export function calculateMultiTradeQuote(
 
   // 2. Flooring Scope
   if (trades.includes("flooring") && estimate.flooringScope) {
-    const fQuote = calculateFlooringQuote(estimate.flooringScope)
+    const fQuote = calculateFlooringQuote(estimate.flooringScope, estimate.settings)
     flooringTotal = fQuote.total
     combinedSubtotal += fQuote.subtotal
     combinedOverhead += fQuote.overhead
     combinedProfit += fQuote.profit
 
+    const isRefinish = estimate.flooringScope.jobType === "refinish"
+    const refinishLabel = isRefinish
+      ? REFINISH_SERVICE_LABELS[estimate.flooringScope.refinishService ?? "sand_stain_clear"] || "Hardwood Refinishing"
+      : "Flooring Installation"
+
     summaries.push({
       trade: "flooring",
-      label: "Flooring Installation",
-      netQuantityLabel: `${fQuote.netSqFt.toLocaleString()} sq ft (${fQuote.totalBoxes} boxes)`,
-      materialCost: fQuote.materialCost + fQuote.trimCost + fQuote.transitionsCost,
-      laborCost: fQuote.laborCost + fQuote.demoCost + fQuote.prepCost,
+      label: isRefinish ? "Hardwood Refinishing" : "Flooring Installation",
+      netQuantityLabel: isRefinish
+        ? `${fQuote.netSqFt.toLocaleString()} sq ft (${refinishLabel})`
+        : `${fQuote.netSqFt.toLocaleString()} sq ft (${fQuote.totalBoxes} boxes)`,
+      materialCost: isRefinish ? 0 : fQuote.materialCost + fQuote.trimCost + fQuote.transitionsCost,
+      laborCost: isRefinish
+        ? fQuote.laborCost + (fQuote.stairsTotal ?? 0) + (fQuote.repairsTotal ?? 0)
+        : fQuote.laborCost + fQuote.demoCost + fQuote.prepCost,
       subtotal: fQuote.subtotal,
       total: fQuote.total,
     })

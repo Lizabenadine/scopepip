@@ -40,7 +40,110 @@ export function recomputeRoomGeometry(room: FlooringRoom): FlooringRoom {
  * 3. Underlayment, mortar, grout, and patch are calculated in full rolls/bags.
  * 4. Overhead and profit markup are applied cleanly without double-counting.
  */
-export function calculateFlooringQuote(scope: FlooringScope): FlooringQuote {
+export function calculateFlooringQuote(
+  scope: FlooringScope,
+  settings?: { taxPercent?: number; taxBasis?: "materials_only" | "total_job" }
+): FlooringQuote {
+  // ============================================================================
+  // REFINISH EXISTING HARDWOOD
+  // ============================================================================
+  if (scope.jobType === "refinish") {
+    const areaSource = scope.refinishAreaSource ?? "manual"
+    let totalNetSqFt = 0
+    let totalGrossSqFt = 0
+
+    if (areaSource === "manual") {
+      totalNetSqFt = Math.max(0, Number(scope.refinishManualSqFt ?? 0))
+      totalGrossSqFt = totalNetSqFt
+    } else {
+      for (const rawRoom of scope.rooms || []) {
+        const room = recomputeRoomGeometry(rawRoom)
+        totalNetSqFt += room.netSqFt
+        totalGrossSqFt += room.grossSqFt
+      }
+      totalNetSqFt = Number(totalNetSqFt.toFixed(2))
+      totalGrossSqFt = Number(totalGrossSqFt.toFixed(2))
+    }
+
+    const rate = Math.max(0, Number(scope.refinishSellingRatePerSqFt ?? 0))
+    const refinishBasePrice = Number((totalNetSqFt * rate).toFixed(2))
+
+    // Optional stairs add-ons
+    const stairsTotal = Number(
+      (scope.refinishStairs || [])
+        .reduce((sum, item) => {
+          const itemTotal =
+            item.total !== undefined && item.total > 0
+              ? item.total
+              : (item.quantity || 0) * (item.unitPrice || 0)
+          return sum + Number(itemTotal)
+        }, 0)
+        .toFixed(2)
+    )
+
+    // Optional repairs add-ons
+    const repairsTotal = Number(
+      (scope.refinishRepairs || [])
+        .reduce((sum, item) => {
+          const itemTotal =
+            item.total !== undefined && item.total > 0
+              ? item.total
+              : (item.quantity || 0) * (item.unitPrice || 0)
+          return sum + Number(itemTotal)
+        }, 0)
+        .toFixed(2)
+    )
+
+    // Base price is selling rate (which already includes overhead & margin)
+    // Overhead and profit are skipped
+    const subtotal = Number((refinishBasePrice + stairsTotal + repairsTotal).toFixed(2))
+    const overhead = 0
+    const profit = 0
+
+    // Tax settings application
+    const taxPercent = scope.taxPercent ?? settings?.taxPercent ?? 0
+    const taxBasis = scope.taxBasis ?? settings?.taxBasis ?? "total_job"
+    let tax = 0
+    if (taxPercent > 0) {
+      if (taxBasis === "total_job") {
+        tax = Number(((subtotal * taxPercent) / 100).toFixed(2))
+      }
+      // "materials_only" has 0 material tax basis for refinishing services
+    }
+
+    const total = Number((subtotal + tax).toFixed(2))
+
+    return {
+      jobType: "refinish",
+      refinishService: scope.refinishService ?? "sand_stain_clear",
+      refinishSellingRate: rate,
+      refinishBasePrice,
+      stairsTotal,
+      repairsTotal,
+      tax,
+      netSqFt: totalNetSqFt,
+      grossSqFt: totalGrossSqFt,
+      totalBoxes: 0,
+      materialCost: 0,
+      laborCost: refinishBasePrice,
+      prepCost: 0,
+      demoCost: 0,
+      trimCost: 0,
+      transitionsCost: 0,
+      dumpsterFee: 0,
+      subtotal,
+      overhead,
+      profit,
+      effectiveMarginPercent: 0,
+      effectiveMarkupPercent: 0,
+      total,
+      buyList: [],
+    }
+  }
+
+  // ============================================================================
+  // INSTALL NEW FLOORING
+  // ============================================================================
   let totalNetSqFt = 0
   let totalGrossSqFtWithWaste = 0
   let totalBoxes = 0
@@ -64,7 +167,7 @@ export function calculateFlooringQuote(scope: FlooringScope): FlooringQuote {
     }
   }
 
-  for (const rawRoom of scope.rooms) {
+  for (const rawRoom of scope.rooms || []) {
     const room = recomputeRoomGeometry(rawRoom)
     totalNetSqFt += room.netSqFt
 
@@ -294,9 +397,21 @@ export function calculateFlooringQuote(scope: FlooringScope): FlooringQuote {
     effectiveMarginPercent = totalWithMarkup > 0 ? Number(((profit / totalWithMarkup) * 100).toFixed(1)) : 0
   }
 
-  const total = Number((costBasis + profit).toFixed(2))
+  const taxPercent = scope.taxPercent ?? settings?.taxPercent ?? 0
+  const taxBasis = scope.taxBasis ?? settings?.taxBasis ?? "total_job"
+  let tax = 0
+  if (taxPercent > 0) {
+    const taxable =
+      taxBasis === "materials_only"
+        ? totalMaterialCost + totalTrimCost + totalTransitionsCost
+        : costBasis + profit
+    tax = Number(((taxable * taxPercent) / 100).toFixed(2))
+  }
+
+  const total = Number((costBasis + profit + tax).toFixed(2))
 
   return {
+    jobType: "installation",
     netSqFt: Number(totalNetSqFt.toFixed(2)),
     grossSqFt: Number(totalGrossSqFtWithWaste.toFixed(2)),
     totalBoxes,
@@ -312,6 +427,7 @@ export function calculateFlooringQuote(scope: FlooringScope): FlooringQuote {
     profit,
     effectiveMarginPercent,
     effectiveMarkupPercent,
+    tax,
     total,
     buyList: Array.from(buyListMap.values()),
   }
