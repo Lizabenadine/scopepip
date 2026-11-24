@@ -136,7 +136,7 @@ export function ProposalDemo({ lang = "en" }: ProposalDemoProps) {
                   <p className="font-bold text-slate-900">{isEs ? "Recorrido Exterior y Elevación" : "Front Elevation Walkthrough"}</p>
                   <p className="text-xs text-slate-500">
                     {isEs
-                      ? "Paredes (540 sq ft SW Repose Gray), 76 LF molduras, 2 puertas, techo"
+                      ? "Paredes (540 pies² SW Repose Gray), 76 pies lin. molduras, 2 puertas, techo"
                       : "Walls (540 sq ft SW Repose Gray), 76 LF baseboards, 2 doors, ceiling"}
                   </p>
                 </div>

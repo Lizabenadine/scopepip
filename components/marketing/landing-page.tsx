@@ -587,7 +587,7 @@ export function LandingPage() {
                             </div>
                             <p className="mt-1 text-[11px] leading-relaxed text-slate-200 italic">
                               {isEs
-                                ? "«Paredes: SW Repose Gray satinado. Molduras: Extra White semigloss.»"
+                                ? "«Paredes: SW Repose Gray satinado. Molduras: Extra White semibrillante.»"
                                 : "“Drywall patch marked near closet. SW Repose Gray satin on walls, Extra White on trim.”"}
                             </p>
                           </div>
@@ -601,7 +601,7 @@ export function LandingPage() {
                             <div className="flex items-center justify-between text-[11px]">
                               <div>
                                 <p className="font-semibold text-white">{isEs ? "Paredes (Yeso)" : "Walls (Drywall)"}</p>
-                                <p className="text-[10px] text-slate-400">2 coats • SW Repose Gray</p>
+                                <p className="text-[10px] text-slate-400">{isEs ? "2 manos • SW Repose Gray" : "2 coats • SW Repose Gray"}</p>
                               </div>
                               <span className="text-slate-300">{isEs ? "540 pies²" : "540 sq ft"}</span>
                               <span className="font-bold text-cyan-300">3.6 gal</span>
@@ -609,7 +609,7 @@ export function LandingPage() {
                             <div className="flex items-center justify-between text-[11px]">
                               <div>
                                 <p className="font-semibold text-white">{isEs ? "Molduras y Puertas" : "Baseboards & Doors"}</p>
-                                <p className="text-[10px] text-slate-400">Semi-gloss • 2 doors</p>
+                                <p className="text-[10px] text-slate-400">{isEs ? "Semibrillante • 2 puertas" : "Semi-gloss • 2 doors"}</p>
                               </div>
                               <span className="text-slate-300">{isEs ? "76 pies lin." : "76 lin ft"}</span>
                               <span className="font-bold text-cyan-300">1.2 gal</span>
