@@ -785,7 +785,15 @@ export async function listPeople(userId: string): Promise<{ id: string; name: st
 }
 
 export async function readCompanyBook(companyId: string, options?: { bypassCache?: boolean }): Promise<BookFile | null> {
-  return readBookFile(companyId, options)
+  let book = await readBookFile(companyId, options)
+  if (!book && companyId) {
+    const accounts = await readAccounts()
+    const company = accounts.companies.find((c) => c.id === companyId)
+    const companyName = company?.name || "ScopePipe"
+    book = { revision: 1, state: createCompanyBook(companyName) }
+    await writeBook(companyId, book)
+  }
+  return book
 }
 
 export async function companyForLeadWebhook(token: string): Promise<{ companyId: string; book: BookFile } | null> {
@@ -810,9 +818,11 @@ export async function writeCompanyBook(
   revision: number,
   state: ScopeState,
 ): Promise<{ ok: true; revision: number } | { ok: false; reason: "conflict"; revision: number; state: ScopeState } | { ok: false; reason: string }> {
-  const current = await readBookFile(companyId, { bypassCache: true })
-  if (!current) return { ok: false, reason: "This company has no book." }
-  if (current.revision !== revision) {
+  let current = await readBookFile(companyId, { bypassCache: true })
+  if (!current) {
+    current = { revision: 0, state }
+  }
+  if (current.revision !== revision && current.revision !== 0) {
     return { ok: false, reason: "conflict", revision: current.revision, state: current.state }
   }
   const next = current.revision + 1

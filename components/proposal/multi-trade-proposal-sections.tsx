@@ -11,6 +11,22 @@ import { DRYWALL_BOARD_LABELS, DRYWALL_BOARD_SIZE_SPECS, DRYWALL_FINISH_LEVEL_LA
 import type { Estimate } from "@/lib/types"
 import type { MultiTradeQuote, FlooringRoom, DrywallRoom } from "@/lib/estimate/multi-trade-types"
 
+const UNDERLAYMENT_LABELS: Record<string, string> = {
+  none: "None",
+  foam_2mm: "2mm Standard Foam",
+  moisture_barrier: "Moisture & Sound Barrier",
+  cork: "1/4\" Acoustic Cork",
+  cement_backer: "1/2\" Cement Backer Board",
+}
+
+const SUBFLOOR_PREP_LABELS: Record<string, string> = {
+  none: "Standard Clean & Prep",
+  scrape_clean: "Scrape & Clean",
+  self_level: "Self-Leveling Underlayment",
+  patch_grind: "Patch & Grind High Spots",
+  plywood_underlayment: "Plywood Underlayment",
+}
+
 export function MultiTradeProposalSections({
   estimate,
   multiTradeQuote,
@@ -112,8 +128,12 @@ export function MultiTradeProposalSections({
                       <strong className="text-slate-800">Material:</strong> {matLabel} ({grossNeeded} gross sq ft with {room.wastePercent}% waste)
                     </p>
                     <p className="text-slate-600">
-                      <strong className="text-slate-800">Underlayment:</strong> {room.underlaymentType !== "none" ? room.underlaymentType : "Standard"}
-                      {room.subfloorPrepType !== "none" && ` · Prep: ${room.subfloorPrepType}`}
+                      <strong className="text-slate-800">Underlayment:</strong>{" "}
+                      {room.underlaymentType !== "none"
+                        ? UNDERLAYMENT_LABELS[room.underlaymentType] || room.underlaymentType
+                        : "Standard"}
+                      {room.subfloorPrepType !== "none" &&
+                        ` · Prep: ${SUBFLOOR_PREP_LABELS[room.subfloorPrepType] || room.subfloorPrepType}`}
                     </p>
                     {(room.includeBaseboard || room.includeQuarterRound) && (
                       <p className="text-slate-600 col-span-full">

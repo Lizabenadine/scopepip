@@ -370,12 +370,21 @@ export function renderProposalHtml(input?: RenderProposalHtmlInput): string {
         const grossNeeded = Number((room.netSqFt * (1 + (room.wastePercent ?? 10) / 100)).toFixed(1))
         const sqFtPerBox = room.sqFtPerBox > 0 ? room.sqFtPerBox : 20
         const boxes = Math.ceil(grossNeeded / sqFtPerBox)
+        const underlaymentMap: Record<string, string> = {
+          none: "None",
+          foam_2mm: "2mm Standard Foam (foam_2mm)",
+          moisture_barrier: "Moisture & Sound Barrier",
+          cork: "1/4\" Acoustic Cork",
+          cement_backer: "1/2\" Cement Backer Board",
+        }
         const underlaymentText =
-          room.underlaymentType && room.underlaymentType !== "none" ? ` · Underlayment: ${room.underlaymentType}` : ""
+          room.underlaymentType && room.underlaymentType !== "none"
+            ? ` · Underlayment: ${underlaymentMap[room.underlaymentType] || room.underlaymentType}`
+            : ""
         const subfloorPrepText =
-          room.subfloorPrepType && room.subfloorPrepType !== "none" ? ` · Prep: ${room.subfloorPrepType}` : ""
+          room.subfloorPrepType && room.subfloorPrepType !== "none" ? ` · Prep: ${room.subfloorPrepType.replace(/_/g, " ")}` : ""
         const demoText =
-          room.removeExistingType && room.removeExistingType !== "none" ? ` · Demo: ${room.removeExistingType}` : ""
+          room.removeExistingType && room.removeExistingType !== "none" ? ` · Demo: ${room.removeExistingType.replace(/_/g, " ")}` : ""
 
         return `<div class="room-card" style="margin-top: 10px;">
           <div class="room-header">

@@ -50,10 +50,14 @@ export function proposalFigures(
         paymentMethods,
       })
     const effectiveTotal = multiTradeQuote.combinedTotal
+    const customerSubtotal =
+      baseQuote.discount > 0 || baseQuote.tax > 0
+        ? effectiveTotal + baseQuote.discount - baseQuote.tax
+        : effectiveTotal
     const quote: EstimateQuote = {
       ...baseQuote,
       total: effectiveTotal,
-      subtotal: multiTradeQuote.combinedSubtotal,
+      subtotal: customerSubtotal,
     }
     return {
       quote,

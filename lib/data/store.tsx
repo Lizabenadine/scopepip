@@ -246,6 +246,30 @@ export async function confirmEstimateSavedOnServer(
   }
 }
 
+function sanitizeStateForSync(state: ScopeState): ScopeState {
+  let hasLargeData = false
+  for (const order of state.workOrders) {
+    for (const p of order.photos) {
+      if (p.url && p.url.startsWith("data:") && p.url.length > 2048) {
+        hasLargeData = true
+        break
+      }
+    }
+    if (hasLargeData) break
+  }
+  if (!hasLargeData) return state
+  return {
+    ...state,
+    workOrders: state.workOrders.map((order) => ({
+      ...order,
+      photos: order.photos.map((p) => ({
+        ...p,
+        url: p.url && p.url.startsWith("data:") && p.url.length > 2048 ? "" : p.url,
+      })),
+    })),
+  }
+}
+
 async function encodeBookBody(payload: unknown): Promise<{ body: BodyInit; headers: Record<string, string> }> {
   const json = JSON.stringify(payload)
   if (json.length >= 64 * 1024 && typeof CompressionStream === "function") {
@@ -522,7 +546,7 @@ async function pumpBook() {
               method: "DELETE",
             })
           } else {
-            const encoded = await encodeBookBody({ revision, state })
+            const encoded = await encodeBookBody({ revision, state: sanitizeStateForSync(state) })
             response = await fetch("/api/account/book", {
               method: "PUT",
               headers: encoded.headers,
