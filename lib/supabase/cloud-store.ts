@@ -38,21 +38,35 @@ function isCloudWorkOrder(value: unknown): value is CloudWorkOrder {
 export async function readCloud(companyId: string): Promise<CloudSnapshot | null> {
   const supabase = supabaseAdmin()
   if (!supabase) return null
-  const [clients, estimates, areas, workOrders] = await Promise.all([
-    supabase.from("clients").select("id, name, email, phone, address, created_at").limit(1000),
-    supabase
+
+  let estimatesData: CloudSnapshot["estimates"] = []
+  const estimatesResult = await supabase
+    .from("estimates")
+    .select("id, client_id, room_name, length, width, height, wall_sqft, labor_hours, gallons_needed, total_price, status, created_at, public_token, client_status, signature_name, signature_payload, signed_at, accepted_at")
+    .limit(1000)
+
+  // Fallback to basic columns if migration columns aren't present
+  if (estimatesResult.error) {
+    const fallbackResult = await supabase
       .from("estimates")
       .select("id, client_id, room_name, length, width, height, wall_sqft, labor_hours, gallons_needed, total_price, status, created_at")
-      .limit(1000),
+      .limit(1000)
+    if (fallbackResult.error) throw new Error(fallbackResult.error.message)
+    estimatesData = fallbackResult.data ?? []
+  } else {
+    estimatesData = estimatesResult.data ?? []
+  }
+
+  const [clients, areas, workOrders] = await Promise.all([
+    supabase.from("clients").select("id, name, email, phone, address, created_at").limit(1000),
     supabase.from("estimate_areas").select("id, project_id, name, length, width, height").limit(2000),
     readWorkOrders(supabase, companyId),
   ])
   if (clients.error) throw new Error(clients.error.message)
-  if (estimates.error) throw new Error(estimates.error.message)
   if (areas.error) throw new Error(areas.error.message)
   return {
     clients: clients.data ?? [],
-    estimates: estimates.data ?? [],
+    estimates: estimatesData,
     areas: areas.data ?? [],
     workOrders,
   }

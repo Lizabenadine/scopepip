@@ -827,6 +827,7 @@ export interface ScopeApi {
   setEstimateTags: (id: string, tags: string[]) => void
   archiveEstimate: (id: string) => void
   acceptEstimate: (id: string) => void
+  ensureWorkOrder: (estimateId: string) => Promise<string>
   acceptProposal: (
     token: string,
     input: Omit<AcceptanceInput, "signedAt">,
@@ -1225,6 +1226,31 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           ? [createWorkOrder(accepted), ...latest.workOrders]
           : latest.workOrders
       commitReconciled({ ...latest, estimates, workOrders })
+    },
+    ensureWorkOrder: (estimateId: string) => {
+      const latest = getSnapshot().state
+      const estimate = latest.estimates.find((item) => item.id === estimateId)
+      if (!estimate) return Promise.resolve(estimateId)
+      const scheduledStage = latest.stages.find((stage) => stage.slug === "scheduled")
+      const currentStage = latest.stages.find((stage) => stage.id === estimate.stageId)
+      const shouldMoveToScheduled =
+        Boolean(scheduledStage) &&
+        currentStage?.slug !== "scheduled" &&
+        currentStage?.slug !== "completed"
+
+      const updatedEstimate: Estimate =
+        shouldMoveToScheduled && scheduledStage
+          ? { ...estimate, stageId: scheduledStage.id, clientStatus: "accepted" }
+          : estimate
+
+      const estimates = latest.estimates.map((item) => (item.id === estimateId ? updatedEstimate : item))
+      const existingOrder = latest.workOrders.find((order) => order.estimateId === estimateId)
+      const workOrders = existingOrder
+        ? latest.workOrders
+        : [createWorkOrder(updatedEstimate), ...latest.workOrders]
+
+      commitReconciled({ ...latest, estimates, workOrders })
+      return Promise.resolve(estimateId)
     },
     acceptProposal: (token, input) => {
       const latest = getSnapshot().state

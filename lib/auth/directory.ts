@@ -858,7 +858,7 @@ async function findByProposalToken(token: string): Promise<{ companyId: string; 
     companyId = index.proposals[token]
   }
   if (companyId) {
-    const book = await readBookFile(companyId)
+    const book = await readBookFile(companyId, { bypassCache: true })
     const estimate = book?.state.estimates.find((e) => e.publicToken === token)
     if (estimate && book) {
       void persistTokenMapping("proposals", token, companyId)
@@ -1027,18 +1027,28 @@ export async function acceptPublicProposal(
   token: string,
   input: AcceptanceInput,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const found = await findByProposalToken(token)
-  if (!found) return { ok: false, reason: "This proposal link is not valid." }
-  if (found.estimate.clientStatus === "accepted" || found.estimate.signature) {
-    return { ok: true, estimate: forCustomer(found.estimate) }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const found = await findByProposalToken(token)
+    if (!found) return { ok: false, reason: "This proposal link is not valid." }
+    if (found.estimate.clientStatus === "accepted" || found.estimate.signature) {
+      return { ok: true, estimate: forCustomer(found.estimate) }
+    }
+    const result = applyAcceptance(found.book.state, token, input)
+    if (!result.ok) return result
+    const next = reconciled(found.book.state, result.state)
+    const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
+    if (!saved.ok) {
+      if ("state" in saved && saved.reason === "conflict") {
+        // Retry with latest revision from disk / cloud
+        continue
+      }
+      return { ok: false, reason: saved.reason || "This proposal could not be saved. Try again." }
+    }
+    const estimate = next.estimates.find((item) => item.id === result.estimateId)
+    if (!estimate) return { ok: false, reason: "This proposal could not be saved. Try again." }
+    return { ok: true, estimate: forCustomer(estimate) }
   }
-  const result = applyAcceptance(found.book.state, token, input)
-  if (!result.ok) return result
-  const next = reconciled(found.book.state, result.state)
-  const saved = await writeCompanyBook(found.companyId, found.book.revision, next)
-  const estimate = next.estimates.find((item) => item.id === result.estimateId)
-  if (!saved.ok || !estimate) return { ok: false, reason: "This proposal could not be saved. Try again." }
-  return { ok: true, estimate: forCustomer(estimate) }
+  return { ok: false, reason: "This proposal could not be saved due to concurrent updates. Please try again." }
 }
 
 export async function companyEstimate(

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CheckCircle2, Download, FileCheck2 } from "lucide-react"
+import { CheckCircle2, Download, FileCheck2, Briefcase } from "lucide-react"
 import {
   ProposalCover,
   ProposalPager,
@@ -117,8 +117,23 @@ export function ProposalView({ id }: { id: string }) {
         >
           {label("Copy Spanish link")}
         </button>
-        {estimate.acceptedAt ? <span className="font-medium">Accepted</span> : null}
-        {declined ? <span className="font-medium">Declined</span> : null}
+        {estimate.acceptedAt || estimate.clientStatus === "accepted" || estimate.signature ? (
+          <>
+            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+              <CheckCircle2 className="size-3.5" />
+              <span>Signed & Accepted</span>
+            </span>
+            <Link
+              href={`/work-orders/${estimate.id}`}
+              data-testid="proposal-work-order-link"
+              className="inline-flex items-center gap-1 font-medium text-emerald-700 hover:underline"
+            >
+              <Briefcase className="size-3.5" />
+              <span>Work Order</span>
+            </Link>
+          </>
+        ) : null}
+        {declined ? <span className="font-medium text-amber-700">Declined</span> : null}
       </div>
       {spanishLink ? (
         <p className="text-sm text-muted-foreground" data-testid="spanish-proposal-link">

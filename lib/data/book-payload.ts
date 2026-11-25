@@ -124,7 +124,31 @@ function upsertByKey<T>(items: T[], nextItem: T, keyOf: (item: T) => string, pre
 }
 
 export function applySingleEstimatePatch(state: ScopeState, patch: SingleEstimatePatch): ScopeState {
-  const estimates = upsertByKey(state.estimates, patch.estimate, (item) => item.id)
+  const existingEstimate = state.estimates.find((item) => item.id === patch.estimate.id)
+  const isExistingSigned = Boolean(
+    existingEstimate &&
+      (existingEstimate.signature ||
+        existingEstimate.acceptedAt ||
+        existingEstimate.clientStatus === "accepted")
+  )
+  const isPatchSigned = Boolean(
+    patch.estimate.signature ||
+      patch.estimate.acceptedAt ||
+      patch.estimate.clientStatus === "accepted"
+  )
+
+  const effectiveEstimate =
+    isExistingSigned && !isPatchSigned && existingEstimate
+      ? {
+          ...patch.estimate,
+          clientStatus: "accepted" as const,
+          acceptedAt: existingEstimate.acceptedAt || new Date().toISOString(),
+          signature: existingEstimate.signature,
+          declinedAt: null,
+        }
+      : patch.estimate
+
+  const estimates = upsertByKey(state.estimates, effectiveEstimate, (item) => item.id)
   const clients = patch.client ? upsertByKey(state.clients, patch.client, (item) => item.id) : state.clients
   const workOrders = patch.workOrder
     ? upsertByKey(state.workOrders, patch.workOrder, (item) => item.estimateId)

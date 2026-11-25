@@ -48,6 +48,12 @@ export interface CloudSnapshot {
     total_price: number | string | null
     status: string | null
     created_at: string
+    public_token?: string | null
+    client_status?: string | null
+    signature_name?: string | null
+    signature_payload?: string | null
+    signed_at?: string | null
+    accepted_at?: string | null
   }>
   areas: Array<{
     id: string
@@ -261,10 +267,49 @@ export function mergeCloud(state: ScopeState, cloud: CloudSnapshot): { state: Sc
   }
 
   const estimates = [...state.estimates]
+  const workOrders = [...state.workOrders]
   const stageId = state.stages.find((stage) => stage.slug === "lead")?.id ?? state.stages[0]?.id
   if (stageId) {
     for (const row of cloud.estimates) {
-      if (!row.id || !row.client_id || estimates.some((estimate) => estimate.id === row.id)) continue
+      if (!row.id || !row.client_id) continue
+
+      const isCloudSigned = Boolean(
+        row.signed_at ||
+          row.accepted_at ||
+          row.signature_name ||
+          row.client_status === "accepted" ||
+          row.status === "accepted"
+      )
+
+      const existingIdx = estimates.findIndex((estimate) => estimate.id === row.id)
+      if (existingIdx !== -1) {
+        const existing = estimates[existingIdx]!
+        if (isCloudSigned && (!existing.signature || existing.clientStatus !== "accepted")) {
+          const signedAt = row.signed_at || row.accepted_at || existing.acceptedAt || new Date().toISOString()
+          const signedName = row.signature_name || existing.signature?.signedName || "Client"
+          const signaturePayload =
+            row.signature_payload || existing.signature?.signaturePayload || `typed:${signedName}`
+          const updatedEstimate: Estimate = {
+            ...existing,
+            clientStatus: "accepted",
+            acceptedAt: signedAt,
+            declinedAt: null,
+            signature: existing.signature ?? {
+              signedName,
+              signaturePayload,
+              signedAt,
+              selectedLineIds: [],
+            },
+          }
+          estimates[existingIdx] = updatedEstimate
+          if (!workOrders.some((order) => order.estimateId === existing.id)) {
+            workOrders.push(createWorkOrder(updatedEstimate))
+          }
+          changed = true
+        }
+        continue
+      }
+
       if (!clients.some((client) => client.id === row.client_id)) {
         const createdAt = row.created_at || new Date().toISOString()
         clients.push({
@@ -300,7 +345,12 @@ export function mergeCloud(state: ScopeState, cloud: CloudSnapshot): { state: Sc
       const total = measure(row.total_price)
       const createdAt = row.created_at || new Date().toISOString()
       const client = clients.find((item) => item.id === row.client_id)
-      estimates.push({
+
+      const signedAt = isCloudSigned ? (row.signed_at || row.accepted_at || createdAt) : null
+      const signedName = isCloudSigned ? (row.signature_name || "Client") : null
+      const signaturePayload = isCloudSigned ? (row.signature_payload || `typed:${signedName}`) : null
+
+      const newEstimate: Estimate = {
         id: row.id,
         clientId: row.client_id,
         stageId,
@@ -313,19 +363,26 @@ export function mergeCloud(state: ScopeState, cloud: CloudSnapshot): { state: Sc
         scheduledOn: null,
         notes: "",
         crewNote: "",
-        acceptedAt: null,
-        publicToken: createProposalToken(),
-        clientStatus: asClientStatus(row.status),
-        signature: null,
+        acceptedAt: signedAt,
+        publicToken: row.public_token || createProposalToken(),
+        clientStatus: isCloudSigned ? "accepted" : asClientStatus(row.status),
+        signature: isCloudSigned && signedName && signaturePayload ? {
+          signedName,
+          signaturePayload,
+          signedAt: signedAt || createdAt,
+          selectedLineIds: [],
+        } : null,
         paymentStatus: "unpaid",
         createdAt,
         updatedAt: createdAt,
-      })
+      }
+      estimates.push(newEstimate)
+      if (isCloudSigned && !workOrders.some((order) => order.estimateId === newEstimate.id)) {
+        workOrders.push(createWorkOrder(newEstimate))
+      }
       changed = true
     }
   }
-
-  const workOrders = [...state.workOrders]
   for (const row of cloud.workOrders) {
     if (!DISPATCH_STATUSES.has(row.status)) continue
     if (!estimates.some((estimate) => estimate.id === row.estimateId)) continue

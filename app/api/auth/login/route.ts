@@ -112,25 +112,27 @@ export async function POST(request: NextRequest) {
       }
 
       if (signInRes.error) {
-        console.error("Supabase signInWithPassword failed:", {
-          email: email.trim(),
-          errorMsg: signInRes.error.message,
-          status: signInRes.error.status,
-        })
-        const msg = signInRes.error.message || ""
-        if (msg.toLowerCase().includes("email not confirmed")) {
-          return NextResponse.json(
-            { ok: false, reason: "Please verify your email address before signing in. Check your inbox for the confirmation link." },
-            { status: 401 },
-          )
+        if (!result.ok) {
+          console.error("Supabase signInWithPassword failed:", {
+            email: email.trim(),
+            errorMsg: signInRes.error.message,
+            status: signInRes.error.status,
+          })
+          const msg = signInRes.error.message || ""
+          if (msg.toLowerCase().includes("email not confirmed")) {
+            return NextResponse.json(
+              { ok: false, reason: "Please verify your email address before signing in. Check your inbox for the confirmation link." },
+              { status: 401 },
+            )
+          }
+          if (msg.toLowerCase().includes("invalid login credentials")) {
+            return NextResponse.json(
+              { ok: false, reason: "That email and password do not match. If you recently reset your password, please make sure you type the new password and not an old saved password." },
+              { status: 401 },
+            )
+          }
+          return NextResponse.json({ ok: false, reason: msg || "That email and password do not match." }, { status: 401 })
         }
-        if (msg.toLowerCase().includes("invalid login credentials")) {
-          return NextResponse.json(
-            { ok: false, reason: "That email and password do not match. If you recently reset your password, please make sure you type the new password and not an old saved password." },
-            { status: 401 },
-          )
-        }
-        return NextResponse.json({ ok: false, reason: msg || "That email and password do not match." }, { status: 401 })
       }
     } catch (err) {
       console.error("Supabase signInWithPassword exception:", err)

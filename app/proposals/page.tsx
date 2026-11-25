@@ -1,5 +1,10 @@
 import type { Metadata } from "next"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { ProductPage } from "@/components/marketing/product-page"
+import { SESSION_COOKIE } from "@/lib/auth/session"
+import { authSecret, sessionById } from "@/lib/auth/directory"
+import { readOfficeSession, readSession } from "@/lib/auth/session-token"
 
 export const metadata: Metadata = {
   title: "Painting proposals",
@@ -7,7 +12,36 @@ export const metadata: Metadata = {
     "Send a painting proposal the customer can open, watch, and sign. Optional upgrades change the total before they accept.",
 }
 
-export default function ProposalsPage() {
+export default async function ProposalsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string; filter?: string; status?: string }>
+}) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(SESSION_COOKIE)?.value
+  let isAuthenticated = false
+
+  if (token) {
+    const session = readOfficeSession(token, authSecret())
+    if (session) {
+      isAuthenticated = true
+    } else {
+      const userId = readSession(token, authSecret())
+      if (userId && (await sessionById(userId))) {
+        isAuthenticated = true
+      }
+    }
+  }
+
+  if (isAuthenticated) {
+    const sp = await searchParams
+    const tab = sp?.tab || sp?.filter || sp?.status
+    if (tab === "signed") {
+      redirect("/proposal?tab=signed")
+    }
+    redirect(tab ? `/proposal?tab=${encodeURIComponent(tab)}` : "/proposal")
+  }
+
   return (
     <ProductPage
       kicker="Proposals"

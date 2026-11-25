@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useState, useMemo } from "react"
-import { CheckCircle2, FileCheck2, Search, Send, Clock, ExternalLink, Briefcase, Download, XCircle, FileText } from "lucide-react"
+import { useState, useMemo, useEffect } from "react"
+import { CheckCircle2, FileCheck2, Search, Send, Clock, ExternalLink, Briefcase, Download, XCircle, RefreshCw } from "lucide-react"
 import { useScope } from "@/lib/data/store"
 import { moneyExact } from "@/lib/format"
 import { listProposals } from "@/lib/proposals/catalog"
@@ -20,10 +20,10 @@ const STATUS_LABEL = {
 type ProposalTab = "all" | "signed" | "sent" | "draft"
 
 export function ProposalList() {
-  const { ready, estimates, clients, quoteEstimate } = useScope()
+  const { ready, estimates, clients, workOrders, quoteEstimate, reloadBook, ensureWorkOrder } = useScope()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const tabParam = searchParams.get("tab")
+  const tabParam = searchParams.get("tab") || searchParams.get("filter") || searchParams.get("status")
   const activeTab: ProposalTab =
     tabParam === "signed" ? "signed" :
     tabParam === "sent" ? "sent" :
@@ -31,6 +31,20 @@ export function ProposalList() {
     "all"
 
   const [search, setSearch] = useState("")
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    void reloadBook()
+  }, [reloadBook])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    try {
+      await reloadBook()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const allProposals = useMemo(
     () => listProposals(estimates, clients, { includeDrafts: true }),
@@ -101,6 +115,16 @@ export function ProposalList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            data-testid="refresh-proposals-button"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("size-3.5 text-slate-500", refreshing && "animate-spin")} />
+            <span>{refreshing ? "Refreshing..." : "Refresh"}</span>
+          </button>
           <Link
             href="/estimate"
             className="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors"
@@ -117,6 +141,7 @@ export function ProposalList() {
             type="button"
             onClick={() => setTab("signed")}
             data-testid="tab-signed-proposals"
+            id="tab-signed-proposals"
             className={cn(
               "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
               activeTab === "signed"
@@ -125,7 +150,7 @@ export function ProposalList() {
             )}
           >
             <FileCheck2 className="size-3.5" />
-            Signed Proposals ({signedProposals.length})
+            Signed ({signedProposals.length})
           </button>
           <button
             type="button"
@@ -256,6 +281,7 @@ export function ProposalList() {
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Link
                         href={`/proposal/${proposal.id}`}
+                        data-testid={`view-proposal-${proposal.id}`}
                         className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
                       >
                         View
@@ -278,12 +304,17 @@ export function ProposalList() {
                       />
 
                       {isSigned && (
-                        <Link
-                          href={`/work-orders/${proposal.id}`}
-                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 shadow-2xs"
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await ensureWorkOrder(proposal.id)
+                            router.push(`/work-orders/${proposal.id}`)
+                          }}
+                          data-testid={`work-order-${proposal.id}`}
+                          className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 shadow-2xs cursor-pointer transition-colors"
                         >
                           <Briefcase className="size-3" /> Work Order
-                        </Link>
+                        </button>
                       )}
 
                       {proposal.publicToken && (
@@ -292,6 +323,7 @@ export function ProposalList() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Open Customer Proposal Link"
+                          data-testid={`public-link-${proposal.id}`}
                           className="inline-flex items-center p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-2xs"
                         >
                           <ExternalLink className="size-3.5" />
