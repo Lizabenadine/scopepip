@@ -1055,7 +1055,7 @@ export async function companyEstimate(
   companyId: string,
   id: string,
 ): Promise<{ estimate: Estimate; clientName: string; paymentMethods: PaymentMethod[] } | null> {
-  const book = await readCompanyBook(companyId)
+  const book = await readCompanyBook(companyId, { bypassCache: true })
   const estimate = book?.state.estimates.find((item) => item.id === id)
   if (!book || !estimate) return null
   const client = book.state.clients.find((item) => item.id === estimate.clientId)
@@ -1132,7 +1132,7 @@ export async function recordCompanyDeposit(
   estimateId: string,
   receipt: DepositReceipt,
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const book = await readCompanyBook(companyId)
+  const book = await readCompanyBook(companyId, { bypassCache: true })
   const existing = book?.state.estimates.find((item) => item.id === estimateId)
   if (!book || !existing) return { ok: false, reason: "This estimate is not on file." }
   const result = applyDeposit(book.state, estimateId, receipt)
@@ -1167,7 +1167,7 @@ export async function recordCompanyPendingSignature(
   estimateId: string,
   input: { lineIds: string[]; clientSignatureUrl: string },
 ): Promise<{ ok: true; estimate: Estimate } | { ok: false; reason: string }> {
-  const book = await readCompanyBook(companyId)
+  const book = await readCompanyBook(companyId, { bypassCache: true })
   const existing = book?.state.estimates.find((item) => item.id === estimateId)
   if (!book || !existing) return { ok: false, reason: "This estimate is not on file." }
   const signed = signPendingWork(existing, input)

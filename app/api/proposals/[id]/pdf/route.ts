@@ -14,7 +14,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!/^[a-z0-9-]{6,80}$/i.test(id)) {
     return Response.json({ ok: false, reason: "This proposal is not on file." }, { status: 404 })
   }
-  const book = await readCompanyBook(session.companyId)
+  const book = await readCompanyBook(session.companyId, { bypassCache: true })
   const estimate = book?.state.estimates.find((item) => item.id === id)
   if (!book || !estimate) return Response.json({ ok: false, reason: "This proposal is not on file." }, { status: 404 })
   const client = book.state.clients.find((item) => item.id === estimate.clientId)
