@@ -8,7 +8,7 @@ import type {
 
 export const REFINISH_SERVICE_LABELS: Record<RefinishServiceType, string> = {
   screen_recoat: "Screen & Recoat",
-  sand_refinish: "Sand & Refinish",
+  sand_refinish: "Sand & Refinish (Clear Coat)",
   sand_stain_clear: "Sand, Stain & Clear Coat",
 }
 

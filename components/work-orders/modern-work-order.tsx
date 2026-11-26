@@ -4,7 +4,7 @@ import { CompanyMark } from "@/components/brand/company-mark"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { paintingText, translatePainting } from "@/lib/field/terms"
 import { useScope } from "@/lib/data/store"
-import { FLOORING_MATERIAL_LABELS } from "@/lib/flooring/defaults"
+import { FLOORING_MATERIAL_LABELS, REFINISH_SERVICE_LABELS, REFINISH_SERVICE_DESCRIPTIONS } from "@/lib/flooring/defaults"
 import { DRYWALL_BOARD_LABELS, DRYWALL_BOARD_SIZE_SPECS, DRYWALL_FINISH_LEVEL_LABELS } from "@/lib/drywall/defaults"
 import { formatFeetInches } from "@/lib/estimate/dimensions"
 import { recomputeRoomGeometry } from "@/lib/flooring/calculate"
@@ -95,75 +95,142 @@ export function ModernWorkOrder({
 
       <div className="space-y-6">
         {/* Flooring Trade Scope */}
-        {estimate?.flooringScope?.rooms && estimate.flooringScope.rooms.length > 0 && (
-          <section className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/40 p-5" data-testid="crew-flooring-scope">
-            <div className="flex items-center justify-between border-b border-blue-200 pb-3">
-              <h4 className="text-base font-bold text-blue-900">
-                {spanish ? "Instrucciones de Pisos (Flooring)" : "Flooring Scope & Installation"}
-              </h4>
-              <span className="rounded-md bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">
-                {estimate.flooringScope.rooms.length} {spanish ? "habitaciones" : "room(s)"}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {estimate.flooringScope.rooms.map((rawRoom) => {
-                const room = recomputeRoomGeometry(rawRoom)
-                const matLabel = FLOORING_MATERIAL_LABELS[room.materialType] || room.materialName || "Flooring"
-                const dims = `${formatFeetInches(room.length)} × ${formatFeetInches(room.width)}`
-                const grossNeeded = Number((room.netSqFt * (1 + (room.wastePercent ?? 10) / 100)).toFixed(1))
-                const sqFtPerBox = room.sqFtPerBox > 0 ? room.sqFtPerBox : 20
-                const boxes = Math.ceil(grossNeeded / sqFtPerBox)
-
-                return (
-                  <div key={room.id} className="rounded-lg border border-slate-200 bg-white p-3.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 text-sm">{room.name}</span>
-                      <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                        {boxes} {spanish ? "cajas" : "boxes"}
+        {estimate?.flooringScope && (
+          estimate.flooringScope.jobType === "refinish" ? (
+            <section className="space-y-4 rounded-xl border border-amber-300 bg-amber-50/40 p-5" data-testid="crew-flooring-scope">
+              <div className="flex items-center justify-between border-b border-amber-200 pb-3">
+                <div>
+                  <h4 className="text-base font-bold text-amber-950">
+                    {spanish ? "Instrucciones de Acabado de Madera" : "Hardwood Refinishing Scope & Specifications"}
+                  </h4>
+                  <p className="text-xs text-amber-800 font-semibold mt-0.5">
+                    {REFINISH_SERVICE_LABELS[estimate.flooringScope.refinishService ?? "sand_stain_clear"] || "Hardwood Refinishing"}
+                  </p>
+                </div>
+                <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
+                  {estimate.flooringScope.refinishAreaSource === "manual"
+                    ? `${estimate.flooringScope.refinishManualSqFt || 0} sq ft`
+                    : `${estimate.flooringScope.rooms?.length || 0} ${spanish ? "habitaciones" : "room(s)"}`}
+                </span>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-white p-3.5 space-y-2 text-xs">
+                <p>
+                  <strong>{spanish ? "Servicio Seleccionado:" : "Selected Service:"}</strong>{" "}
+                  <span className="font-bold text-slate-900">
+                    {REFINISH_SERVICE_LABELS[estimate.flooringScope.refinishService ?? "sand_stain_clear"]}
+                  </span>
+                </p>
+                <p className="text-slate-600">
+                  {REFINISH_SERVICE_DESCRIPTIONS[estimate.flooringScope.refinishService ?? "sand_stain_clear"]}
+                </p>
+                <div className="text-slate-700 pt-2 border-t border-slate-100 space-y-1">
+                  <p>
+                    <strong>{spanish ? "Área a trabajar:" : "Working Area:"}</strong>{" "}
+                    {estimate.flooringScope.refinishAreaSource === "manual"
+                      ? `${estimate.flooringScope.refinishManualSqFt || 0} sq ft (direct measurement)`
+                      : `${estimate.flooringScope.rooms?.reduce((s, r) => s + (r.netSqFt || 0), 0) || 0} sq ft across ${estimate.flooringScope.rooms?.length || 0} rooms`}
+                  </p>
+                  {estimate.flooringScope.refinishAreaSource === "rooms" && estimate.flooringScope.rooms && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {estimate.flooringScope.rooms.map((rawRoom) => {
+                        const room = recomputeRoomGeometry(rawRoom)
+                        return (
+                          <div key={room.id} className="p-2 rounded border border-slate-100 bg-slate-50">
+                            <span className="font-semibold text-slate-800">{room.name}:</span> {room.netSqFt} sq ft
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {estimate.flooringScope.refinishStairs && estimate.flooringScope.refinishStairs.length > 0 && (
+                    <div className="pt-1">
+                      <strong className="text-amber-900">{spanish ? "Escaleras:" : "Stairs Scope:"}</strong>
+                      <span className="text-slate-600 ml-1">
+                        {estimate.flooringScope.refinishStairs.map((s) => `${s.name} (${s.quantity})`).join(", ")}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      {dims} · {room.netSqFt} sq ft net ({grossNeeded} gross sq ft)
-                    </p>
-                    <div className="text-xs text-slate-700 space-y-1 pt-1 border-t border-slate-100">
-                      <p>
-                        <strong>{spanish ? "Material:" : "Material:"}</strong> {matLabel}
-                      </p>
-                      <p>
-                        <strong>{spanish ? "Bajo-suelo (Underlayment):" : "Underlayment:"}</strong>{" "}
-                        {room.underlaymentType === "moisture_barrier"
-                          ? (spanish ? "Barrera contra humedad y sonido" : "Moisture & Sound Barrier")
-                          : room.underlaymentType === "foam_2mm"
-                            ? (spanish ? "Espuma estándar de 2mm" : "2mm Standard Foam")
-                            : room.underlaymentType === "cork"
-                              ? (spanish ? "Corcho acústico de 1/4\"" : "1/4\" Acoustic Cork")
-                              : room.underlaymentType === "cement_backer"
-                                ? (spanish ? "Panel de cemento de 1/2\"" : "1/2\" Cement Backer Board")
-                                : (spanish ? "Estándar" : "Standard")}
-                      </p>
-                      {room.subfloorPrepType !== "none" && (
-                        <p className="text-amber-800">
-                          <strong>{spanish ? "Prep de Subsuelo:" : "Subfloor Prep:"}</strong>{" "}
-                          {room.subfloorPrepType.replace(/_/g, " ")}
-                        </p>
-                      )}
-                      {(room.includeBaseboard || room.includeQuarterRound) && (
-                        <p className="text-slate-600">
-                          <strong>{spanish ? "Molduras:" : "Trim/Moulding:"}</strong>{" "}
-                          {[
-                            room.includeBaseboard && `${room.perimeterFt} LF ${spanish ? "Zócalo (Baseboard)" : "Baseboard"}`,
-                            room.includeQuarterRound && `${room.perimeterFt} LF ${spanish ? "Cuarto de bocel" : "Quarter Round"}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                      )}
+                  )}
+                  {estimate.flooringScope.refinishRepairs && estimate.flooringScope.refinishRepairs.length > 0 && (
+                    <div className="pt-1">
+                      <strong className="text-amber-900">{spanish ? "Reparaciones / Prep:" : "Repairs & Prep:"}</strong>
+                      <span className="text-slate-600 ml-1">
+                        {estimate.flooringScope.refinishRepairs.map((r) => `${r.name} (${r.quantity})`).join(", ")}
+                      </span>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : estimate.flooringScope.rooms && estimate.flooringScope.rooms.length > 0 ? (
+            <section className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/40 p-5" data-testid="crew-flooring-scope">
+              <div className="flex items-center justify-between border-b border-blue-200 pb-3">
+                <h4 className="text-base font-bold text-blue-900">
+                  {spanish ? "Instrucciones de Pisos (Flooring)" : "Flooring Scope & Installation"}
+                </h4>
+                <span className="rounded-md bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">
+                  {estimate.flooringScope.rooms.length} {spanish ? "habitaciones" : "room(s)"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {estimate.flooringScope.rooms.map((rawRoom) => {
+                  const room = recomputeRoomGeometry(rawRoom)
+                  const matLabel = FLOORING_MATERIAL_LABELS[room.materialType] || room.materialName || "Flooring"
+                  const dims = `${formatFeetInches(room.length)} × ${formatFeetInches(room.width)}`
+                  const grossNeeded = Number((room.netSqFt * (1 + (room.wastePercent ?? 10) / 100)).toFixed(1))
+                  const sqFtPerBox = room.sqFtPerBox > 0 ? room.sqFtPerBox : 20
+                  const boxes = Math.ceil(grossNeeded / sqFtPerBox)
+
+                  return (
+                    <div key={room.id} className="rounded-lg border border-slate-200 bg-white p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 text-sm">{room.name}</span>
+                        <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                          {boxes} {spanish ? "cajas" : "boxes"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {dims} · {room.netSqFt} sq ft net ({grossNeeded} gross sq ft)
+                      </p>
+                      <div className="text-xs text-slate-700 space-y-1 pt-1 border-t border-slate-100">
+                        <p>
+                          <strong>{spanish ? "Material:" : "Material:"}</strong> {matLabel}
+                        </p>
+                        <p>
+                          <strong>{spanish ? "Bajo-suelo (Underlayment):" : "Underlayment:"}</strong>{" "}
+                          {room.underlaymentType === "moisture_barrier"
+                            ? (spanish ? "Barrera contra humedad y sonido" : "Moisture & Sound Barrier")
+                            : room.underlaymentType === "foam_2mm"
+                              ? (spanish ? "Espuma estándar de 2mm" : "2mm Standard Foam")
+                              : room.underlaymentType === "cork"
+                                ? (spanish ? "Corcho acústico de 1/4\"" : "1/4\" Acoustic Cork")
+                                : room.underlaymentType === "cement_backer"
+                                  ? (spanish ? "Panel de cemento de 1/2\"" : "1/2\" Cement Backer Board")
+                                  : (spanish ? "Estándar" : "Standard")}
+                        </p>
+                        {room.subfloorPrepType !== "none" && (
+                          <p className="text-amber-800">
+                            <strong>{spanish ? "Prep de Subsuelo:" : "Subfloor Prep:"}</strong>{" "}
+                            {room.subfloorPrepType.replace(/_/g, " ")}
+                          </p>
+                        )}
+                        {(room.includeBaseboard || room.includeQuarterRound) && (
+                          <p className="text-slate-600">
+                            <strong>{spanish ? "Molduras:" : "Trim/Moulding:"}</strong>{" "}
+                            {[
+                              room.includeBaseboard && `${room.perimeterFt} LF ${spanish ? "Zócalo (Baseboard)" : "Baseboard"}`,
+                              room.includeQuarterRound && `${room.perimeterFt} LF ${spanish ? "Cuarto de bocel" : "Quarter Round"}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          ) : null
         )}
 
         {/* Drywall Trade Scope */}

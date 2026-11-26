@@ -48,6 +48,7 @@ import { officeLabel } from "@/lib/office/dashboard-copy"
 import { queueSpanish } from "@/lib/field/request-spanish"
 import { copyLineItem, insertAfter } from "@/lib/estimate/copy"
 import { DEFAULT_PRODUCTION_RATES, blankLineItem, paintUpgradeLine } from "@/lib/defaults"
+import { REFINISH_SERVICE_LABELS } from "@/lib/flooring/defaults"
 import { selectEstimateKind, setKindHourlyRate } from "@/lib/estimate/kinds"
 import { pendingAmount } from "@/lib/estimate/pending"
 import { withCurrentRates } from "@/lib/estimate/saved-templates"
@@ -547,13 +548,17 @@ export function Estimator({
                 href={`/flooring?id=${draft.id}`}
                 className={cn(
                   "rounded-lg font-bold px-2.5 py-1 transition-colors flex items-center gap-1",
-                  draft.flooringScope?.rooms?.length
+                  draft.flooringScope?.rooms?.length || draft.flooringScope?.jobType === "refinish"
                     ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
                     : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
                 )}
               >
                 <span>Flooring</span>
-                {draft.flooringScope?.rooms?.length ? (
+                {draft.flooringScope?.jobType === "refinish" ? (
+                  <span className="bg-amber-200 text-amber-900 rounded-full px-1.5 py-0.2 text-[10px]">
+                    {REFINISH_SERVICE_LABELS[draft.flooringScope.refinishService ?? "sand_stain_clear"]}
+                  </span>
+                ) : draft.flooringScope?.rooms?.length ? (
                   <span className="bg-blue-200 text-blue-900 rounded-full px-1.5 py-0.2 text-[10px]">
                     {draft.flooringScope.rooms.length} {draft.flooringScope.rooms.length === 1 ? "room" : "rooms"}
                   </span>

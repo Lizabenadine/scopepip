@@ -292,6 +292,11 @@ export function FlooringEstimator({
     const lead = stages.find((s) => s.slug === "lead") || stages[0]
     const effectiveClientId = selectedClientId || (client ? client.id : null)
 
+    const serviceName = scope.jobType === "refinish"
+      ? REFINISH_SERVICE_LABELS[scope.refinishService ?? "sand_stain_clear"]
+      : null
+    const effectiveTitle = projectTitle.trim() || (serviceName ? `Hardwood Refinishing - ${serviceName}` : "Flooring Installation")
+
     const saved = saveEstimate({
       id: currentEstimateId,
       clientId: effectiveClientId,
@@ -299,7 +304,7 @@ export function FlooringEstimator({
       clientEmail: customerEmail.trim() || client?.email || "",
       clientPhone: customerPhone.trim() || client?.phone || "",
       stageId: existing?.stageId || lead?.id || "",
-      title: projectTitle.trim() || "Flooring Installation",
+      title: effectiveTitle,
       jobAddress: jobAddress.trim() || existing?.jobAddress || "",
       trades: Array.from(new Set([...(existing?.trades || []), "flooring"])),
       primaryTrade: existing?.primaryTrade || "flooring",
@@ -307,12 +312,31 @@ export function FlooringEstimator({
       drywallScope: existing?.drywallScope,
       estimateKind: existing?.estimateKind || "interior",
       areas: existing?.areas || [],
-      lineItems: existing?.lineItems || [],
+      lineItems: existing?.lineItems?.length
+        ? existing.lineItems
+        : scope.jobType === "refinish" && serviceName
+        ? [
+            {
+              id: `li-refinish-${scope.refinishService ?? "sand_stain_clear"}`,
+              label: `Hardwood Refinishing - ${serviceName}`,
+              clientNote: REFINISH_SERVICE_DESCRIPTIONS[scope.refinishService ?? "sand_stain_clear"] || "",
+              crewNote: `Service: ${serviceName}. Rate: $${moneyExact(quote.refinishSellingRate ?? 0)}/sq ft.`,
+              mode: "custom",
+              hours: 0,
+              units: quote.netSqFt,
+              pricePerUnit: quote.refinishSellingRate ?? 0,
+              customPrice: quote.total,
+              workOrderHours: 0,
+              hiddenOnWorkOrder: false,
+              materials: [],
+            },
+          ]
+        : [],
       rates: existing?.rates || productionRates,
       settings: existing?.settings || estimateSettings,
       scheduledOn: existing?.scheduledOn ?? null,
-      notes: existing?.notes || "",
-      crewNote: existing?.crewNote || "",
+      notes: existing?.notes || (serviceName ? `Service: ${serviceName}. ${REFINISH_SERVICE_DESCRIPTIONS[scope.refinishService ?? "sand_stain_clear"]}` : ""),
+      crewNote: existing?.crewNote || (serviceName ? `Hardwood Refinishing: ${serviceName}` : ""),
       acceptedAt: existing?.acceptedAt ?? null,
       publicToken: existing?.publicToken || publicToken || "",
       clientStatus: targetStatus === "sent" ? "sent" : (existing?.clientStatus || "draft"),
@@ -596,54 +620,143 @@ export function FlooringEstimator({
       {/* Job Type Selector */}
       <section
         data-testid="flooring-job-type-selector"
-        className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs flex flex-col gap-4"
       >
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Flooring Project Scope</span>
-          <h2 className="text-base font-bold text-slate-900 mt-0.5">Select Job Type</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Choose installation of new flooring or refinishing of existing hardwood.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Flooring Project Scope</span>
+            <h2 className="text-base font-bold text-slate-900 mt-0.5">Select Job Type</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Choose installation of new flooring or refinishing of existing hardwood.</p>
+          </div>
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80">
+            <button
+              type="button"
+              data-testid="job-type-installation"
+              onClick={() => setScope((prev) => ({ ...prev, jobType: "installation" }))}
+              className={cn(
+                "flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all cursor-pointer",
+                (scope.jobType ?? "installation") === "installation"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Layers className="size-4 text-blue-600" />
+              <span>Install New Flooring</span>
+            </button>
+            <button
+              type="button"
+              data-testid="job-type-refinish"
+              onClick={() => {
+                setScope((prev) => ({
+                  ...prev,
+                  jobType: "refinish",
+                  refinishService: prev.refinishService || "sand_stain_clear",
+                  refinishAreaSource: prev.refinishAreaSource || "manual",
+                  refinishSellingRatePerSqFt:
+                    prev.refinishSellingRatePerSqFt !== undefined && prev.refinishSellingRatePerSqFt > 0
+                      ? prev.refinishSellingRatePerSqFt
+                      : 8,
+                }))
+                if (projectTitle === "Flooring Project" || projectTitle === "Flooring Installation") {
+                  setProjectTitle("Hardwood Refinishing")
+                }
+              }}
+              className={cn(
+                "flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all cursor-pointer",
+                scope.jobType === "refinish"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Sparkles className="size-4 text-amber-200" />
+              <span>Refinish Existing Hardwood</span>
+            </button>
+          </div>
         </div>
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80">
-          <button
-            type="button"
-            data-testid="job-type-installation"
-            onClick={() => setScope((prev) => ({ ...prev, jobType: "installation" }))}
-            className={cn(
-              "flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all",
-              (scope.jobType ?? "installation") === "installation"
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            )}
+
+        {/* Refinishing Service Selector directly below Select Job Type */}
+        {scope.jobType === "refinish" && (
+          <div
+            data-testid="refinishing-service-selector"
+            className="pt-4 border-t border-slate-100 flex flex-col gap-3"
           >
-            <Layers className="size-4 text-blue-600" />
-            <span>Install New Flooring</span>
-          </button>
-          <button
-            type="button"
-            data-testid="job-type-refinish"
-            onClick={() =>
-              setScope((prev) => ({
-                ...prev,
-                jobType: "refinish",
-                refinishService: prev.refinishService || "sand_stain_clear",
-                refinishAreaSource: prev.refinishAreaSource || "manual",
-                refinishSellingRatePerSqFt:
-                  prev.refinishSellingRatePerSqFt !== undefined && prev.refinishSellingRatePerSqFt > 0
-                    ? prev.refinishSellingRatePerSqFt
-                    : 8,
-              }))
-            }
-            className={cn(
-              "flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-xs font-bold transition-all",
-              scope.jobType === "refinish"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            )}
-          >
-            <Sparkles className="size-4 text-amber-200" />
-            <span>Refinish Existing Hardwood</span>
-          </button>
-        </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Hardwood Refinishing</span>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">Refinishing Service</h3>
+                <p className="text-xs text-slate-500">Choose the service level for existing hardwood floors.</p>
+              </div>
+              <span className="self-start sm:self-auto text-xs font-bold text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                {REFINISH_SERVICE_LABELS[scope.refinishService ?? "sand_stain_clear"]}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {(
+                [
+                  {
+                    id: "screen_recoat" as const,
+                    label: "Screen & Recoat",
+                    desc: "Light abrasion and fresh protective clear topcoat without sanding down to bare wood.",
+                    rate: 3.5,
+                  },
+                  {
+                    id: "sand_refinish" as const,
+                    label: "Sand & Refinish (Clear Coat)",
+                    desc: "Full sand to raw wood, seal, and apply durable clear protective finish (natural finish).",
+                    rate: 5.5,
+                  },
+                  {
+                    id: "sand_stain_clear" as const,
+                    label: "Sand, Stain & Clear Coat",
+                    desc: "Full sand to bare wood, apply custom color stain, and multi-coat protective finish.",
+                    rate: 8.0,
+                  },
+                ]
+              ).map((tier) => {
+                const isSelected = (scope.refinishService ?? "sand_stain_clear") === tier.id
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    data-testid={`service-${tier.id}`}
+                    onClick={() =>
+                      setScope((prev) => {
+                        const prevDefault = REFINISH_DEFAULT_RATES[prev.refinishService ?? "sand_stain_clear"]
+                        const currentRate = prev.refinishSellingRatePerSqFt
+                        const shouldUpdateRate =
+                          currentRate === undefined || currentRate === 0 || currentRate === prevDefault
+                        return {
+                          ...prev,
+                          refinishService: tier.id,
+                          refinishSellingRatePerSqFt: shouldUpdateRate ? tier.rate : currentRate,
+                        }
+                      })
+                    }
+                    className={cn(
+                      "flex flex-col text-left p-3.5 rounded-xl border transition-all relative cursor-pointer",
+                      isSelected
+                        ? "border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20 shadow-xs"
+                        : "border-slate-200 bg-white hover:bg-slate-50/70"
+                    )}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className={cn("text-xs font-bold", isSelected ? "text-amber-950" : "text-slate-800")}>
+                        {tier.label}
+                      </span>
+                      {isSelected && <CheckCircle2 className="size-4 text-amber-600 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] text-slate-500 line-clamp-3 mb-2 flex-1">{tier.desc}</p>
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                      <span className="text-slate-400">Default rate:</span>
+                      <span className="font-bold text-amber-800">${tier.rate.toFixed(2)} / sq ft</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Customer & Jobsite Details Card */}
@@ -833,7 +946,7 @@ export function FlooringEstimator({
                       },
                       {
                         id: "sand_refinish",
-                        label: "Sand & Refinish",
+                        label: "Sand & Refinish (Clear Coat)",
                         desc: "Full sand to raw wood, seal, and apply durable clear protective finish (natural finish).",
                         rate: 5.5,
                       },

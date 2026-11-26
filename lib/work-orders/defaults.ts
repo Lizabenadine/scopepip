@@ -1,4 +1,5 @@
 import type { ChecklistItem, Estimate, WorkOrder } from "../types.ts"
+import { REFINISH_SERVICE_LABELS } from "../flooring/defaults.ts"
 
 function item(id: string, label: string): ChecklistItem {
   return { id, label, done: false }
@@ -8,7 +9,40 @@ export function defaultChecklist(estimate: Estimate): ChecklistItem[] {
   const checklist: ChecklistItem[] = []
 
   // Flooring tasks
-  if (estimate.flooringScope?.rooms && estimate.flooringScope.rooms.length > 0) {
+  if (estimate.flooringScope?.jobType === "refinish") {
+    const serviceName =
+      REFINISH_SERVICE_LABELS[estimate.flooringScope.refinishService ?? "sand_stain_clear"] || "Hardwood Refinishing"
+    checklist.push(item(`${estimate.id}:floor-refinish-prep`, `Prep and protect jobsite for ${serviceName}`))
+    if (
+      estimate.flooringScope.refinishAreaSource === "rooms" &&
+      estimate.flooringScope.rooms &&
+      estimate.flooringScope.rooms.length > 0
+    ) {
+      for (const room of estimate.flooringScope.rooms) {
+        checklist.push(item(`${estimate.id}:floor-refinish-${room.id}`, `Execute ${serviceName} in ${room.name}`))
+      }
+    } else {
+      checklist.push(
+        item(`${estimate.id}:floor-refinish-main`, `Execute ${serviceName} (${estimate.flooringScope.refinishManualSqFt || 0} sq ft)`)
+      )
+    }
+    if (estimate.flooringScope.refinishStairs && estimate.flooringScope.refinishStairs.length > 0) {
+      checklist.push(
+        item(
+          `${estimate.id}:floor-refinish-stairs`,
+          `Refinish stairs: ${estimate.flooringScope.refinishStairs.map((s) => s.name).join(", ")}`
+        )
+      )
+    }
+    if (estimate.flooringScope.refinishRepairs && estimate.flooringScope.refinishRepairs.length > 0) {
+      checklist.push(
+        item(
+          `${estimate.id}:floor-refinish-repairs`,
+          `Floor repairs: ${estimate.flooringScope.refinishRepairs.map((r) => r.name).join(", ")}`
+        )
+      )
+    }
+  } else if (estimate.flooringScope?.rooms && estimate.flooringScope.rooms.length > 0) {
     checklist.push(item(`${estimate.id}:floor-prep`, "Inspect subfloor, check moisture level, and vacuum/level"))
     for (const room of estimate.flooringScope.rooms) {
       checklist.push(item(`${estimate.id}:floor-${room.id}`, `Install ${room.materialType || "flooring"} in ${room.name}`))
