@@ -826,6 +826,7 @@ export interface ScopeApi {
   columnLabels: Record<string, string>
   setEstimateTags: (id: string, tags: string[]) => void
   archiveEstimate: (id: string) => void
+  deletePipelineCard: (id: string) => void
   acceptEstimate: (id: string) => void
   ensureWorkOrder: (estimateId: string) => Promise<string>
   acceptProposal: (
@@ -1500,6 +1501,20 @@ function buildApi(snapshot: Snapshot): ScopeApi {
           item.id === id ? { ...item, archived: true, updatedAt: now } : item,
         ),
       })
+    },
+    deletePipelineCard: (id) => {
+      const latest = getSnapshot().state
+      if (!latest.estimates.some((item) => item.id === id)) return
+      const now = new Date().toISOString()
+      commitReconciled({
+        ...latest,
+        estimates: latest.estimates.map((item) =>
+          item.id === id
+            ? { ...item, salesCardDeleted: true, boardColumnId: null, updatedAt: now }
+            : item,
+        ),
+      })
+      void pumpBook()
     },
     scheduleSalesVisit: (id, date, time, address) => {
       const instant = visitStartInstant(date, time)

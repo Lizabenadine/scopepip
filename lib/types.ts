@@ -634,6 +634,7 @@ export interface Estimate {
   /** When set, the card sits in that office column instead of the stage column. */
   boardColumnId?: string | null
   archived?: boolean
+  salesCardDeleted?: boolean
   /** Day of the estimate visit, YYYY-MM-DD. */
   estimateVisitOn?: string | null
   /** UTC ISO instant of the visit start, built from the local day and HH:MM at booking. */

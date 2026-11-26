@@ -39,6 +39,7 @@ export function DealMenu({
     advanceSalesStage,
     archiveEstimate,
     deleteEstimate,
+    deletePipelineCard,
     assignWorkOrder,
     workOrders,
     markCustomerReply,
@@ -218,14 +219,14 @@ export function DealMenu({
                     Manage
                   </p>
                   <MenuButton
-                    testId={`delete-job-${estimate.id}`}
+                    testId={mode === "sales" ? `delete-card-${estimate.id}` : `delete-job-${estimate.id}`}
                     className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
                     onClick={() => {
                       setOpen(false)
                       setConfirmDelete(true)
                     }}
                   >
-                    Delete
+                    {mode === "sales" ? "Delete card" : "Delete"}
                   </MenuButton>
                 </div>
               </>
@@ -417,14 +418,14 @@ export function DealMenu({
                     Archive
                   </MenuButton>
                   <MenuButton
-                    testId={mode === "sales" ? `delete-lead-${estimate.id}` : `delete-job-${estimate.id}`}
+                    testId={mode === "sales" ? `delete-card-${estimate.id}` : `delete-job-${estimate.id}`}
                     className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
                     onClick={() => {
                       setOpen(false)
                       setConfirmDelete(true)
                     }}
                   >
-                    Delete
+                    {mode === "sales" ? "Delete card" : "Delete"}
                   </MenuButton>
                 </div>
               </>
@@ -555,9 +556,17 @@ export function DealMenu({
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent data-testid={`delete-dialog-${estimate.id}`}>
           <DialogHeader>
-            <DialogTitle>{mode === "sales" ? "Delete Lead" : "Delete Job"}</DialogTitle>
+            <DialogTitle>{mode === "sales" ? "Delete card" : "Delete Job"}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the {mode === "sales" ? "lead" : "job"} for <strong>{clientName}</strong>? This action cannot be undone and will delete only this {mode === "sales" ? "lead" : "job"}.
+              {mode === "sales" ? (
+                <>
+                  Are you sure you want to delete the card for <strong>{client?.name || clientName || "this lead"}</strong>? This will remove only this card from the sales pipeline. The client, linked estimates, proposals, and signed documents will remain intact.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete the job for <strong>{clientName}</strong>? This action cannot be undone and will delete only this job.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-row justify-end gap-2 pt-2">
@@ -574,11 +583,15 @@ export function DealMenu({
               variant="destructive"
               data-testid={`confirm-delete-${estimate.id}`}
               onClick={() => {
-                deleteEstimate(estimate.id)
+                if (mode === "sales") {
+                  deletePipelineCard(estimate.id)
+                } else {
+                  deleteEstimate(estimate.id)
+                }
                 setConfirmDelete(false)
               }}
             >
-              Delete
+              {mode === "sales" ? "Delete card" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

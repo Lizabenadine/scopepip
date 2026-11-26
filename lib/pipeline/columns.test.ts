@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import { recordStageChanges } from "../clients/activity.ts"
 import { createSeedState } from "../data/seed.ts"
 import { boardColumns, buildPipeline, OPEN_FILTERS } from "./board.ts"
+import { listProposals } from "../proposals/catalog.ts"
 import { leadScore } from "./score.ts"
 import { suggestFollowUp } from "./suggest.ts"
 
@@ -204,5 +205,76 @@ describe("custom columns", () => {
     const est = updatedState.estimates.find((e) => e.id === "est-maya")
     assert.equal(est?.title, "Updated Living Room & Hallway")
     assert.equal(est?.jobAddress, "789 Pine Ave, Portland, OR")
+  })
+
+  it("deletes only the selected card from sales pipeline even when two cards look identical, keeping client, estimate, proposals and signatures intact", () => {
+    const state = createSeedState()
+    const TODAY = "2026-10-02"
+
+    // Create a duplicate identical-looking estimate for Maya Chen
+    const maya1 = state.estimates.find((e) => e.id === "est-maya")!
+    const maya2 = {
+      ...maya1,
+      id: "est-maya-duplicate",
+      // Identical title, client, lines, price
+    }
+    state.estimates.push(maya2)
+
+    // Verify both appear in cold column
+    const beforePipeline = buildPipeline(state, "sales", OPEN_FILTERS, TODAY)
+    const coldBefore = beforePipeline.find((c) => c.id === "cold")!
+    const coldCardsBefore = coldBefore.cards.filter((c) => c.clientName === "Maya Chen")
+    assert.equal(coldCardsBefore.length, 2, "Two identical Maya Chen cards should exist on the board")
+    const countBefore = coldBefore.cards.length
+    const totalBefore = coldBefore.total
+    const singleCardTotal = coldCardsBefore[0]!.total
+
+    // Simulate deletePipelineCard targeting ONLY the first card (maya1.id)
+    const now = new Date().toISOString()
+    const updatedState = {
+      ...state,
+      estimates: state.estimates.map((e) =>
+        e.id === maya1.id
+          ? { ...e, salesCardDeleted: true, boardColumnId: null, updatedAt: now }
+          : e,
+      ),
+    }
+
+    // Build pipeline after deletion
+    const afterPipeline = buildPipeline(updatedState, "sales", OPEN_FILTERS, TODAY)
+    const coldAfter = afterPipeline.find((c) => c.id === "cold")!
+
+    // Verify only the selected card is removed
+    const maya1OnBoard = afterPipeline.flatMap((c) => c.cards).find((c) => c.estimateId === maya1.id)
+    assert.equal(maya1OnBoard, undefined, "Selected card est-maya must be removed from the pipeline")
+
+    // Verify the second identical-looking card is STILL on the pipeline
+    const maya2OnBoard = afterPipeline.flatMap((c) => c.cards).find((c) => c.estimateId === maya2.id)
+    assert.ok(maya2OnBoard, "Second identical card est-maya-duplicate must stay on the pipeline")
+    assert.equal(maya2OnBoard?.clientName, "Maya Chen")
+
+    // Verify column count and total updated immediately
+    assert.equal(coldAfter.cards.length, countBefore - 1, "Cold column count must decrease by 1")
+    assert.equal(
+      coldAfter.total,
+      Math.round((totalBefore - singleCardTotal) * 100) / 100,
+      "Cold column total must decrease by the deleted card amount",
+    )
+
+    // Verify client record remains completely intact
+    const client = updatedState.clients.find((c) => c.id === maya1.clientId)
+    assert.ok(client, "Client record must remain intact")
+    assert.equal(client?.name, "Maya Chen")
+
+    // Verify the underlying estimate remains in state.estimates
+    const est = updatedState.estimates.find((e) => e.id === maya1.id)
+    assert.ok(est, "Estimate record must remain intact in estimates")
+    assert.equal(est?.title, maya1.title)
+    assert.equal(est?.areas.length, maya1.areas.length)
+
+    // Verify proposals catalog still includes it
+    const proposals = listProposals(updatedState.estimates, updatedState.clients, { includeDrafts: true })
+    assert.ok(proposals.some((p: { id: string }) => p.id === maya1.id), "Proposal for maya1 must remain intact")
+    assert.ok(proposals.some((p: { id: string }) => p.id === maya2.id), "Proposal for maya2 must remain intact")
   })
 })
