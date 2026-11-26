@@ -1,4 +1,5 @@
 import type { ScopeState } from "../data/seed.ts"
+import type { TradeType } from "../types.ts"
 import { applyInboundLead } from "./apply.ts"
 
 export type LeadReach = "call" | "text"
@@ -12,6 +13,7 @@ export function createOfficeLead(
     address: string
     reachedBy: LeadReach
     service?: string
+    trades?: TradeType[]
     now?: string
     id?: string
   },
@@ -45,6 +47,7 @@ export function createOfficeLead(
           ...item,
           title: service || address || "New lead",
           notes: texted ? "Reached by text." : "Reached by phone call.",
+          ...(input.trades && input.trades.length > 0 ? { trades: input.trades } : {}),
         }
       : item,
   )

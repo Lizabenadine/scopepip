@@ -11,16 +11,20 @@ import { SmartFollowUpBanner } from "@/components/pipeline/smart-follow-up-banne
 import { Badge } from "@/components/ui/badge"
 import { appointmentLabel } from "@/lib/appointments/visit"
 import { useClientNow } from "@/lib/browser/client-env"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { SCOPE_VERSION } from "@/lib/data/seed"
 import { useScope } from "@/lib/data/store"
 import { describeFollowUp, visitDayOf } from "@/lib/follow-ups/schedule"
 import { money } from "@/lib/format"
 import { latestInbound } from "@/lib/messages/thread"
 import {
+  cardTradesOf,
   LEAD_SOURCE_LABELS,
   nextSalesStage,
   SALES_COLUMNS,
   salesStageOf,
+  TRADE_LABEL_KEYS,
   type PipelineCardModel,
 } from "@/lib/pipeline/board"
 import { latestProposalOpen } from "@/lib/proposals/opens"
@@ -48,6 +52,9 @@ export function SalesDealCard({
 }: SalesDealCardProps) {
   const router = useRouter()
   const scope = useScope()
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
+  const trades = cardTradesOf(estimate)
   const now = useClientNow() ?? 0
   const limited = scope.session?.role === "project_manager"
 
@@ -213,6 +220,31 @@ export function SalesDealCard({
           <p className="truncate text-sm text-muted-foreground mt-0.5">
             {estimate.title?.trim() || "Painting project"}
           </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5" data-testid={`card-trades-${estimate.id}`}>
+            {trades.length === 0 ? (
+              <span
+                data-testid="trade-badge-unassigned"
+                className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500"
+              >
+                {say("Unassigned")}
+              </span>
+            ) : (
+              trades.map((trade) => (
+                <span
+                  key={trade}
+                  data-testid={`trade-badge-${trade}`}
+                  className={cn(
+                    "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium",
+                    trade === "painting" && "border-sky-200 bg-sky-50 text-sky-700",
+                    trade === "flooring" && "border-amber-200 bg-amber-50 text-amber-700",
+                    trade === "drywall" && "border-emerald-200 bg-emerald-700/10 text-emerald-800",
+                  )}
+                >
+                  {say(TRADE_LABEL_KEYS[trade])}
+                </span>
+              ))
+            )}
+          </div>
         </div>
 
         <div className="shrink-0 text-right">

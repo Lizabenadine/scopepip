@@ -33,6 +33,7 @@ import {
   type BoardFilters,
   type PipelineCardModel,
   type PipelineColumnModel,
+  type TradeFilter,
 } from "@/lib/pipeline/board"
 import { LEAD_SOURCES, type Estimate } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -437,6 +438,21 @@ export function SalesPipelineBoard() {
         </FilterSelect>
 
         <FilterSelect
+          label={say("Trade")}
+          value={filters.trade ?? "all"}
+          dataTestId="filter-trade"
+          onChange={(trade) =>
+            setFilters((current) => ({ ...current, trade: trade as TradeFilter }))
+          }
+        >
+          <option value="all">{say("All trades")}</option>
+          <option value="painting">{say("Painting")}</option>
+          <option value="flooring">{say("Flooring")}</option>
+          <option value="drywall">{say("Drywall")}</option>
+          <option value="unassigned">{say("Unassigned")}</option>
+        </FilterSelect>
+
+        <FilterSelect
           label={say("Date Range")}
           value={filters.dateRange}
           onChange={(dateRange) =>
@@ -768,11 +784,13 @@ export function SalesPipelineBoard() {
 function FilterSelect({
   label,
   value,
+  dataTestId,
   onChange,
   children,
 }: {
   label: string
   value: string
+  dataTestId?: string
   onChange: (value: string) => void
   children: ReactNode
 }) {
@@ -781,6 +799,7 @@ function FilterSelect({
       <span className="shrink-0">{label}</span>
       <select
         aria-label={label}
+        data-testid={dataTestId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-800 shadow-xs hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-primary sm:h-9"

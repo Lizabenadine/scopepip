@@ -15,7 +15,9 @@ import { Label } from "@/components/ui/label"
 import { useFieldLanguage } from "@/hooks/use-field-language"
 import { officeLabel } from "@/lib/office/dashboard-copy"
 import { useScope } from "@/lib/data/store"
+import { TRADE_LABEL_KEYS } from "@/lib/pipeline/board"
 import type { LeadReach } from "@/lib/leads/office-lead"
+import type { TradeType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 export function NewLeadButton({
@@ -51,6 +53,7 @@ export function NewLeadDialog({
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
   const [service, setService] = useState("")
+  const [trades, setTrades] = useState<TradeType[]>([])
   const [reachedBy, setReachedBy] = useState<LeadReach>("call")
   const [error, setError] = useState<string | null>(null)
 
@@ -61,8 +64,22 @@ export function NewLeadDialog({
     "Commercial Painting",
   ]
 
+  const toggleTrade = (t: TradeType) => {
+    setTrades((current) =>
+      current.includes(t) ? current.filter((item) => item !== t) : [...current, t],
+    )
+  }
+
   const save = () => {
-    const saved = createLead({ name, phone, email, address, reachedBy, service })
+    const saved = createLead({
+      name,
+      phone,
+      email,
+      address,
+      reachedBy,
+      service,
+      trades: trades.length > 0 ? trades : undefined,
+    })
     if (!saved.ok) {
       setError(saved.reason)
       return
@@ -72,6 +89,7 @@ export function NewLeadDialog({
     setEmail("")
     setAddress("")
     setService("")
+    setTrades([])
     setReachedBy("call")
     setError(null)
     onOpenChange(false)
@@ -125,6 +143,30 @@ export function NewLeadDialog({
                   {s}
                 </button>
               ))}
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>{say("Trades")}</Label>
+            <div className="flex flex-wrap gap-2" data-testid="new-lead-trades">
+              {(["painting", "flooring", "drywall"] as const).map((t) => {
+                const isSelected = trades.includes(t)
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    data-testid={`new-lead-trade-${t}`}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer",
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                    )}
+                    onClick={() => toggleTrade(t)}
+                  >
+                    {isSelected ? "✓ " : ""}{say(TRADE_LABEL_KEYS[t])}
+                  </button>
+                )
+              })}
             </div>
           </div>
           <div className="grid gap-1">

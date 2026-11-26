@@ -62,6 +62,7 @@ import type {
   LineItemInput,
   SitePhoto,
   TextMessage,
+  TradeType,
   WorkOrder,
 } from "@/lib/types"
 
@@ -847,6 +848,7 @@ export interface ScopeApi {
       phone?: string
       email?: string
       address?: string
+      trades?: TradeType[]
     },
   ) => void
   deleteClient: (id: string) => { ok: true } | { ok: false; reason: string }
@@ -876,6 +878,7 @@ export interface ScopeApi {
     address: string
     reachedBy: LeadReach
     service?: string
+    trades?: TradeType[]
   }) => { ok: true; estimateId: string } | { ok: false; reason: string }
   importCsvLeads: (leads: ParsedCsvLead[]) => {
     ok: boolean
@@ -1589,6 +1592,7 @@ function buildApi(snapshot: Snapshot): ScopeApi {
         ...estimate,
         ...(data.title !== undefined ? { title: data.title.trim() } : {}),
         ...(data.address !== undefined ? { jobAddress: data.address.trim() } : {}),
+        ...(data.trades !== undefined ? { trades: data.trades } : {}),
         updatedAt: now,
       }
 

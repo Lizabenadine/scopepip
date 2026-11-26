@@ -6,6 +6,7 @@ import {
   type JobPipelineStage,
   type LeadSource,
   type SalesStage,
+  type TradeType,
   type WorkOrder,
 } from "../types.ts"
 
@@ -56,16 +57,36 @@ export const DATE_RANGES = [
 
 export type DateRange = (typeof DATE_RANGES)[number]["id"]
 
+export type TradeFilter = TradeType | "all" | "unassigned"
+
+export const TRADE_LABEL_KEYS: Record<TradeType, string> = {
+  painting: "Painting",
+  flooring: "Flooring",
+  drywall: "Drywall",
+}
+
+export function cardTradesOf(estimate: Estimate): TradeType[] {
+  if (Array.isArray(estimate.trades) && estimate.trades.length > 0) {
+    return estimate.trades
+  }
+  if (estimate.primaryTrade) {
+    return [estimate.primaryTrade]
+  }
+  return []
+}
+
 export interface BoardFilters {
   leadSource: LeadSource | "all"
   dateRange: DateRange
   salesperson: string
+  trade?: TradeFilter
 }
 
 export const OPEN_FILTERS: BoardFilters = {
   leadSource: "all",
   dateRange: "all",
   salesperson: "all",
+  trade: "all",
 }
 
 export interface PipelineCardModel {
@@ -176,6 +197,14 @@ export function inDateRange(createdAt: string, range: DateRange, today: string):
 export function matchesBoardFilters(estimate: Estimate, filters: BoardFilters, today: string): boolean {
   if (filters.leadSource !== "all" && estimate.leadSource !== filters.leadSource) return false
   if (filters.salesperson !== "all" && (estimate.salesperson || "") !== filters.salesperson) return false
+  if (filters.trade && filters.trade !== "all") {
+    const trades = cardTradesOf(estimate)
+    if (filters.trade === "unassigned") {
+      if (trades.length > 0) return false
+    } else {
+      if (!trades.includes(filters.trade)) return false
+    }
+  }
   return inDateRange(estimate.createdAt, filters.dateRange, today)
 }
 

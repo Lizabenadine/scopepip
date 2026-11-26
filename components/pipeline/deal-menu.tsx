@@ -15,10 +15,20 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useFieldLanguage } from "@/hooks/use-field-language"
+import { officeLabel } from "@/lib/office/dashboard-copy"
 import { localVisitClock } from "@/lib/appointments/visit"
 import { useScope } from "@/lib/data/store"
-import { boardColumns, jobStageOf, nextSalesStage, SALES_COLUMNS, salesStageOf } from "@/lib/pipeline/board"
-import type { Estimate } from "@/lib/types"
+import {
+  boardColumns,
+  cardTradesOf,
+  jobStageOf,
+  nextSalesStage,
+  SALES_COLUMNS,
+  salesStageOf,
+  TRADE_LABEL_KEYS,
+} from "@/lib/pipeline/board"
+import type { Estimate, TradeType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 export function DealMenu({
@@ -57,6 +67,8 @@ export function DealMenu({
   const [appointments, setAppointments] = useState(false)
   const [schedule, setSchedule] = useState<"visit" | "job" | null>(null)
   const [noteOpen, setNoteOpen] = useState(false)
+  const { language } = useFieldLanguage()
+  const say = (text: string) => officeLabel(text, language)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editName, setEditName] = useState("")
@@ -64,6 +76,7 @@ export function DealMenu({
   const [editPhone, setEditPhone] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editAddress, setEditAddress] = useState("")
+  const [editTrades, setEditTrades] = useState<TradeType[]>([])
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [note, setNote] = useState("")
   const [point, setPoint] = useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null)
@@ -95,6 +108,7 @@ export function DealMenu({
     setEditPhone(client?.phone ?? "")
     setEditEmail(client?.email ?? "")
     setEditAddress(estimate.jobAddress || client?.address || "")
+    setEditTrades(cardTradesOf(estimate))
     setEditOpen(true)
   }
 
@@ -105,6 +119,7 @@ export function DealMenu({
       phone: editPhone,
       email: editEmail,
       address: editAddress,
+      trades: editTrades,
     })
     setEditOpen(false)
   }
@@ -499,6 +514,34 @@ export function DealMenu({
                 onChange={(e) => setEditAddress(e.target.value)}
                 placeholder="Street address, City, ST"
               />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{say("Trades")}</Label>
+              <div className="flex flex-wrap gap-2" data-testid={`edit-trades-${estimate.id}`}>
+                {(["painting", "flooring", "drywall"] as const).map((t) => {
+                  const isSelected = editTrades.includes(t)
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      data-testid={`edit-trade-${t}-${estimate.id}`}
+                      className={cn(
+                        "rounded-lg px-3 py-1.5 text-xs font-semibold border transition-all cursor-pointer",
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      )}
+                      onClick={() => {
+                        setEditTrades((current) =>
+                          current.includes(t) ? current.filter((item) => item !== t) : [...current, t],
+                        )
+                      }}
+                    >
+                      {isSelected ? "✓ " : ""}{say(TRADE_LABEL_KEYS[t])}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
           <DialogFooter className="flex flex-row justify-end gap-2 pt-2">

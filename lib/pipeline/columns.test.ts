@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { recordStageChanges } from "../clients/activity.ts"
 import { createSeedState } from "../data/seed.ts"
-import { boardColumns, buildPipeline, OPEN_FILTERS } from "./board.ts"
+import { boardColumns, buildPipeline, cardTradesOf, OPEN_FILTERS } from "./board.ts"
 import { listProposals } from "../proposals/catalog.ts"
 import { leadScore } from "./score.ts"
 import { suggestFollowUp } from "./suggest.ts"
@@ -276,5 +276,87 @@ describe("custom columns", () => {
     const proposals = listProposals(updatedState.estimates, updatedState.clients, { includeDrafts: true })
     assert.ok(proposals.some((p: { id: string }) => p.id === maya1.id), "Proposal for maya1 must remain intact")
     assert.ok(proposals.some((p: { id: string }) => p.id === maya2.id), "Proposal for maya2 must remain intact")
+  })
+
+  it("filters sales pipeline by trade, shows multi-trade proposal on one card counting once under All trades, and updates column counts and totals", () => {
+    const state = createSeedState()
+    const TODAY = "2026-10-02"
+
+    // Setup:
+    // 1. Single-trade Painting lead: est-maya -> trades: ["painting"]
+    // 2. Multi-trade Painting + Drywall lead: est-sam -> trades: ["painting", "drywall"]
+    // 3. Single-trade Flooring lead: est-wade -> trades: ["flooring"]
+    // 4. Unassigned lead (no trades): est-cole -> trades: undefined, primaryTrade: undefined
+    const maya = state.estimates.find((e) => e.id === "est-maya")!
+    maya.trades = ["painting"]
+
+    const sam = state.estimates.find((e) => e.id === "est-sam")!
+    sam.trades = ["painting", "drywall"]
+
+    const wade = state.estimates.find((e) => e.id === "est-wade")!
+    wade.trades = ["flooring"]
+
+    const cole = state.estimates.find((e) => e.id === "est-cole")!
+    delete cole.trades
+    delete cole.primaryTrade
+
+    // Helper checks
+    assert.deepEqual(cardTradesOf(maya), ["painting"])
+    assert.deepEqual(cardTradesOf(sam), ["painting", "drywall"])
+    assert.deepEqual(cardTradesOf(wade), ["flooring"])
+    assert.deepEqual(cardTradesOf(cole), [])
+
+    // 1. "All trades": all cards visible, multi-trade card appears once and counts once
+    const allPipeline = buildPipeline(state, "sales", { ...OPEN_FILTERS, trade: "all" }, TODAY)
+    const allCards = allPipeline.flatMap((col) => col.cards)
+    const samAllCount = allCards.filter((c) => c.estimateId === "est-sam").length
+    assert.equal(samAllCount, 1, "Multi-trade card est-sam must appear and count exactly once under All trades")
+
+    const coldAll = allPipeline.find((col) => col.id === "cold")!
+    assert.equal(coldAll.cards.length, 2, "Cold column should contain both maya and sam")
+    const coldAllTotal = coldAll.total
+
+    // 2. "Painting" filter: maya (painting) and sam (painting + drywall) must appear
+    const paintingPipeline = buildPipeline(state, "sales", { ...OPEN_FILTERS, trade: "painting" }, TODAY)
+    const paintingCards = paintingPipeline.flatMap((col) => col.cards)
+    assert.ok(paintingCards.some((c) => c.estimateId === "est-maya"), "Maya must appear in Painting filter")
+    assert.ok(paintingCards.some((c) => c.estimateId === "est-sam"), "Sam (Painting+Drywall) must appear in Painting filter")
+    assert.equal(paintingCards.some((c) => c.estimateId === "est-wade"), false, "Wade (Flooring) must NOT appear in Painting filter")
+    assert.equal(paintingCards.some((c) => c.estimateId === "est-cole"), false, "Cole (Unassigned) must NOT appear in Painting filter")
+
+    // 3. "Drywall" filter: sam (painting + drywall) must appear, maya and wade must not
+    const drywallPipeline = buildPipeline(state, "sales", { ...OPEN_FILTERS, trade: "drywall" }, TODAY)
+    const drywallCards = drywallPipeline.flatMap((col) => col.cards)
+    assert.ok(drywallCards.some((c) => c.estimateId === "est-sam"), "Sam must appear in Drywall filter")
+    assert.equal(drywallCards.some((c) => c.estimateId === "est-maya"), false, "Maya must NOT appear in Drywall filter")
+    assert.equal(drywallCards.some((c) => c.estimateId === "est-wade"), false, "Wade must NOT appear in Drywall filter")
+
+    // 4. "Flooring" filter: wade must appear in warm column
+    const flooringPipeline = buildPipeline(state, "sales", { ...OPEN_FILTERS, trade: "flooring" }, TODAY)
+    const flooringCards = flooringPipeline.flatMap((col) => col.cards)
+    assert.ok(flooringCards.some((c) => c.estimateId === "est-wade"), "Wade must appear in Flooring filter")
+    assert.equal(flooringCards.some((c) => c.estimateId === "est-maya"), false, "Maya must NOT appear in Flooring filter")
+
+    // 5. "Unassigned" filter: cole must appear in estimate_scheduled, others must not
+    const unassignedPipeline = buildPipeline(state, "sales", { ...OPEN_FILTERS, trade: "unassigned" }, TODAY)
+    const unassignedCards = unassignedPipeline.flatMap((col) => col.cards)
+    assert.ok(unassignedCards.some((c) => c.estimateId === "est-cole"), "Cole must appear in Unassigned filter")
+    assert.equal(unassignedCards.some((c) => c.estimateId === "est-maya"), false, "Maya must NOT appear in Unassigned filter")
+    assert.equal(unassignedCards.some((c) => c.estimateId === "est-sam"), false, "Sam must NOT appear in Unassigned filter")
+
+    // 6. Verify column counts and totals reflect currently visible cards
+    const coldPainting = paintingPipeline.find((col) => col.id === "cold")!
+    assert.equal(coldPainting.cards.length, 2)
+    assert.equal(coldPainting.total, coldAllTotal)
+
+    const coldDrywall = drywallPipeline.find((col) => col.id === "cold")!
+    assert.equal(coldDrywall.cards.length, 1)
+    const samCard = coldDrywall.cards[0]!
+    assert.equal(samCard.estimateId, "est-sam")
+    assert.equal(coldDrywall.total, samCard.total)
+
+    const coldFlooring = flooringPipeline.find((col) => col.id === "cold")!
+    assert.equal(coldFlooring.cards.length, 0)
+    assert.equal(coldFlooring.total, 0)
   })
 })

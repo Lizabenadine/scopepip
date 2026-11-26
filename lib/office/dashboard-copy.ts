@@ -119,6 +119,13 @@ const LABELS: Record<string, string> = {
   Language: "Idioma",
   "Copy Spanish link": "Copiar enlace en español",
   "Messages in": "Mensajes en",
+  Trade: "Oficio",
+  Trades: "Oficios",
+  "All trades": "Todos los oficios",
+  Painting: "Pintura",
+  Flooring: "Pisos",
+  Drywall: "Paneles de yeso",
+  Unassigned: "Sin asignar",
 }
 
 const STAGES: Record<StageSlug, string> = {
