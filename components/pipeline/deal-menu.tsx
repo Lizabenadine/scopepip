@@ -136,8 +136,8 @@ export function DealMenu({
           const rect = event.currentTarget.getBoundingClientRect()
           const spaceBelow = window.innerHeight - rect.bottom
           const spaceAbove = rect.top
-          const openUpward = spaceBelow < 420 && spaceAbove > spaceBelow
-          const maxHeight = Math.max(180, Math.min(520, (openUpward ? spaceAbove : spaceBelow) - 16))
+          const openUpward = spaceBelow < 280 && spaceAbove > spaceBelow
+          const maxHeight = Math.max(240, Math.min(540, (openUpward ? spaceAbove : spaceBelow) - 16))
           if (openUpward) {
             setPoint({
               bottom: window.innerHeight - rect.top + 6,
@@ -190,6 +190,24 @@ export function DealMenu({
 
                 <div className="px-2 py-1">
                   <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    Manage
+                  </p>
+                  <MenuButton
+                    testId={mode === "sales" ? `delete-card-${estimate.id}` : `delete-job-${estimate.id}`}
+                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
+                    onClick={() => {
+                      setOpen(false)
+                      setConfirmDelete(true)
+                    }}
+                  >
+                    {mode === "sales" ? "Delete card" : "Delete"}
+                  </MenuButton>
+                </div>
+
+                <div className="my-1 border-t border-border/60" />
+
+                <div className="px-2 py-1">
+                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Schedule & Notes
                   </p>
                   <MenuButton
@@ -209,24 +227,6 @@ export function DealMenu({
                     }}
                   >
                     Notes
-                  </MenuButton>
-                </div>
-
-                <div className="my-1 border-t border-border/60" />
-
-                <div className="px-2 py-1">
-                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    Manage
-                  </p>
-                  <MenuButton
-                    testId={mode === "sales" ? `delete-card-${estimate.id}` : `delete-job-${estimate.id}`}
-                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
-                    onClick={() => {
-                      setOpen(false)
-                      setConfirmDelete(true)
-                    }}
-                  >
-                    {mode === "sales" ? "Delete card" : "Delete"}
                   </MenuButton>
                 </div>
               </>
@@ -264,7 +264,34 @@ export function DealMenu({
 
                 <div className="my-1 border-t border-border/60" />
 
-                {/* Section 2: Pipeline & Stage */}
+                {/* Section 2: Manage (visible without scrolling) */}
+                <div className="px-2 py-1">
+                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    Manage
+                  </p>
+                  <MenuButton
+                    onClick={() => {
+                      setOpen(false)
+                      archiveEstimate(estimate.id)
+                    }}
+                  >
+                    Archive
+                  </MenuButton>
+                  <MenuButton
+                    testId={mode === "sales" ? `delete-card-${estimate.id}` : `delete-job-${estimate.id}`}
+                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
+                    onClick={() => {
+                      setOpen(false)
+                      setConfirmDelete(true)
+                    }}
+                  >
+                    {mode === "sales" ? "Delete card" : "Delete"}
+                  </MenuButton>
+                </div>
+
+                <div className="my-1 border-t border-border/60" />
+
+                {/* Section 3: Pipeline & Stage */}
                 <div className="px-2 py-1">
                   <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Pipeline
@@ -366,7 +393,7 @@ export function DealMenu({
 
                 <div className="my-1 border-t border-border/60" />
 
-                {/* Section 3: Communication & Notes */}
+                {/* Section 4: Communication & Notes */}
                 <div className="px-2 py-1">
                   <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Communication & Notes
@@ -399,33 +426,6 @@ export function DealMenu({
                     }}
                   >
                     Notes
-                  </MenuButton>
-                </div>
-
-                <div className="my-1 border-t border-border/60" />
-
-                {/* Section 4: Management & Danger Zone */}
-                <div className="px-2 py-1">
-                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    Manage
-                  </p>
-                  <MenuButton
-                    onClick={() => {
-                      setOpen(false)
-                      archiveEstimate(estimate.id)
-                    }}
-                  >
-                    Archive
-                  </MenuButton>
-                  <MenuButton
-                    testId={mode === "sales" ? `delete-card-${estimate.id}` : `delete-job-${estimate.id}`}
-                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30 font-medium"
-                    onClick={() => {
-                      setOpen(false)
-                      setConfirmDelete(true)
-                    }}
-                  >
-                    {mode === "sales" ? "Delete card" : "Delete"}
                   </MenuButton>
                 </div>
               </>
