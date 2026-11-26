@@ -178,9 +178,25 @@ export default function AffiliatesPage() {
               Earn <span className="text-cyan-400">25% Recurring</span> Commission Every Month
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-base text-slate-300 sm:text-lg">
-              Refer painting contractors to Scopepipe. Earn <strong>$12.25 every single month</strong> for every active
-              paying subscriber you bring—for as long as they stay subscribed.
+              Refer painting, flooring, and drywall contractors to Scopepipe. Earn 25% on eligible subscription payments
+              for as long as your referrals stay subscribed.
             </p>
+
+            {/* Plans and earnings per paying referral */}
+            <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <div className="rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2.5 text-center text-xs text-slate-300 shadow-sm sm:text-sm">
+                <span className="font-semibold text-white">Starter</span> · <span>$29/month plan</span> ·{" "}
+                <span className="font-bold text-cyan-400">Earn $7.25/month</span>
+              </div>
+              <div className="rounded-xl border border-cyan-500/30 bg-[#0F172A] px-4 py-2.5 text-center text-xs text-slate-300 shadow-sm ring-1 ring-cyan-500/20 sm:text-sm">
+                <span className="font-semibold text-cyan-300">Pro</span> · <span>$49/month plan</span> ·{" "}
+                <span className="font-bold text-cyan-400">Earn $12.25/month</span>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2.5 text-center text-xs text-slate-300 shadow-sm sm:text-sm">
+                <span className="font-semibold text-white">Business</span> · <span>$79/month plan</span> ·{" "}
+                <span className="font-bold text-cyan-400">Earn $19.75/month</span>
+              </div>
+            </div>
           </div>
 
           {/* Value Props Grid */}
@@ -191,7 +207,7 @@ export default function AffiliatesPage() {
               </div>
               <h3 className="mt-3 text-base font-semibold text-white">25% Lifetime Recurring</h3>
               <p className="mt-1 text-xs text-slate-400">
-                Receive $12.25/mo per customer on our standard $49/mo plan ($147/year per contractor).
+                Earn 25% on eligible payments across all three plans.
               </p>
             </div>
 
