@@ -60,6 +60,7 @@ export interface FlooringRoom {
   name: string
   length: FeetInches
   width: FeetInches
+  scanGeometry?: { areaSqFt: number; perimeterFt: number }
   grossSqFt: number
   deductions: FlooringDeduction[]
   additionsSqFt: number

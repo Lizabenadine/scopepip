@@ -38,6 +38,8 @@ import {
 } from "lucide-react"
 import { confirmEstimateSavedOnServer, flushBook, useScope } from "@/lib/data/store"
 import { runSendEstimateWorkflow } from "@/lib/proposals/send-workflow"
+import { RoomScanImport } from "@/components/flooring/room-scan-import"
+import { scanFeetInches, type FlooringRoomScan } from "@/lib/flooring/room-scan"
 import { ClientField } from "@/components/estimator/client-field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -207,6 +209,7 @@ export function FlooringEstimator({
       rooms: prev.rooms.map((r) => {
         if (r.id !== roomId) return r
         const updated = { ...r, ...patch }
+        if (patch.length || patch.width) delete updated.scanGeometry
         return recomputeRoomGeometry(updated)
       }),
     }))
@@ -219,6 +222,23 @@ export function FlooringEstimator({
       rooms: [...prev.rooms, newRoom],
     }))
     setExpandedRoomId(newRoom.id)
+  }
+
+  function importRoomScan(scan: FlooringRoomScan, roomId: string) {
+    const existingRoom = scope.rooms.find((room) => room.id === roomId)
+    if (roomId && !existingRoom) return
+    const room = recomputeRoomGeometry({
+      ...(existingRoom ?? createBlankFlooringRoom(scan.name || `Room ${scope.rooms.length + 1}`)),
+      length: scanFeetInches(scan.lengthFt),
+      width: scanFeetInches(scan.widthFt),
+      scanGeometry: { areaSqFt: scan.areaSqFt, perimeterFt: scan.perimeterFt },
+    })
+    setScope((prev) => ({
+      ...prev,
+      refinishAreaSource: prev.jobType === "refinish" ? "rooms" : prev.refinishAreaSource,
+      rooms: roomId ? prev.rooms.map((item) => item.id === roomId ? room : item) : [...prev.rooms, room],
+    }))
+    setExpandedRoomId(room.id)
   }
 
   function duplicateRoom(room: FlooringRoom) {
@@ -1092,14 +1112,17 @@ export function FlooringEstimator({
                           Total net square footage is calculated from the rooms below ({quote.netSqFt.toLocaleString()} sq ft).
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={addRoom}
-                        data-testid="add-refinish-room"
-                        className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors"
-                      >
-                        <Plus className="size-3.5" /> Add Room
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <RoomScanImport rooms={scope.rooms} onImport={importRoomScan} />
+                        <button
+                          type="button"
+                          onClick={addRoom}
+                          data-testid="add-refinish-room"
+                          className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors"
+                        >
+                          <Plus className="size-3.5" /> Add Room
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-2.5">
@@ -1110,6 +1133,7 @@ export function FlooringEstimator({
                             key={room.id}
                             className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col gap-3"
                           >
+                            {room.scanGeometry && <p className="text-xs font-semibold text-blue-700">Scanned room</p>}
                             <div className="flex items-center justify-between">
                               <input
                                 type="text"
@@ -1476,15 +1500,18 @@ export function FlooringEstimator({
                     <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
                       Rooms &amp; Measurement Areas
                     </h2>
-                <button
-                  type="button"
-                  onClick={addRoom}
-                  data-testid="add-flooring-room"
-                  className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors"
-                >
-                  <Plus className="size-3.5" /> Add Room
-                </button>
-              </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <RoomScanImport rooms={scope.rooms} onImport={importRoomScan} />
+                      <button
+                        type="button"
+                        onClick={addRoom}
+                        data-testid="add-flooring-room"
+                        className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors"
+                      >
+                        <Plus className="size-3.5" /> Add Room
+                      </button>
+                    </div>
+                  </div>
 
               {scope.rooms.map((room, index) => {
                 const isExpanded = expandedRoomId === room.id
@@ -1506,7 +1533,7 @@ export function FlooringEstimator({
                         <div>
                           <p className="font-bold text-slate-900 text-sm">{room.name}</p>
                           <p className="text-xs text-slate-500">
-                            {formatFeetInches(room.length)} × {formatFeetInches(room.width)} ·{" "}
+                            {room.scanGeometry ? "Scanned room · " : <>{formatFeetInches(room.length)} × {formatFeetInches(room.width)} ·{" "}</>}
                             <span className="font-semibold text-slate-800">{room.netSqFt} sq ft net</span> ·{" "}
                             <span className="text-blue-700 font-medium">
                               {FLOORING_MATERIAL_LABELS[room.materialType]}

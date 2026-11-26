@@ -9,20 +9,20 @@ import { FLOORING_MATERIAL_LABELS } from "./defaults.ts"
 
 /**
  * Recomputes geometry for a single flooring room:
- * - Gross area = Length × Width
+ * - Gross area = reviewed scan area or Length × Width
  * - Deductions = Sum of deduction areas (islands, fireplaces, stairwells)
  * - Net area = Gross area - Deductions + Additions
- * - Perimeter = 2 × (Length + Width)
+ * - Perimeter = scan boundary or 2 × (Length + Width)
  */
 export function recomputeRoomGeometry(room: FlooringRoom): FlooringRoom {
-  const gross = areaSqFt(room.length, room.width)
+  const gross = room.scanGeometry?.areaSqFt ?? areaSqFt(room.length, room.width)
   const deductionsTotal = room.deductions.reduce((sum, d) => {
     const dSqFt = areaSqFt(d.length, d.width)
     return sum + dSqFt
   }, 0)
   const additions = Number.isFinite(room.additionsSqFt) ? Math.max(0, room.additionsSqFt) : 0
   const net = Math.max(0, Number((gross - deductionsTotal + additions).toFixed(2)))
-  const perim = perimeterLinearFt(room.length, room.width)
+  const perim = room.scanGeometry?.perimeterFt ?? perimeterLinearFt(room.length, room.width)
 
   return {
     ...room,
